@@ -134,6 +134,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .nav-right{display:flex;align-items:center;gap:12px;}
 .nav-link{font-size:13px;color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:7px;border:1px solid var(--border);transition:all .2s;display:none;}
 .nav-link:hover{color:var(--accent);border-color:var(--accent);}
+.nav-link.active-view{color:var(--accent);border-color:var(--accent);background:rgba(59,130,246,.08);}
 #user-chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:5px 14px 5px 6px;}
 #user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);object-fit:cover;}
 #user-name{font-size:13px;font-weight:500;}
@@ -309,6 +310,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   .rev-main{padding:32px 20px 60px;}
 }
 </style>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwQTE2MjgiLz4KICA8dGV4dCB4PSIzMiIgeT0iNDQiIGZvbnQtZmFtaWx5PSJBcmlhbCxzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iODAwIiBmb250LXNpemU9IjMwIiBmaWxsPSIjRjU5RTBCIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TRjwvdGV4dD4KPC9zdmc+">
 </head>
 <body>
 
@@ -436,6 +438,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     </div>
     <div class="nav-right">
       <a href="sf-certs-hub.html" class="nav-link" id="certs-link">🎓 Certifications</a>
+      <button class="nav-link" id="learner-view-btn" style="display:none;cursor:pointer;background:none;" onclick="toggleLearnerView()">📚 Learner View</button>
       <div id="user-chip">
         <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
         <span id="user-name"></span>
@@ -712,29 +715,51 @@ onAuthStateChanged(auth, async user => {
   route();
 });
 
+let inLearnerView = false;
+
 window.adminNav = function(section) {
   $('admin-choice-screen').style.display = 'none';
-  if (section === 'console') {
+  if (section === 'console' || section === 'certifications') {
     window.location.href = 'sf-certs-hub.html'; return;
   }
-  if (section === 'certifications') {
-    window.location.href = 'sf-certs-hub.html'; return;
-  }
-  // courses, proctor, reports all go to the admin view
+  inLearnerView = false;
   $('app').style.display = 'block';
   showChips();
+  hide('student-view'); hide('reviewer-view');
   show('admin-view');
+  $('learner-view-btn').textContent = '📚 Learner View';
+  $('learner-view-btn').classList.remove('active-view');
   if (section === 'proctor') {
-    // Jump straight to People & Roles tab, proctor sub-tab
     loadAdminCourses();
     setTimeout(() => switchTab('people'), 100);
   } else if (section === 'reports') {
     loadAdminCourses();
-    // Reports panel will be added later; for now show admin view
     toast('Reports coming soon — showing Admin Console.', '');
   } else {
-    // courses
     loadAdminCourses();
+  }
+};
+
+window.toggleLearnerView = function() {
+  inLearnerView = !inLearnerView;
+  const btn = $('learner-view-btn');
+  if (inLearnerView) {
+    hide('admin-view'); hide('reviewer-view');
+    show('student-view');
+    loadStudentCourses();
+    btn.textContent = myRole === 'admin' ? '⚙ Admin View' : '📋 Review Queue';
+    btn.classList.add('active-view');
+  } else {
+    hide('student-view');
+    if (myRole === 'admin') {
+      show('admin-view');
+      btn.textContent = '📚 Learner View';
+    } else {
+      show('reviewer-view');
+      loadReviewQueue();
+      btn.textContent = '📚 Learner View';
+    }
+    btn.classList.remove('active-view');
   }
 };
 
@@ -750,11 +775,15 @@ function showChips() {
   $('chip-admin').style.display    = myRole==='admin'    ? 'inline-flex' : 'none';
   $('chip-reviewer').style.display = myRole==='reviewer' ? 'inline-flex' : 'none';
   $('chip-proctor').style.display  = myRole==='proctor'  ? 'inline-flex' : 'none';
-  $('certs-link').style.display    = myRole!=='proctor'  ? 'inline-flex' : 'none';
+  // Admins navigate via their own choice screen; students/reviewers get the certs link
+  $('certs-link').style.display    = (myRole==='student' || myRole==='reviewer') ? 'inline-flex' : 'none';
+  // Admins and reviewers can toggle into learner view
+  $('learner-view-btn').style.display = (myRole==='admin' || myRole==='reviewer') ? 'inline-flex' : 'none';
 }
 
 function route() {
   hide('student-view'); hide('admin-view'); hide('reviewer-view');
+  inLearnerView = false;
   if      (myRole==='admin')    { show('admin-view');    loadAdminCourses(); }
   else if (myRole==='reviewer') { show('reviewer-view'); loadReviewQueue(); }
   else if (myRole==='proctor')  { window.location.href = 'sf-certs-hub.html'; }
@@ -1046,7 +1075,8 @@ $('save-person-btn').addEventListener('click', async () => {
   const email = $('p-email').value.trim().toLowerCase();
   const role  = $('p-role').value;
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Invalid email.','error'); return; }
-  if (ADMINS.includes(email)) { toast('Cannot modify admin accounts.','error'); return; }
+  // Allow setting roles on admin emails (e.g. also Reviewer) — admin auth always takes precedence
+  // if (ADMINS.includes(email)) { toast('Cannot modify admin accounts.','error'); return; }
   const btn = $('save-person-btn'); btn.disabled=true; btn.textContent='Saving…';
   try {
     await setDoc(doc(db,'users',email), {role,updatedAt:serverTimestamp(),updatedBy:me.email}, {merge:true});
