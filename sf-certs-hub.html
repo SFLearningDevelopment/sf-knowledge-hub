@@ -1008,7 +1008,13 @@ async function saveExam() {
     }
     $('exam-form-wrap').classList.remove('open');
     renderExamTable(); toast('Exam saved!','success');
-  } catch { toast('Error saving.','error'); }
+  } catch(err) {
+    console.error('saveExam error:', err);
+    const msg = err?.code === 'permission-denied'
+      ? 'Permission denied — check Firestore rules allow admin writes to the exams collection.'
+      : (err?.message || 'Unknown error');
+    toast('Error saving: ' + msg, 'error');
+  }
   btn.disabled=false; btn.textContent='Save Exam';
 }
 
