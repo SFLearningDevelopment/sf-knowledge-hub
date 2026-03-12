@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grafana Certification Exam — SourceFuse L&D</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:       #0a0f1e;
+      --navy-mid:   #111827;
+      --navy-card:  #161f35;
+      --navy-border:#1e2d4a;
+      --accent:     #4f8ef7;
+      --accent-glow:#4f8ef720;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --amber:      #f59e0b;
+      --text:       #e2e8f0;
+      --muted:      #94a3b8;
+      --radius:     12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--navy-mid);
+      border-bottom: 1px solid var(--navy-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar-logo {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 16px; color: #fff;
+    }
+    .topbar-title { font-weight: 700; font-size: 17px; }
+    .topbar-sub   { font-size: 12px; color: var(--muted); }
+    .back-link {
+      color: var(--accent); font-size: 13px; font-weight: 600;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+      transition: opacity .2s;
+    }
+    .back-link:hover { opacity: .75; }
+
+    /* ── TIMER BADGE ── */
+    .timer-badge {
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      transition: color .3s;
+    }
+    .timer-badge.warning { color: var(--amber); border-color: var(--amber); }
+    .timer-badge.danger  { color: var(--red);   border-color: var(--red);   animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ── SCREENS ── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .center-wrap {
+      min-height: calc(100vh - 65px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px 20px;
+    }
+    .card {
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius);
+      padding: 40px;
+      max-width: 680px;
+      width: 100%;
+    }
+    .card h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .card p  { color: var(--muted); line-height: 1.65; font-size: 15px; }
+
+    /* ── EXAM LAYOUT ── */
+    .exam-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 65px);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--navy-mid);
+      border-right: 1px solid var(--navy-border);
+      padding: 24px 16px;
+      overflow-y: auto;
+      position: sticky;
+      top: 65px;
+      height: calc(100vh - 65px);
+    }
+    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-section-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
+      padding: 0 4px;
+    }
+    .q-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+    .q-dot {
+      aspect-ratio: 1; border-radius: 6px;
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .15s;
+      color: var(--muted);
+    }
+    .q-dot:hover     { border-color: var(--accent); color: var(--accent); }
+    .q-dot.answered  { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .q-dot.current   { border-color: var(--amber); color: var(--amber); }
+
+    /* Main content */
+    .exam-main {
+      padding: 32px;
+      overflow-y: auto;
+    }
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 28px;
+    }
+    .section-badge {
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 20px;
+    }
+    .section-title { font-size: 18px; font-weight: 700; }
+
+    .question-block {
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+      transition: border-color .2s;
+    }
+    .question-block.answered { border-color: var(--accent)40; }
+    .q-number {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
+    }
+    .q-text { font-size: 15px; font-weight: 600; line-height: 1.6; margin-bottom: 20px; }
+
+    .options { display: flex; flex-direction: column; gap: 10px; }
+    .option {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--navy-mid);
+      border: 1px solid var(--navy-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all .15s;
+      font-size: 14px; line-height: 1.5;
+    }
+    .option:hover       { border-color: var(--accent); background: var(--accent-glow); }
+    .option.selected    { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
+    .option-letter {
+      width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+      background: var(--navy-border); font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+    }
+    .option.selected .option-letter { background: var(--accent); color: #fff; }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      background: var(--navy-border); border-radius: 4px; height: 4px;
+      margin-bottom: 28px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: var(--accent);
+      border-radius: 4px; transition: width .3s;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 8px; border: none;
+      font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all .2s; text-decoration: none;
+    }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-primary:hover   { opacity: .85; }
+    .btn-secondary { background: var(--navy-card); color: var(--text); border: 1px solid var(--navy-border); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger    { background: var(--red); color: #fff; }
+    .btn-danger:hover    { opacity: .85; }
+    .btn:disabled  { opacity: .4; cursor: not-allowed; }
+
+    .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 14px;
+      margin: 24px 0;
+    }
+    .stat-card {
+      background: var(--navy-card); border: 1px solid var(--navy-border);
+      border-radius: 10px; padding: 18px; text-align: center;
+    }
+    .stat-value { font-size: 32px; font-weight: 800; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .stat-card.pass .stat-value { color: var(--green); }
+    .stat-card.fail .stat-value { color: var(--red); }
+    .stat-card.neutral .stat-value { color: var(--accent); }
+
+    /* Result banner */
+    .result-banner {
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 20px; font-weight: 800;
+    }
+    .result-banner.pass { background: #16303a; border: 1px solid var(--green); color: var(--green); }
+    .result-banner.fail { background: #2d1a1a; border: 1px solid var(--red);   color: var(--red);   }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--navy-card); border: 1px solid var(--navy-border);
+      border-radius: 10px; padding: 14px 20px;
+      font-size: 14px; font-weight: 600;
+      box-shadow: 0 8px 32px #00000060;
+      opacity: 0; transform: translateY(12px);
+      transition: all .3s;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error   { border-color: var(--red);   color: var(--red);   }
+
+    /* Spinner */
+    .spinner {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 3px solid var(--navy-border);
+      border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Attempt dots */
+    .attempt-dots { display: flex; gap: 8px; margin-top: 12px; }
+    .attempt-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid var(--navy-border);
+    }
+    .attempt-dot.used { background: var(--accent); border-color: var(--accent); }
+    .attempt-dot.fail { background: var(--red);   border-color: var(--red); }
+
+    /* Confirm overlay */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: #000a; z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .overlay.active { display: flex; }
+    .overlay-card {
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius);
+      padding: 36px; max-width: 440px; width: 90%;
+      text-align: center;
+    }
+    .overlay-card h2 { font-size: 22px; font-weight: 800; margin-bottom: 12px; }
+    .overlay-card p  { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+
+    @media(max-width: 800px) {
+      .exam-layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">SF</div>
+    <div>
+      <div class="topbar-title">Grafana Certification</div>
+      <div class="topbar-sub">SourceFuse Learning &amp; Development</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:18px;">
+    <div class="timer-badge" id="timerDisplay">45:00</div>
+    <a class="back-link" href="https://sflearningdevelopment.github.io/sf-learning-hub/index.html">
+      ← Back to Hub
+    </a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: LOADING
+══════════════════════════════════════════ -->
+<div id="screenLoading" class="screen active">
+  <div class="center-wrap">
+    <div style="text-align:center;">
+      <div class="spinner"></div>
+      <p style="color:var(--muted);" id="loadingMsg">Initialising…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: AUTH (Google SSO)
+══════════════════════════════════════════ -->
+<div id="screenAuth" class="screen">
+  <div class="center-wrap">
+    <div class="card" style="max-width:480px;text-align:center;">
+      <div style="width:64px;height:64px;border-radius:16px;
+           background:linear-gradient(135deg,var(--accent),#7c3aed);
+           display:flex;align-items:center;justify-content:center;
+           font-size:28px;font-weight:800;color:#fff;margin:0 auto 24px;">SF</div>
+      <h1 style="font-size:24px;margin-bottom:10px;">Grafana Certification</h1>
+      <p style="margin-bottom:32px;">Sign in with your SourceFuse Google account to access the exam.</p>
+
+      <button class="btn btn-primary" id="googleSignInBtn" onclick="doGoogleSignIn()"
+        style="width:100%;justify-content:center;gap:12px;font-size:15px;padding:14px 24px;">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.5-4.7l-6.2-5.2C29.4 35.6 26.8 36.5 24 36.5c-5.2 0-9.7-3.5-11.2-8.3l-6.5 5C9.6 39.5 16.3 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4.1-4.2 5.4l6.2 5.2C40.8 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"/>
+        </svg>
+        Sign in with Google
+      </button>
+
+      <p id="authError" style="color:var(--red);font-size:13px;margin-top:16px;display:none;"></p>
+
+      <p style="color:var(--muted);font-size:12px;margin-top:24px;line-height:1.6;">
+        Only <strong style="color:var(--text);">@sourcefuse.com</strong> Google accounts are permitted.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: INTRO
+══════════════════════════════════════════ -->
+<div id="screenIntro" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <div style="margin-bottom:20px;">
+        <span class="section-badge">Grafana</span>
+      </div>
+      <h1>Grafana Certification Exam</h1>
+      <p style="margin:14px 0 24px;">
+        Test your knowledge of Grafana dashboards, data sources, alerting, and administration
+        across 30 questions in 4 sections.
+      </p>
+
+      <div class="stats-row">
+        <div class="stat-card neutral"><div class="stat-value">30</div><div class="stat-label">Questions</div></div>
+        <div class="stat-card neutral"><div class="stat-value">45</div><div class="stat-label">Minutes</div></div>
+        <div class="stat-card neutral"><div class="stat-value">70%</div><div class="stat-label">Pass Score</div></div>
+        <div class="stat-card neutral"><div class="stat-value" id="attemptsLeft">—</div><div class="stat-label">Attempts Left</div></div>
+      </div>
+
+      <div style="background:var(--navy-mid);border:1px solid var(--navy-border);border-radius:10px;padding:18px;margin-bottom:24px;">
+        <p style="font-size:13px;line-height:1.7;color:var(--muted);">
+          • Answer all questions before submitting.<br/>
+          • You may navigate between questions freely.<br/>
+          • The timer starts once you click <strong style="color:var(--text);">Start Exam</strong>.<br/>
+          • Results are saved automatically upon submission or timeout.
+        </p>
+      </div>
+
+      <div id="prevResultInfo" style="display:none;margin-bottom:20px;"></div>
+
+      <button class="btn btn-primary" id="startBtn" onclick="startExam()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
+        Start Exam →
+      </button>
+      <p id="introError" style="color:var(--red);font-size:13px;margin-top:12px;display:none;"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: EXAM
+══════════════════════════════════════════ -->
+<div id="screenExam" class="screen">
+  <div class="exam-layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div id="sidebarSections"></div>
+      <div style="margin-top:24px;">
+        <button class="btn btn-primary" onclick="requestSubmit()" style="width:100%;justify-content:center;">
+          Submit Exam
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="exam-main">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div id="questionsContainer"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: RESULT
+══════════════════════════════════════════ -->
+<div id="screenResult" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <div id="resultBanner" class="result-banner"></div>
+      <div class="stats-row" id="resultStats"></div>
+      <div id="resultAttempts" style="margin-bottom:20px;"></div>
+      <div id="reviewContainer"></div>
+      <div class="btn-row">
+        <a class="btn btn-secondary" href="https://sflearningdevelopment.github.io/sf-learning-hub/index.html">← Back to Hub</a>
+        <button class="btn btn-primary" id="retryBtn" onclick="goRetry()" style="display:none;">Retry Exam</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CONFIRM SUBMIT OVERLAY
+══════════════════════════════════════════ -->
+<div class="overlay" id="confirmOverlay">
+  <div class="overlay-card">
+    <h2>Submit Exam?</h2>
+    <p id="confirmMsg">Are you sure you want to submit? Unanswered questions will be marked incorrect.</p>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Go Back</button>
+      <button class="btn btn-primary"   onclick="submitExam()">Submit →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOAST
+══════════════════════════════════════════ -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     FIREBASE + EXAM LOGIC
+══════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }                      from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc,
+         collection, query, where, getDocs,
+         serverTimestamp }                    from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+/* ── Firebase init ── */
+const app = initializeApp({
+  apiKey:            "AIzaSyA-8fatW5D7uR69rcuGFPH54IFqrz0PhU0",
+  authDomain:        "sfcertification-grafana.firebaseapp.com",
+  projectId:         "sfcertification-grafana",
+  appId:             "1:227322696511:web:12e7ced7dd3d45fa06798a"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+/* ── State ── */
+let currentUser = null;
+let grafanaCourseId = null;
+let userAnswers  = {};
+let timerInt     = null;
+let timeLeft     = 45 * 60;
+let examStarted  = false;
+let examSubmitted = false;
+let attemptNumber = 1;
+const MAX_ATTEMPTS = 3;
+const userEmail = () => currentUser?.email || "unknown";
+const PASS_SCORE   = 70;
+
+/* ── Question Bank (30 questions, 4 sections) ── */
+const sections = [
+  {
+    id: "s1",
+    title: "Grafana Fundamentals",
+    questions: [
+      {
+        id: "q1", text: "What is Grafana primarily used for?",
+        options: ["Database management","Observability and dashboard visualisation","Source code management","Container orchestration"],
+        correct: 1
+      },
+      {
+        id: "q2", text: "Which file format is used to provision Grafana dashboards as code?",
+        options: ["XML","YAML or JSON","TOML only","CSV"],
+        correct: 1
+      },
+      {
+        id: "q3", text: "What is a Grafana 'panel'?",
+        options: ["A user permission group","A single visualisation unit within a dashboard","An authentication plugin","A log file viewer"],
+        correct: 1
+      },
+      {
+        id: "q4", text: "Which of the following is NOT a built-in Grafana visualisation type?",
+        options: ["Time series","Bar chart","Pie chart","Relational diagram"],
+        correct: 3
+      },
+      {
+        id: "q5", text: "What is the default port Grafana runs on?",
+        options: ["8080","9090","3000","5601"],
+        correct: 2
+      },
+      {
+        id: "q6", text: "Grafana 'annotations' are used to:",
+        options: ["Restrict panel visibility","Mark events on graphs","Configure data sources","Set alert thresholds"],
+        correct: 1
+      },
+      {
+        id: "q7", text: "Which Grafana feature allows you to create reusable query variables?",
+        options: ["Panel links","Template variables","Data links","Alert rules"],
+        correct: 1
+      },
+      {
+        id: "q8", text: "What does the Grafana 'Explore' mode enable?",
+        options: ["Ad-hoc querying without creating a dashboard","User management","Dashboard sharing","Plugin installation"],
+        correct: 0
+      }
+    ]
+  },
+  {
+    id: "s2",
+    title: "Data Sources & Queries",
+    questions: [
+      {
+        id: "q9", text: "Which data source is natively supported by Grafana for metrics?",
+        options: ["MongoDB","Prometheus","Redis","RabbitMQ"],
+        correct: 1
+      },
+      {
+        id: "q10", text: "What query language does Prometheus use?",
+        options: ["SQL","PromQL","LogQL","InfluxQL"],
+        correct: 1
+      },
+      {
+        id: "q11", text: "Which data source is recommended for log aggregation in the Grafana ecosystem?",
+        options: ["InfluxDB","Elasticsearch only","Loki","TimescaleDB"],
+        correct: 2
+      },
+      {
+        id: "q12", text: "What is Grafana's query language for Loki logs?",
+        options: ["PromQL","LogQL","SQL","KQL"],
+        correct: 1
+      },
+      {
+        id: "q13", text: "When using mixed data sources in a single panel, what must each query specify?",
+        options: ["The same time range","Its own data source","A shared variable","A unique panel ID"],
+        correct: 1
+      },
+      {
+        id: "q14", text: "What does the 'instant query' option do in a Prometheus panel?",
+        options: ["Fetches data for the full time range","Returns a single value at the current time","Refreshes the dashboard every second","Bypasses caching"],
+        correct: 1
+      },
+      {
+        id: "q15", text: "Which Grafana feature caches data source results to reduce load?",
+        options: ["Query inspector","Query caching (Enterprise)","Alert state history","Panel overrides"],
+        correct: 1
+      },
+      {
+        id: "q16", text: "A 'data source proxy' in Grafana is used to:",
+        options: ["Visualise proxy server logs","Route data source requests through the Grafana backend","Store query results locally","Enforce row-level security"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    id: "s3",
+    title: "Alerting",
+    questions: [
+      {
+        id: "q17", text: "What component manages alert routing in modern Grafana alerting?",
+        options: ["Alert manager (built-in)","Prometheus Alert Manager only","Grafana Alertmanager or an external one","PagerDuty directly"],
+        correct: 0
+      },
+      {
+        id: "q18", text: "What is a 'contact point' in Grafana alerting?",
+        options: ["A user allowed to view alerts","A destination where alert notifications are sent","A threshold value","A data source linked to an alert"],
+        correct: 1
+      },
+      {
+        id: "q19", text: "What is an 'alert rule evaluation interval'?",
+        options: ["How long an alert stays firing","How often the alert condition is checked","The cooldown after an alert resolves","The maximum number of alerts per rule"],
+        correct: 1
+      },
+      {
+        id: "q20", text: "Silences in Grafana Alertmanager are used to:",
+        options: ["Delete alert rules","Suppress notifications for a defined period","Change alert severity","Escalate alerts to another team"],
+        correct: 1
+      },
+      {
+        id: "q21", text: "Which state indicates an alert rule's query returned no data?",
+        options: ["Pending","Alerting","NoData","Error"],
+        correct: 2
+      },
+      {
+        id: "q22", text: "What is the purpose of a 'notification policy' in Grafana alerting?",
+        options: ["To create new alert rules","To route alerts to the correct contact point based on labels","To silence specific dashboards","To export alert history"],
+        correct: 1
+      },
+      {
+        id: "q23", text: "Which threshold mode in Grafana highlights only the area beyond the threshold?",
+        options: ["Absolute","Percentage","Outside range","gt / lt"],
+        correct: 3
+      },
+      {
+        id: "q24", text: "Alert 'labels' in Grafana are used to:",
+        options: ["Style the alert banner colour","Identify and route alerts","Set the evaluation interval","Define the contact point directly"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    id: "s4",
+    title: "Administration & Best Practices",
+    questions: [
+      {
+        id: "q25", text: "Which Grafana role has full administrative access?",
+        options: ["Editor","Viewer","Admin","Grafana Admin"],
+        correct: 3
+      },
+      {
+        id: "q26", text: "What is 'Grafana as Code' and which tool is commonly used?",
+        options: ["Running Grafana in a container — Docker","Defining dashboards in version-controlled JSON/YAML — Grafonnet or Terraform","Scripting alerts in Python — GrafPy","Embedding dashboards in code — iframe API"],
+        correct: 1
+      },
+      {
+        id: "q27", text: "Which Grafana API endpoint is used to export a dashboard as JSON?",
+        options: ["/api/dashboards/uid/{uid}","/api/export/dashboard","/api/dashboards/json","/api/panels/export"],
+        correct: 0
+      },
+      {
+        id: "q28", text: "What is the purpose of Grafana's 'provisioning' system?",
+        options: ["Installing plugins automatically","Pre-loading dashboards and data sources from files on startup","Backing up the database","Managing user LDAP sync"],
+        correct: 1
+      },
+      {
+        id: "q29", text: "Which setting controls whether anonymous access is enabled in Grafana?",
+        options: ["auth.anonymous in grafana.ini","security.allow_anon in config.yaml","users.public_access in defaults.ini","server.anon_enable in grafana.ini"],
+        correct: 0
+      },
+      {
+        id: "q30", text: "What is a best practice for organising dashboards in a large Grafana deployment?",
+        options: ["Keep all dashboards in the General folder","Use folders per team or service with RBAC","Export all dashboards to CSV weekly","Embed all panels in a single mega-dashboard"],
+        correct: 1
+      }
+    ]
+  }
+];
+
+/* ── Helpers ── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function setLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+  showScreen('screenLoading');
+}
+
+/* ── Auth flow — Google SSO ── */
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ hd: 'sourcefuse.com' });  // restrict to SF domain
+
+// Hard timeout: if onAuthStateChanged hasn't fired within 6 s, show sign-in screen
+const authTimeout = setTimeout(() => {
+  if (document.getElementById('screenLoading').classList.contains('active')) {
+    showScreen('screenAuth');
+  }
+}, 6000);
+
+onAuthStateChanged(auth, async user => {
+  clearTimeout(authTimeout);
+  if (user) {
+    const email = user.email || '';
+    if (!email.endsWith('@sourcefuse.com')) {
+      // Wrong Google account — sign out and show error
+      await auth.signOut();
+      const err = document.getElementById('authError');
+      err.textContent = 'Only @sourcefuse.com accounts are permitted. Please sign in with your SourceFuse Google account.';
+      err.style.display = 'block';
+      showScreen('screenAuth');
+      return;
+    }
+    currentUser = user;
+    await initForUser();
+  } else {
+    showScreen('screenAuth');
+  }
+});
+
+window.doGoogleSignIn = async function() {
+  const err = document.getElementById('authError');
+  const btn = document.getElementById('googleSignInBtn');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    await signInWithPopup(auth, googleProvider);
+    // onAuthStateChanged will fire and route to initForUser
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+      err.textContent = 'Sign-in was cancelled. Please try again.';
+    } else if (e.code === 'auth/popup-blocked') {
+      err.textContent = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
+    } else {
+      err.textContent = 'Sign-in failed: ' + e.message;
+    }
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48">'
+      + '<path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/>'
+      + '<path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>'
+      + '<path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.8 13.5-4.7l-6.2-5.2C29.4 35.6 26.8 36.5 24 36.5c-5.2 0-9.7-3.5-11.2-8.3l-6.5 5C9.6 39.5 16.3 44 24 44z"/>'
+      + '<path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4.1-4.2 5.4l6.2 5.2C40.8 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"/>'
+      + '</svg> Sign in with Google';
+  }
+};
+
+/* ── Init after login ── */
+async function initForUser() {
+  setLoading('Loading exam configuration…');
+  try {
+    // 1) Look up Grafana courseId
+    grafanaCourseId = await findGrafanaCourseId();
+
+    // 2) Load attempt history
+    const resRef  = doc(db, 'results', currentUser.uid);
+    const resSnap = await getDoc(resRef);
+    const resData = resSnap.exists() ? resSnap.data() : {};
+
+    const attemptsUsed = resData.attemptCount || 0;
+    attemptNumber      = attemptsUsed + 1;
+    const left         = MAX_ATTEMPTS - attemptsUsed;
+
+    document.getElementById('attemptsLeft').textContent = left;
+
+    if (left <= 0) {
+      // Show result screen with final result
+      renderResultScreen(resData, false);
+      return;
+    }
+
+    // Show previous result summary if any
+    if (attemptsUsed > 0 && resData.lastScore !== undefined) {
+      const info  = document.getElementById('prevResultInfo');
+      const pass  = resData.lastScore >= PASS_SCORE;
+      info.style.display = 'block';
+      info.innerHTML = `<div style="background:var(--navy-mid);border:1px solid var(--navy-border);
+        border-radius:10px;padding:16px;font-size:14px;color:var(--muted);">
+        Last attempt: <strong style="color:${pass?'var(--green)':'var(--red)'}">
+        ${resData.lastScore}%</strong> — ${pass ? '✓ Passed' : '✗ Failed'}
+        &nbsp;|&nbsp; Attempt ${attemptsUsed} of ${MAX_ATTEMPTS}
+      </div>`;
+    }
+
+    showScreen('screenIntro');
+  } catch(e) {
+    console.error(e);
+    showToast('Error loading exam: ' + e.message, 'error');
+    showScreen('screenIntro');
+  }
+}
+
+/* ── Find Grafana course in Firestore ── */
+async function findGrafanaCourseId() {
+  try {
+    const coursesRef = collection(db, 'courses');
+    const q = query(coursesRef, where('title', '>=', 'Grafana'), where('title', '<=', 'Grafana\uf8ff'));
+    const snap = await getDocs(q);
+    if (!snap.empty) return snap.docs[0].id;
+
+    // Broader fallback: check all docs for partial match
+    const allSnap = await getDocs(coursesRef);
+    for (const d of allSnap.docs) {
+      const t = (d.data().title || '').toLowerCase();
+      if (t.includes('grafana')) return d.id;
+    }
+    return null;
+  } catch(e) {
+    console.warn('Could not find Grafana courseId:', e.message);
+    return null;
+  }
+}
+
+/* ── Start exam ── */
+window.startExam = function() {
+  if (examStarted) return;
+  examStarted = true;
+  document.getElementById('startBtn').disabled = true;
+  renderExam();
+  startTimer();
+  showScreen('screenExam');
+};
+
+/* ── Render exam ── */
+function renderExam() {
+  const sidebar    = document.getElementById('sidebarSections');
+  const container  = document.getElementById('questionsContainer');
+  sidebar.innerHTML   = '';
+  container.innerHTML = '';
+
+  let qIndex = 0;
+  sections.forEach((sec, si) => {
+    // Sidebar section
+    const sdiv = document.createElement('div');
+    sdiv.className = 'sidebar-section';
+    sdiv.innerHTML = `<div class="sidebar-section-title">Section ${si+1}: ${sec.title}</div>
+                      <div class="q-grid" id="grid_${sec.id}"></div>`;
+    sidebar.appendChild(sdiv);
+
+    // Questions
+    const sh = document.createElement('div');
+    sh.className = 'section-header';
+    sh.innerHTML = `<span class="section-badge">Section ${si+1}</span>
+                    <span class="section-title">${sec.title}</span>`;
+    container.appendChild(sh);
+
+    const grid = sdiv.querySelector(`#grid_${sec.id}`);
+    sec.questions.forEach((q, qi) => {
+      qIndex++;
+      const localIdx = qIndex;
+
+      // Dot
+      const dot = document.createElement('div');
+      dot.className = 'q-dot';
+      dot.id        = `dot_${q.id}`;
+      dot.textContent = localIdx;
+      dot.onclick   = () => document.getElementById(`block_${q.id}`).scrollIntoView({behavior:'smooth'});
+      grid.appendChild(dot);
+
+      // Block
+      const block = document.createElement('div');
+      block.className = 'question-block';
+      block.id        = `block_${q.id}`;
+      block.innerHTML = `<div class="q-number">Question ${localIdx}</div>
+        <div class="q-text">${q.text}</div>
+        <div class="options" id="opts_${q.id}"></div>`;
+      container.appendChild(block);
+
+      const opts = block.querySelector(`#opts_${q.id}`);
+      const letters = ['A','B','C','D'];
+      q.options.forEach((opt, oi) => {
+        const el = document.createElement('div');
+        el.className = 'option';
+        el.innerHTML = `<div class="option-letter">${letters[oi]}</div><div>${opt}</div>`;
+        el.onclick = () => selectAnswer(q.id, oi, el, block, dot);
+        opts.appendChild(el);
+      });
+    });
+  });
+  updateProgress();
+}
+
+function selectAnswer(qId, optIdx, el, block, dot) {
+  if (examSubmitted) return;
+  userAnswers[qId] = optIdx;
+  // Update visuals
+  el.parentElement.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  block.classList.add('answered');
+  dot.classList.add('answered');
+  dot.classList.remove('current');
+  updateProgress();
+}
+
+function updateProgress() {
+  const total    = sections.reduce((a,s) => a + s.questions.length, 0);
+  const answered = Object.keys(userAnswers).length;
+  document.getElementById('progressFill').style.width = `${(answered/total)*100}%`;
+}
+
+/* ── Timer ── */
+function startTimer() {
+  timerInt = setInterval(() => {
+    timeLeft--;
+    const m = Math.floor(timeLeft / 60).toString().padStart(2,'0');
+    const s = (timeLeft % 60).toString().padStart(2,'0');
+    const el = document.getElementById('timerDisplay');
+    el.textContent = `${m}:${s}`;
+    if      (timeLeft <= 300) el.className = 'timer-badge danger';
+    else if (timeLeft <= 600) el.className = 'timer-badge warning';
+    if (timeLeft <= 0) {
+      clearInterval(timerInt);
+      showToast('Time is up! Submitting…', 'error');
+      submitExam();
+    }
+  }, 1000);
+}
+
+/* ── Submit flow ── */
+window.requestSubmit = function() {
+  const total    = sections.reduce((a,s) => a + s.questions.length, 0);
+  const answered = Object.keys(userAnswers).length;
+  const unanswered = total - answered;
+  document.getElementById('confirmMsg').textContent =
+    unanswered > 0
+      ? `You have ${unanswered} unanswered question(s). They will be marked incorrect.`
+      : 'All questions answered. Ready to submit?';
+  document.getElementById('confirmOverlay').classList.add('active');
+};
+window.closeConfirm = function() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+};
+
+window.submitExam = async function() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+  if (examSubmitted) return;
+  examSubmitted = true;
+  clearInterval(timerInt);
+  setLoading('Saving results…');
+
+  // Score
+  let correct = 0, total = 0;
+  const reviewItems = [];
+  sections.forEach(sec => {
+    sec.questions.forEach(q => {
+      total++;
+      const ans     = userAnswers[q.id];
+      const isRight = ans === q.correct;
+      if (isRight) correct++;
+      reviewItems.push({ q, ans, isRight });
+    });
+  });
+  const score    = Math.round((correct / total) * 100);
+  const passed   = score >= PASS_SCORE;
+  const timeTaken = 45 * 60 - timeLeft;
+
+  try {
+    // Write to results/{uid}
+    const resRef = doc(db, 'results', currentUser.uid);
+    const prev   = await getDoc(resRef);
+    const prevData = prev.exists() ? prev.data() : {};
+    const newCount = (prevData.attemptCount || 0) + 1;
+
+    await setDoc(resRef, {
+      uid:          currentUser.uid,
+      email:        userEmail(),
+      lastScore:    score,
+      lastPassed:   passed,
+      attemptCount: newCount,
+      lastAttemptAt: serverTimestamp(),
+      [`attempt_${newCount}_score`]:  score,
+      [`attempt_${newCount}_passed`]: passed,
+      [`attempt_${newCount}_time`]:   timeTaken,
+    }, { merge: true });
+
+    // Write progress flag if passed
+    if (passed && grafanaCourseId) {
+      const progRef = doc(db, 'progress', currentUser.uid);
+      await setDoc(progRef, {
+        [`course_${grafanaCourseId}`]: true,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
+
+    showToast(passed ? '🎉 Exam passed! Results saved.' : 'Results saved.', passed ? 'success' : 'error');
+  } catch(e) {
+    console.error('Firestore write error:', e);
+    showToast('Could not save results: ' + e.message, 'error');
+  }
+
+  renderResultScreen({ score, passed, attemptCount: attemptNumber }, true, reviewItems);
+};
+
+/* ── Result screen ── */
+function renderResultScreen(data, fromSubmit, reviewItems = []) {
+  const score   = data.lastScore !== undefined ? data.lastScore : data.score;
+  const passed  = data.lastPassed !== undefined ? data.lastPassed : data.passed;
+  const attempts = data.attemptCount || attemptNumber;
+  const left     = MAX_ATTEMPTS - attempts;
+
+  const banner = document.getElementById('resultBanner');
+  banner.className = `result-banner ${passed ? 'pass' : 'fail'}`;
+  banner.textContent = passed ? '🎉 Congratulations — You Passed!' : '✗ Not Passed This Time';
+
+  document.getElementById('resultStats').innerHTML = `
+    <div class="stat-card ${passed?'pass':'fail'}">
+      <div class="stat-value">${score}%</div>
+      <div class="stat-label">Score</div>
+    </div>
+    <div class="stat-card neutral">
+      <div class="stat-value">${attempts}/${MAX_ATTEMPTS}</div>
+      <div class="stat-label">Attempts Used</div>
+    </div>
+    <div class="stat-card neutral">
+      <div class="stat-value">${PASS_SCORE}%</div>
+      <div class="stat-label">Pass Mark</div>
+    </div>
+  `;
+
+  const attDiv = document.getElementById('resultAttempts');
+  if (!passed && left > 0) {
+    attDiv.innerHTML = `<p style="color:var(--muted);font-size:14px;margin-bottom:8px;">
+      You have <strong style="color:var(--text);">${left}</strong> attempt(s) remaining.</p>`;
+    document.getElementById('retryBtn').style.display = 'inline-flex';
+  } else if (!passed && left <= 0) {
+    attDiv.innerHTML = `<p style="color:var(--red);font-size:14px;">
+      No attempts remaining. Please contact your L&D administrator.</p>`;
+  } else {
+    attDiv.innerHTML = '';
+  }
+
+  // Review
+  const rev = document.getElementById('reviewContainer');
+  if (reviewItems.length > 0) {
+    rev.innerHTML = `<h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">Answer Review</h3>`;
+    reviewItems.forEach(({ q, ans, isRight }, i) => {
+      const el = document.createElement('div');
+      el.style.cssText = `margin-bottom:12px;padding:14px 16px;border-radius:8px;
+        border:1px solid ${isRight?'var(--green)':'var(--red)'}30;
+        background:${isRight?'#16303a':'#2d1a1a'};font-size:13px;`;
+      el.innerHTML = `
+        <div style="font-weight:600;margin-bottom:6px;">${i+1}. ${q.text}</div>
+        <div style="color:var(--muted);">
+          Your answer: <strong style="color:${isRight?'var(--green)':'var(--red)'}">
+            ${ans !== undefined ? q.options[ans] : 'Not answered'}
+          </strong>
+          ${!isRight ? `&nbsp;|&nbsp; Correct: <strong style="color:var(--green)">${q.options[q.correct]}</strong>` : ''}
+        </div>`;
+      rev.appendChild(el);
+    });
+  }
+
+  showScreen('screenResult');
+}
+
+window.goRetry = function() {
+  location.reload();
+};
+</script>
+</body>
+</html>
