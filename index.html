@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SF Learning & Development Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0a1628;--blue:#1a3a6b;--accent:#3b82f6;--highlight:#60a5fa;
+  --gold:#f59e0b;--surface:#111d33;--card:#16243e;
+  --border:rgba(59,130,246,.18);--text:#e2eaf6;--muted:#7a90b4;
+  --danger:#ef4444;--success:#10b981;--radius:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Syne',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 80% 60% at 10% 0%,rgba(59,130,246,.10) 0%,transparent 60%),
+  radial-gradient(ellipse 60% 40% at 90% 100%,rgba(245,158,11,.07) 0%,transparent 55%);
+  pointer-events:none;z-index:0;}
+
+/* ══ CHOICE SCREEN ══ */
+#choice-screen{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--navy);}
+.choice-wrap{display:flex;flex-direction:column;align-items:center;gap:40px;padding:20px;width:100%;max-width:780px;}
+.choice-brand{display:flex;align-items:center;gap:14px;}
+.choice-badge{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:24px;color:#fff;}
+.choice-brand-text{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;}
+.choice-brand-text span{color:var(--accent);}
+.choice-headline{font-family:'Syne',sans-serif;font-size:clamp(20px,3vw,30px);font-weight:800;text-align:center;line-height:1.2;}
+.choice-headline em{font-style:normal;color:var(--accent);}
+.choice-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;}
+.choice-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px 28px;display:flex;flex-direction:column;align-items:flex-start;gap:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;animation:fadeUp .5s ease both;}
+.choice-card:nth-child(2){animation-delay:.1s;}
+.choice-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;}
+.choice-card.learn::before{background:radial-gradient(ellipse 80% 60% at 50% 100%,rgba(59,130,246,.12) 0%,transparent 70%);}
+.choice-card.certify::before{background:radial-gradient(ellipse 80% 60% at 50% 100%,rgba(245,158,11,.10) 0%,transparent 70%);}
+.choice-card:hover{transform:translateY(-4px);box-shadow:0 20px 48px rgba(0,0,0,.5);}
+.choice-card:hover::before{opacity:1;}
+.choice-card.learn:hover{border-color:rgba(59,130,246,.5);}
+.choice-card.certify:hover{border-color:rgba(245,158,11,.4);}
+.choice-icon{font-size:40px;line-height:1;}
+.choice-label{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;}
+.choice-desc{color:var(--muted);font-size:14px;line-height:1.6;}
+.choice-arrow{margin-top:auto;font-size:20px;color:var(--accent);}
+.choice-card.certify .choice-arrow{color:var(--gold);}
+@media(max-width:600px){.choice-cards{grid-template-columns:1fr;}}
+
+/* ══ AUTH SCREEN ══ */
+#auth-screen{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;background:var(--navy);}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 52px;display:flex;flex-direction:column;align-items:center;gap:24px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.5);animation:fadeUp .4s ease both;}
+.auth-logo{display:flex;align-items:center;gap:12px;}
+.auth-badge{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:#fff;}
+.auth-brand{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;}
+.auth-brand span{color:var(--accent);}
+.auth-divider{width:100%;height:1px;background:var(--border);}
+.mode-badge{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 14px;border-radius:50px;}
+.mode-learn{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:var(--highlight);}
+.mode-certify{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fbbf24;}
+.auth-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;text-align:center;line-height:1.3;}
+.auth-sub{color:var(--muted);font-size:14px;text-align:center;line-height:1.6;}
+#google-btn{display:flex;align-items:center;gap:12px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;padding:13px 28px;font-size:15px;font-weight:500;cursor:pointer;width:100%;justify-content:center;transition:box-shadow .2s,transform .15s;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+#google-btn:hover{box-shadow:0 6px 20px rgba(0,0,0,.4);transform:translateY(-1px);}
+#google-btn img{width:20px;height:20px;}
+.auth-back{font-size:13px;color:var(--muted);cursor:pointer;transition:color .2s;}
+.auth-back:hover{color:var(--accent);}
+#auth-error{color:#f87171;font-size:13px;text-align:center;display:none;}
+#denied-box{display:none;flex-direction:column;align-items:center;gap:16px;text-align:center;}
+.denied-icon{font-size:48px;}
+#denied-box h2{font-family:'Syne',sans-serif;}
+#denied-box p{color:var(--muted);font-size:14px;line-height:1.6;}
+#switch-btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;transition:all .2s;}
+#switch-btn:hover{color:var(--text);border-color:var(--accent);}
+
+/* ══ NAV ══ */
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:68px;background:rgba(10,22,40,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+.nav-brand{display:flex;align-items:center;gap:10px;}
+.nav-badge{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;color:#fff;}
+.nav-title{font-family:'Syne',sans-serif;font-weight:700;font-size:17px;}
+.nav-title span{color:var(--accent);}
+.nav-chip{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:50px;margin-left:6px;display:none;}
+.chip-admin{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);color:#fbbf24;}
+.chip-reviewer{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.25);color:#a78bfa;}
+.chip-proctor{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#34d399;}
+.nav-right{display:flex;align-items:center;gap:12px;}
+.nav-link{font-size:13px;color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:7px;border:1px solid var(--border);transition:all .2s;display:none;}
+.nav-link:hover{color:var(--accent);border-color:var(--accent);}
+#user-chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:5px 14px 5px 6px;}
+#user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);object-fit:cover;}
+#user-name{font-size:13px;font-weight:500;}
+#signout-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:4px 8px;border-radius:6px;transition:color .2s;}
+#signout-btn:hover{color:#f87171;}
+
+/* ══ APP ══ */
+#app{display:none;position:relative;z-index:1;}
+
+/* ══ STUDENT ══ */
+#student-view{display:none;}
+.s-main{max-width:1180px;margin:0 auto;padding:56px 32px 80px;}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);border-radius:50px;padding:5px 14px;font-size:12px;font-weight:500;color:var(--highlight);letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px;}
+.hero-eyebrow span{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.hero-title{font-family:'Syne',sans-serif;font-size:clamp(28px,4vw,42px);font-weight:800;line-height:1.15;margin-bottom:12px;}
+.hero-title em{font-style:normal;color:var(--accent);}
+.hero-sub{color:var(--muted);font-size:16px;max-width:540px;line-height:1.65;margin-bottom:48px;}
+#loading-courses{display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 0;color:var(--muted);font-size:14px;}
+.spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+#courses-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:24px;}
+.course-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s,border-color .2s;animation:fadeUp .4s ease both;}
+.course-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.4);border-color:rgba(59,130,246,.4);}
+.card-banner{height:10px;}
+.card-body{padding:24px;flex:1;display:flex;flex-direction:column;gap:12px;}
+.card-meta{display:flex;align-items:center;justify-content:space-between;}
+.card-tag{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:rgba(59,130,246,.1);padding:4px 10px;border-radius:50px;}
+.card-status{font-size:11px;font-weight:500;padding:3px 10px;border-radius:50px;}
+.s-nom{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.25);}
+.s-not{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2);}
+.card-icon{font-size:28px;}
+.card-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;line-height:1.3;}
+.card-desc{color:var(--muted);font-size:14px;line-height:1.6;flex:1;}
+.card-footer{padding:0 24px 22px;display:flex;flex-direction:column;gap:10px;}
+.card-info{display:flex;gap:20px;}
+.card-info-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+.not-nom-notice{display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;font-size:12.5px;color:#fca5a5;line-height:1.5;}
+.course-card.locked .not-nom-notice{display:block;}
+.card-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:11px;border-radius:9px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;border:none;transition:all .2s;}
+.btn-enter{background:var(--accent);color:#fff;}
+.btn-enter:hover{background:#2563eb;}
+.btn-locked{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border);cursor:not-allowed;}
+#empty-state{display:none;text-align:center;padding:80px 0;color:var(--muted);}
+#empty-state svg{opacity:.3;margin-bottom:16px;}
+#empty-state h3{font-family:'Syne',sans-serif;color:var(--text);margin-bottom:8px;}
+
+/* ══ ADMIN ══ */
+#admin-view{display:none;}
+.admin-layout{display:flex;height:calc(100vh - 68px);overflow:hidden;}
+.sidebar{width:280px;min-width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.sb-header{padding:16px 16px 10px;border-bottom:1px solid var(--border);}
+.sb-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.sb-tab{flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .15s;}
+.sb-tab.active{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:var(--accent);}
+.sb-actions{display:flex;align-items:center;justify-content:space-between;}
+.sb-actions h3{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;}
+.sb-add-btn{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer;transition:background .2s;}
+.sb-add-btn:hover{background:#2563eb;}
+#sb-course-list,#sb-people-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;}
+.sb-item{padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.sb-item:hover{background:var(--card);border-color:var(--border);}
+.sb-item.active{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);}
+.sb-icon{font-size:18px;flex-shrink:0;}
+.sb-info{flex:1;min-width:0;}
+.sb-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.sb-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 4px;border-radius:4px;transition:color .2s;flex-shrink:0;}
+.sb-del:hover{color:var(--danger);}
+.role-pill{font-size:10px;font-weight:600;padding:2px 8px;border-radius:50px;flex-shrink:0;}
+.rp-student{background:rgba(59,130,246,.1);color:var(--highlight);border:1px solid var(--border);}
+.rp-reviewer{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.2);}
+.rp-proctor{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+.sb-empty{padding:32px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
+.main-panel{flex:1;overflow-y:auto;padding:32px 40px;display:flex;flex-direction:column;gap:24px;}
+#panel-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:400px;gap:16px;color:var(--muted);text-align:center;}
+#panel-ph svg{opacity:.25;}
+#panel-ph h3{font-family:'Syne',sans-serif;color:var(--text);}
+.p-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
+.p-section-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:18px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg.full{grid-column:1/-1;}
+.fg label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+.fg input,.fg select,.fg textarea{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent);}
+.fg textarea{resize:vertical;min-height:72px;}
+.fg select option{background:var(--surface);}
+.color-row{display:flex;align-items:center;gap:8px;}
+.color-row input[type=color]{width:38px;height:36px;padding:2px;background:var(--surface);border:1px solid var(--border);border-radius:7px;cursor:pointer;}
+.color-row input[type=text]{flex:1;}
+.save-btn{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 24px;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s;margin-top:4px;}
+.save-btn:hover{background:#2563eb;}
+/* nominations */
+.nom-add-row{display:flex;gap:8px;margin-bottom:12px;}
+.nom-add-row input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s;}
+.nom-add-row input:focus{border-color:var(--accent);}
+.nom-add-row button{background:var(--success);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s;}
+.nom-add-row button:hover{background:#059669;}
+.nom-list{display:flex;flex-direction:column;gap:7px;}
+.nom-item{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:13px;}
+.nom-rem{background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;transition:color .2s;}
+.nom-rem:hover{color:var(--danger);}
+.nom-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0;}
+.bulk-hint{color:var(--muted);font-size:12px;margin:8px 0;}
+.bulk-area{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);resize:vertical;min-height:72px;outline:none;margin-bottom:8px;}
+.bulk-area:focus{border-color:var(--accent);}
+.bulk-btn{background:var(--surface);color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:7px 16px;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;}
+.bulk-btn:hover{background:rgba(59,130,246,.1);}
+/* person panel */
+.assign-row{display:flex;gap:8px;margin-bottom:10px;}
+.assign-row select{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;}
+.assign-btn{background:var(--success);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;white-space:nowrap;}
+.assign-btn:hover{background:#059669;}
+.assigned-item{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:6px;}
+.assigned-clear{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;transition:color .2s;}
+.assigned-clear:hover{color:var(--danger);}
+
+/* ══ REVIEWER ══ */
+#reviewer-view{display:none;}
+.rev-main{max-width:900px;margin:0 auto;padding:48px 32px 80px;}
+.rev-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:6px;}
+.rev-sub{color:var(--muted);font-size:15px;margin-bottom:36px;}
+.rev-queue{display:flex;flex-direction:column;gap:16px;}
+.rev-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.rev-head{padding:20px 24px;display:flex;align-items:center;gap:16px;cursor:pointer;}
+.rev-icon{font-size:28px;flex-shrink:0;}
+.rev-info{flex:1;}
+.rev-card-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:3px;}
+.rev-meta{font-size:12px;color:var(--muted);}
+.rev-status{font-size:11px;font-weight:600;padding:4px 12px;border-radius:50px;flex-shrink:0;}
+.rs-draft{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.rs-review{background:rgba(59,130,246,.1);color:var(--highlight);border:1px solid rgba(59,130,246,.2);}
+.rs-live{background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+.rs-rejected{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);}
+.rev-body{padding:0 24px 20px;border-top:1px solid var(--border);display:none;}
+.rev-card.open .rev-body{display:block;padding-top:20px;}
+.rev-desc{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:12px;}
+.rev-url{font-size:13px;color:var(--accent);word-break:break-all;margin-bottom:14px;}
+.rev-actions{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+.rev-comment{flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;resize:none;min-height:60px;transition:border-color .2s;}
+.rev-comment:focus{border-color:var(--accent);}
+.rev-approve{background:var(--success);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s;}
+.rev-approve:hover{background:#059669;}
+.rev-reject{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:9px 20px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;}
+.rev-reject:hover{background:rgba(239,68,68,.2);}
+.rev-history{margin-top:12px;padding:10px 14px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--muted);}
+.rev-empty{text-align:center;padding:60px 0;color:var(--muted);}
+.rev-empty svg{opacity:.25;margin-bottom:12px;}
+.rev-empty h3{font-family:'Syne',sans-serif;color:var(--text);margin-bottom:6px;}
+
+/* ══ MODAL ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:420px;width:90%;}
+.modal h3{font-family:'Syne',sans-serif;font-size:18px;margin-bottom:12px;}
+.modal p{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:24px;}
+.modal-btns{display:flex;gap:12px;justify-content:flex-end;}
+.btn-cancel{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 20px;font-size:14px;cursor:pointer;}
+.btn-del{background:var(--danger);color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:14px;cursor:pointer;}
+
+/* ══ TOAST ══ */
+#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:all .3s;z-index:600;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.success{border-color:rgba(16,185,129,.4);}
+#toast.error{border-color:rgba(239,68,68,.4);}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media(max-width:768px){
+  nav{padding:0 20px;}
+  .s-main{padding:36px 20px 60px;}
+  #courses-grid{grid-template-columns:1fr;}
+  .admin-layout{flex-direction:column;height:auto;overflow:visible;}
+  .sidebar{width:100%;min-width:0;height:auto;border-right:none;border-bottom:1px solid var(--border);}
+  .form-grid{grid-template-columns:1fr;}
+  .main-panel{padding:24px 20px;}
+  .rev-main{padding:32px 20px 60px;}
+}
+</style>
+</head>
+<body>
+
+<!-- CHOICE SCREEN -->
+<div id="choice-screen">
+  <div class="choice-wrap">
+    <div class="choice-brand">
+      <div class="choice-badge">SF</div>
+      <div class="choice-brand-text"><span>SF</span> Learning &amp; Development</div>
+    </div>
+    <div class="choice-headline">What do you want to<br><em>do today?</em></div>
+    <div class="choice-cards">
+      <div class="choice-card learn" onclick="chooseMode('learn')">
+        <div class="choice-icon">📚</div>
+        <div class="choice-label">Learn</div>
+        <div class="choice-desc">Access your nominated courses, track progress, and build new skills at your own pace.</div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice-card certify" onclick="chooseMode('certify')">
+        <div class="choice-icon">🎓</div>
+        <div class="choice-label">Get Certified</div>
+        <div class="choice-desc">Take your certification evaluation exam and earn your SF internal certification badge.</div>
+        <div class="choice-arrow">→</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card" id="signin-box">
+    <div class="auth-logo">
+      <div class="auth-badge">SF</div>
+      <div class="auth-brand"><span>SF</span> Learning &amp; Development</div>
+    </div>
+    <div class="auth-divider"></div>
+    <span class="mode-badge mode-learn" id="mode-badge">Learn Mode</span>
+    <div class="auth-title" id="auth-title">Sign in to access<br>your courses</div>
+    <div class="auth-sub">Use your SourceFuse Google account to continue.</div>
+    <button id="google-btn">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+      Continue with Google
+    </button>
+    <div id="auth-error">Sign-in failed. Please use your @sourcefuse.com account.</div>
+    <span class="auth-back" onclick="backToChoice()">← Back</span>
+  </div>
+  <div class="auth-card" id="denied-box">
+    <div class="denied-icon">🔒</div>
+    <h2>Access Restricted</h2>
+    <p>This hub is for SourceFuse employees only. Please sign in with your <strong>@sourcefuse.com</strong> account.</p>
+    <button id="switch-btn">Sign out &amp; try another account</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav>
+    <div class="nav-brand">
+      <div class="nav-badge">SF</div>
+      <div class="nav-title"><span>SF</span> Learning Hub
+        <span class="nav-chip chip-admin" id="chip-admin">Admin</span>
+        <span class="nav-chip chip-reviewer" id="chip-reviewer">Reviewer</span>
+        <span class="nav-chip chip-proctor" id="chip-proctor">Proctor</span>
+      </div>
+    </div>
+    <div class="nav-right">
+      <a href="sf-certs-hub.html" class="nav-link" id="certs-link">🎓 Certifications</a>
+      <div id="user-chip">
+        <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+        <span id="user-name"></span>
+      </div>
+      <button id="signout-btn">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- STUDENT VIEW -->
+  <div id="student-view">
+    <div class="s-main">
+      <div class="hero-eyebrow"><span></span>Certification Courses</div>
+      <h1 class="hero-title">Your Learning<br><em>Journey Starts Here</em></h1>
+      <p class="hero-sub">Complete your nominated courses to unlock your SourceFuse certifications.</p>
+      <div id="loading-courses"><div class="spinner"></div>Loading courses…</div>
+      <div id="courses-grid"></div>
+      <div id="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <h3>No courses available yet</h3>
+        <p>Check back soon — new courses are being added.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="admin-view">
+    <div class="admin-layout">
+      <div class="sidebar">
+        <div class="sb-header">
+          <div class="sb-tabs">
+            <button class="sb-tab active" id="tab-courses" onclick="switchTab('courses')">Courses</button>
+            <button class="sb-tab" id="tab-people" onclick="switchTab('people')">People &amp; Roles</button>
+          </div>
+          <div class="sb-actions">
+            <h3 id="sb-section-label">Courses</h3>
+            <button class="sb-add-btn" id="sb-add-course">+ New</button>
+            <button class="sb-add-btn" id="sb-add-person" style="display:none">+ Add</button>
+          </div>
+        </div>
+        <div id="sb-course-list"><div class="sb-empty">Loading…</div></div>
+        <div id="sb-people-list" style="display:none"><div class="sb-empty">Loading…</div></div>
+      </div>
+
+      <div class="main-panel">
+        <div id="panel-ph">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          <h3>Select an item to edit</h3>
+          <p>Choose from the sidebar or create a new one.</p>
+        </div>
+
+        <!-- COURSE PANEL -->
+        <div id="course-panel" style="display:none;flex-direction:column;gap:24px;">
+          <div class="p-section">
+            <div class="p-section-title">📋 Course Details</div>
+            <div class="form-grid">
+              <div class="fg"><label>Title *</label><input type="text" id="f-title" placeholder="e.g. Grafana Essentials"></div>
+              <div class="fg"><label>Category</label><input type="text" id="f-category" placeholder="e.g. Observability"></div>
+              <div class="fg full"><label>Description</label><textarea id="f-desc" placeholder="Short description…"></textarea></div>
+              <div class="fg"><label>Course URL</label><input type="url" id="f-url" placeholder="https://…"></div>
+              <div class="fg"><label>Duration</label><input type="text" id="f-duration" placeholder="e.g. 2–3 hours"></div>
+              <div class="fg"><label>Level</label>
+                <select id="f-level"><option value="">— Select —</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+              </div>
+              <div class="fg"><label>Emoji Icon</label><input type="text" id="f-icon" placeholder="📘" maxlength="4"></div>
+              <div class="fg"><label>Accent Color</label>
+                <div class="color-row"><input type="color" id="f-color-pick" value="#3b82f6"><input type="text" id="f-color" placeholder="#3b82f6" maxlength="7"></div>
+              </div>
+              <div class="fg"><label>Display Order</label><input type="number" id="f-order" placeholder="0" min="0"></div>
+              <div class="fg"><label>Status</label>
+                <select id="f-status"><option value="draft">Draft</option><option value="review">Under Review</option><option value="live">Live</option></select>
+              </div>
+            </div>
+            <button class="save-btn" id="save-course-btn">Save Course</button>
+          </div>
+          <div class="p-section">
+            <div class="p-section-title">👥 Nominated Users</div>
+            <div class="nom-add-row">
+              <input type="email" id="nom-input" placeholder="employee@sourcefuse.com">
+              <button id="nom-add-btn">+ Nominate</button>
+            </div>
+            <details style="margin-bottom:12px;">
+              <summary style="font-size:13px;color:var(--muted);cursor:pointer;">Bulk add</summary>
+              <p class="bulk-hint">One email per line or comma-separated.</p>
+              <textarea class="bulk-area" id="bulk-area" placeholder="alice@sourcefuse.com&#10;bob@sourcefuse.com"></textarea>
+              <button class="bulk-btn" id="bulk-add-btn">Add All</button>
+            </details>
+            <div id="nom-container"><div class="nom-empty">Loading…</div></div>
+          </div>
+        </div>
+
+        <!-- PERSON PANEL -->
+        <div id="person-panel" style="display:none;flex-direction:column;gap:24px;">
+          <div class="p-section">
+            <div class="p-section-title">👤 User Role</div>
+            <div class="fg" style="margin-bottom:14px;">
+              <label>Email</label>
+              <input type="email" id="p-email" placeholder="employee@sourcefuse.com">
+            </div>
+            <div class="fg" style="margin-bottom:14px;">
+              <label>Role</label>
+              <select id="p-role" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;width:100%;">
+                <option value="student">Student</option>
+                <option value="reviewer">Reviewer</option>
+                <option value="proctor">Proctor</option>
+              </select>
+            </div>
+            <div id="proctor-section" style="display:none;">
+              <div class="p-section-title" style="margin-bottom:12px;">🎯 Candidate Assignment</div>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Assign this proctor to exactly one exam candidate at a time. Admin must manually clear to reassign.</p>
+              <div class="assign-row">
+                <select id="p-candidate"><option value="">— Select candidate —</option></select>
+                <button class="assign-btn" id="assign-btn">Assign</button>
+              </div>
+              <div id="current-assignment"></div>
+            </div>
+            <button class="save-btn" id="save-person-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEWER VIEW -->
+  <div id="reviewer-view">
+    <div class="rev-main">
+      <div class="rev-title">Course Review Queue</div>
+      <div class="rev-sub">Review courses submitted by admins. Approved courses go Live; rejected courses are flagged for revision.</div>
+      <div class="rev-queue" id="rev-queue"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+import {
+  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+const FB = {
+  apiKey:"AIzaSyA-8fatW5D7uR69rcuGFPH54IFqrz0PhU0",
+  authDomain:"sfcertification-grafana.firebaseapp.com",
+  projectId:"sfcertification-grafana",
+  appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"
+};
+const ADMINS = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
+const DOMAIN = 'sourcefuse.com';
+
+const app = initializeApp(FB);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let me = null, myRole = null, pendingMode = null;
+let courses = [], people = [];
+let selCourse = null, selPerson = null, adminTab = 'courses';
+
+/* ══ CHOICE ══ */
+window.chooseMode = mode => {
+  pendingMode = mode;
+  $('choice-screen').style.display = 'none';
+  $('mode-badge').className = 'mode-badge ' + (mode==='certify'?'mode-certify':'mode-learn');
+  $('mode-badge').textContent = mode==='certify'?'Get Certified':'Learn Mode';
+  $('auth-title').innerHTML = mode==='certify'?'Sign in to access<br>your certifications':'Sign in to access<br>your courses';
+  $('auth-screen').style.display = 'flex';
+  $('signin-box').style.display = 'flex';
+  $('denied-box').style.display = 'none';
+};
+window.backToChoice = () => { $('auth-screen').style.display='none'; $('choice-screen').style.display='flex'; };
+
+/* ══ AUTH ══ */
+$('google-btn').addEventListener('click', async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch { $('auth-error').style.display='block'; }
+});
+$('switch-btn').addEventListener('click', () => signOut(auth));
+$('signout-btn').addEventListener('click', () => {
+  signOut(auth);
+  $('app').style.display='none';
+  $('choice-screen').style.display='flex';
+});
+
+onAuthStateChanged(auth, async user => {
+  if (!user) return;
+  if (user.email.split('@')[1] !== DOMAIN) {
+    $('auth-screen').style.display='flex';
+    $('signin-box').style.display='none';
+    $('denied-box').style.display='flex';
+    return;
+  }
+  me = user;
+  $('auth-screen').style.display='none';
+  $('app').style.display='block';
+  $('user-name').textContent = user.displayName || user.email;
+  if (user.photoURL) $('user-avatar').src = user.photoURL;
+
+  if (ADMINS.includes(user.email)) {
+    myRole = 'admin';
+  } else {
+    const snap = await getDoc(doc(db,'users',user.email));
+    myRole = snap.exists() ? (snap.data().role||'student') : 'student';
+  }
+
+  // Certify mode → send non-admin straight to certs hub
+  if (pendingMode==='certify' && myRole!=='admin') {
+    window.location.href='sf-certs-hub.html'; return;
+  }
+
+  showChips();
+  route();
+});
+
+function showChips() {
+  $('chip-admin').style.display   = myRole==='admin'?'inline-flex':'none';
+  $('chip-reviewer').style.display= myRole==='reviewer'?'inline-flex':'none';
+  $('chip-proctor').style.display = myRole==='proctor'?'inline-flex':'none';
+  $('certs-link').style.display   = myRole!=='proctor'?'inline-flex':'none';
+}
+
+function route() {
+  hide('student-view'); hide('admin-view'); hide('reviewer-view');
+  if (myRole==='admin')         { show('admin-view');    loadAdminCourses(); }
+  else if (myRole==='reviewer') { show('reviewer-view'); loadReviewQueue(); }
+  else if (myRole==='proctor')  { window.location.href='sf-certs-hub.html'; }
+  else                          { show('student-view');  loadStudentCourses(); }
+}
+
+/* ══ STUDENT ══ */
+async function loadStudentCourses() {
+  show('loading-courses'); hide('courses-grid'); hide('empty-state');
+  $('courses-grid').innerHTML='';
+  try {
+    const snap = await getDocs(collection(db,'courses'));
+    courses=[];
+    snap.forEach(d => { if(d.data().status==='live') courses.push({id:d.id,...d.data()}); });
+    courses.sort((a,b)=>(a.order||0)-(b.order||0));
+    hide('loading-courses');
+    if (!courses.length) { show('empty-state'); return; }
+    show('courses-grid');
+    for (const c of courses) $('courses-grid').appendChild(await buildCard(c));
+  } catch(e) { hide('loading-courses'); toast('Error loading courses','error'); }
+}
+
+async function buildCard(c) {
+  let nom=false;
+  try { const s=await getDoc(doc(db,'courses',c.id,'nominations',me.email)); nom=s.exists()&&s.data().nominated; } catch{}
+  const ac=c.accentColor||'#3b82f6';
+  const el=document.createElement('div');
+  el.className='course-card'+(nom?'':' locked');
+  el.innerHTML=`
+    <div class="card-banner" style="background:linear-gradient(90deg,${ac},${lighten(ac)})"></div>
+    <div class="card-body">
+      <div class="card-meta">
+        <span class="card-tag">${esc(c.category||'Course')}</span>
+        <span class="card-status ${nom?'s-nom':'s-not'}">${nom?'✓ Nominated':'Not Nominated'}</span>
+      </div>
+      <div class="card-icon">${esc(c.icon||'📘')}</div>
+      <div class="card-title">${esc(c.title)}</div>
+      <div class="card-desc">${esc(c.description||'')}</div>
+      <div class="not-nom-notice">You are not nominated for this course. Please request your manager to nominate you for the course.</div>
+    </div>
+    <div class="card-footer">
+      <div class="card-info">
+        ${c.duration?`<div class="card-info-item">⏱ ${esc(c.duration)}</div>`:''}
+        ${c.level?`<div class="card-info-item">📶 ${esc(c.level)}</div>`:''}
+      </div>
+      ${nom
+        ?`<a href="${esc(c.url||'#')}" class="card-btn btn-enter">Enter Course →</a>`
+        :`<button class="card-btn btn-locked" disabled>🔒 Access Restricted</button>`}
+    </div>`;
+  return el;
+}
+
+/* ══ ADMIN — TAB SWITCH ══ */
+window.switchTab = tab => {
+  adminTab = tab;
+  $('tab-courses').className='sb-tab'+(tab==='courses'?' active':'');
+  $('tab-people').className='sb-tab'+(tab==='people'?' active':'');
+  $('sb-course-list').style.display=tab==='courses'?'flex':'none';
+  $('sb-people-list').style.display=tab==='people'?'flex':'none';
+  $('sb-add-course').style.display=tab==='courses'?'block':'none';
+  $('sb-add-person').style.display=tab==='people'?'block':'none';
+  $('sb-section-label').textContent=tab==='courses'?'Courses':'People & Roles';
+  $('course-panel').style.display='none';
+  $('person-panel').style.display='none';
+  $('panel-ph').style.display='flex';
+  selCourse=null; selPerson=null;
+  if (tab==='people') loadPeople();
+};
+
+/* ══ ADMIN — COURSES ══ */
+async function loadAdminCourses() {
+  $('sb-course-list').innerHTML='<div class="sb-empty">Loading…</div>';
+  const snap=await getDocs(collection(db,'courses'));
+  courses=[];
+  snap.forEach(d=>courses.push({id:d.id,...d.data()}));
+  courses.sort((a,b)=>(a.order||0)-(b.order||0));
+  renderCourseList();
+}
+
+function renderCourseList() {
+  const list=$('sb-course-list'); list.innerHTML='';
+  if(!courses.length){list.innerHTML='<div class="sb-empty">No courses yet.<br>Click <b>+ New</b> to add one.</div>';return;}
+  for(const c of courses){
+    const it=document.createElement('div');
+    it.className='sb-item'+(selCourse===c.id?' active':'');
+    const dot=c.status==='live'?'🟢':c.status==='review'?'🟡':'⚫';
+    it.innerHTML=`<div class="sb-icon">${esc(c.icon||'📘')}</div><div class="sb-info"><div class="sb-title">${esc(c.title)}</div><div class="sb-sub">${dot} ${esc(c.status||'draft')}</div></div><button class="sb-del">×</button>`;
+    it.addEventListener('click',e=>{if(!e.target.classList.contains('sb-del'))selectCourse(c.id);});
+    it.querySelector('.sb-del').addEventListener('click',e=>{e.stopPropagation();confirmDel(c.id,c.title);});
+    list.appendChild(it);
+  }
+}
+
+async function selectCourse(id){
+  selCourse=id; renderCourseList();
+  $('panel-ph').style.display='none';
+  $('person-panel').style.display='none';
+  $('course-panel').style.display='flex';
+  const c=courses.find(x=>x.id===id)||{};
+  $('f-title').value=c.title||''; $('f-category').value=c.category||'';
+  $('f-desc').value=c.description||''; $('f-url').value=c.url||'';
+  $('f-duration').value=c.duration||''; $('f-level').value=c.level||'';
+  $('f-icon').value=c.icon||''; $('f-color').value=c.accentColor||'#3b82f6';
+  $('f-color-pick').value=c.accentColor||'#3b82f6';
+  $('f-order').value=(c.order!=null?c.order:''); $('f-status').value=c.status||'draft';
+  await loadNominations(id);
+}
+
+$('sb-add-course').addEventListener('click', async ()=>{
+  const ref=await addDoc(collection(db,'courses'),{title:'New Course',category:'',description:'',url:'',duration:'',level:'',icon:'📘',accentColor:'#3b82f6',order:courses.length,status:'draft',createdAt:serverTimestamp()});
+  await loadAdminCourses(); selectCourse(ref.id);
+});
+
+$('save-course-btn').addEventListener('click', async ()=>{
+  if(!selCourse)return;
+  const btn=$('save-course-btn'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const data={
+      title:$('f-title').value.trim()||'Untitled', category:$('f-category').value.trim(),
+      description:$('f-desc').value.trim(), url:$('f-url').value.trim(),
+      duration:$('f-duration').value.trim(), level:$('f-level').value,
+      icon:$('f-icon').value.trim()||'📘', accentColor:$('f-color').value.trim()||'#3b82f6',
+      order:parseInt($('f-order').value)||0, status:$('f-status').value, updatedAt:serverTimestamp()
+    };
+    await setDoc(doc(db,'courses',selCourse),data,{merge:true});
+    const i=courses.findIndex(c=>c.id===selCourse);
+    if(i>=0)Object.assign(courses[i],data);
+    renderCourseList(); toast('Course saved!','success');
+  }catch{toast('Error saving.','error');}
+  btn.disabled=false; btn.textContent='Save Course';
+});
+
+$('f-color-pick').addEventListener('input',e=>$('f-color').value=e.target.value);
+$('f-color').addEventListener('input',e=>{if(/^#[0-9a-fA-F]{6}$/.test(e.target.value))$('f-color-pick').value=e.target.value;});
+
+function confirmDel(id,title){
+  const ov=document.createElement('div'); ov.className='modal-overlay';
+  ov.innerHTML=`<div class="modal"><h3>Delete Course?</h3><p>Permanently delete <strong>${esc(title)}</strong> and all its nominations?</p><div class="modal-btns"><button class="btn-cancel">Cancel</button><button class="btn-del">Delete</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('.btn-cancel').addEventListener('click',()=>ov.remove());
+  ov.querySelector('.btn-del').addEventListener('click',async()=>{
+    ov.remove();
+    const ns=await getDocs(collection(db,'courses',id,'nominations'));
+    for(const d of ns.docs)await deleteDoc(d.ref);
+    await deleteDoc(doc(db,'courses',id));
+    courses=courses.filter(c=>c.id!==id);
+    if(selCourse===id){selCourse=null;$('course-panel').style.display='none';$('panel-ph').style.display='flex';}
+    renderCourseList(); toast('Deleted.','success');
+  });
+}
+
+async function loadNominations(courseId){
+  $('nom-container').innerHTML='<div class="nom-empty">Loading…</div>';
+  const snap=await getDocs(collection(db,'courses',courseId,'nominations'));
+  const noms=[]; snap.forEach(d=>noms.push({email:d.id,...d.data()}));
+  if(!noms.length){$('nom-container').innerHTML='<div class="nom-empty">No users nominated yet.</div>';return;}
+  const list=document.createElement('div'); list.className='nom-list';
+  for(const n of noms){
+    const it=document.createElement('div'); it.className='nom-item';
+    it.innerHTML=`<span>${esc(n.email)}</span><button class="nom-rem">×</button>`;
+    it.querySelector('.nom-rem').addEventListener('click',()=>removeNom(courseId,n.email));
+    list.appendChild(it);
+  }
+  $('nom-container').innerHTML=''; $('nom-container').appendChild(list);
+}
+
+$('nom-add-btn').addEventListener('click',addNom);
+$('nom-input').addEventListener('keydown',e=>{if(e.key==='Enter')addNom();});
+
+async function addNom(){
+  const inp=$('nom-input'), email=inp.value.trim().toLowerCase();
+  if(!email||!selCourse)return;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('Invalid email.','error');return;}
+  await nominateOne(selCourse,email); inp.value='';
+}
+
+$('bulk-add-btn').addEventListener('click',async()=>{
+  const emails=$('bulk-area').value.split(/[\n,]+/).map(e=>e.trim().toLowerCase()).filter(e=>e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  if(!emails.length){toast('No valid emails.','error');return;}
+  for(const e of emails)await nominateOne(selCourse,e,true);
+  $('bulk-area').value=''; await loadNominations(selCourse);
+  toast(`${emails.length} nominated!`,'success');
+});
+
+async function nominateOne(courseId,email,silent=false){
+  try{
+    await setDoc(doc(db,'courses',courseId,'nominations',email),{nominated:true,nominatedAt:serverTimestamp(),nominatedBy:me.email});
+    if(!silent){await loadNominations(courseId);toast(`${email} nominated!`,'success');}
+  }catch{if(!silent)toast('Error.','error');}
+}
+
+async function removeNom(courseId,email){
+  await deleteDoc(doc(db,'courses',courseId,'nominations',email));
+  await loadNominations(courseId); toast(`Removed ${email}.`,'success');
+}
+
+/* ══ ADMIN — PEOPLE ══ */
+async function loadPeople(){
+  $('sb-people-list').innerHTML='<div class="sb-empty">Loading…</div>';
+  const snap=await getDocs(collection(db,'users'));
+  people=[];
+  snap.forEach(d=>{if(!ADMINS.includes(d.id))people.push({email:d.id,...d.data()});});
+  people.sort((a,b)=>a.email.localeCompare(b.email));
+  renderPeople();
+}
+
+function renderPeople(){
+  const list=$('sb-people-list'); list.innerHTML='';
+  if(!people.length){list.innerHTML='<div class="sb-empty">No users yet.<br>Click <b>+ Add</b> to add one.</div>';return;}
+  for(const p of people){
+    const it=document.createElement('div');
+    it.className='sb-item'+(selPerson===p.email?' active':'');
+    const rc=p.role==='proctor'?'rp-proctor':p.role==='reviewer'?'rp-reviewer':'rp-student';
+    it.innerHTML=`<div class="sb-icon">👤</div><div class="sb-info"><div class="sb-title">${esc(p.email)}</div><div class="sb-sub">${p.displayName||'—'}</div></div><span class="role-pill ${rc}">${esc(p.role||'student')}</span><button class="sb-del">×</button>`;
+    it.addEventListener('click',e=>{if(!e.target.classList.contains('sb-del'))selectPerson(p.email);});
+    it.querySelector('.sb-del').addEventListener('click',e=>{e.stopPropagation();removePerson(p.email);});
+    list.appendChild(it);
+  }
+}
+
+$('sb-add-person').addEventListener('click',()=>{
+  selPerson='__new__'; renderPeople();
+  $('panel-ph').style.display='none';
+  $('course-panel').style.display='none';
+  $('person-panel').style.display='flex';
+  $('p-email').value=''; $('p-email').disabled=false;
+  $('p-role').value='student';
+  $('proctor-section').style.display='none';
+  $('current-assignment').innerHTML='';
+});
+
+async function selectPerson(email){
+  selPerson=email; renderPeople();
+  $('panel-ph').style.display='none';
+  $('course-panel').style.display='none';
+  $('person-panel').style.display='flex';
+  const p=people.find(x=>x.email===email)||{};
+  $('p-email').value=email; $('p-email').disabled=true;
+  $('p-role').value=p.role||'student';
+  await toggleProctorSection(p.role||'student',email);
+}
+
+$('p-role').addEventListener('change',async e=>{
+  if(selPerson&&selPerson!=='__new__') await toggleProctorSection(e.target.value,selPerson);
+  else $('proctor-section').style.display=e.target.value==='proctor'?'block':'none';
+});
+
+async function toggleProctorSection(role,email){
+  $('proctor-section').style.display=role==='proctor'?'block':'none';
+  if(role!=='proctor')return;
+  const snap=await getDocs(collection(db,'users'));
+  const sel=$('p-candidate'); sel.innerHTML='<option value="">— Select candidate —</option>';
+  snap.forEach(d=>{
+    if(!ADMINS.includes(d.id)&&d.id!==email&&(d.data().role==='student'||!d.data().role)){
+      const o=document.createElement('option'); o.value=d.id; o.textContent=d.id; sel.appendChild(o);
+    }
+  });
+  const ps=await getDoc(doc(db,'users',email));
+  const assigned=ps.exists()?ps.data().assignedCandidate:null;
+  const ca=$('current-assignment');
+  if(assigned){
+    ca.innerHTML=`<div class="assigned-item"><span>🟢 Assigned to: <strong>${esc(assigned)}</strong></span><button class="assigned-clear" id="clear-btn">×</button></div>`;
+    $('clear-btn').addEventListener('click',async()=>{
+      await setDoc(doc(db,'users',email),{assignedCandidate:null},{merge:true});
+      ca.innerHTML='<p style="font-size:13px;color:var(--muted)">No candidate assigned.</p>';
+      toast('Assignment cleared.','success');
+    });
+  } else {
+    ca.innerHTML='<p style="font-size:13px;color:var(--muted)">No candidate currently assigned.</p>';
+  }
+}
+
+$('assign-btn').addEventListener('click',async()=>{
+  const candidate=$('p-candidate').value;
+  if(!candidate||!selPerson||selPerson==='__new__'){toast('Select a candidate first.','error');return;}
+  const ps=await getDoc(doc(db,'users',selPerson));
+  const existing=ps.exists()?ps.data().assignedCandidate:null;
+  if(existing&&existing!==candidate){toast('Clear existing assignment first.','error');return;}
+  await setDoc(doc(db,'users',selPerson),{assignedCandidate:candidate},{merge:true});
+  await toggleProctorSection('proctor',selPerson);
+  toast('Candidate assigned!','success');
+});
+
+$('save-person-btn').addEventListener('click',async()=>{
+  const email=$('p-email').value.trim().toLowerCase();
+  const role=$('p-role').value;
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('Invalid email.','error');return;}
+  if(ADMINS.includes(email)){toast('Cannot modify admin accounts.','error');return;}
+  const btn=$('save-person-btn'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    await setDoc(doc(db,'users',email),{role,updatedAt:serverTimestamp(),updatedBy:me.email},{merge:true});
+    const i=people.findIndex(p=>p.email===email);
+    if(i>=0)people[i].role=role; else people.push({email,role});
+    selPerson=email; $('p-email').disabled=true;
+    renderPeople(); toast('Saved!','success');
+  }catch{toast('Error saving.','error');}
+  btn.disabled=false; btn.textContent='Save';
+});
+
+async function removePerson(email){
+  await deleteDoc(doc(db,'users',email));
+  people=people.filter(p=>p.email!==email);
+  if(selPerson===email){selPerson=null;$('person-panel').style.display='none';$('panel-ph').style.display='flex';}
+  renderPeople(); toast('Removed.','success');
+}
+
+/* ══ REVIEWER ══ */
+async function loadReviewQueue(){
+  $('rev-queue').innerHTML='<div style="color:var(--muted);font-size:14px;padding:40px 0;text-align:center">Loading…</div>';
+  const snap=await getDocs(collection(db,'courses'));
+  const all=[]; snap.forEach(d=>all.push({id:d.id,...d.data()}));
+  const reviewable=all.filter(c=>['review','live','rejected'].includes(c.status));
+  if(!reviewable.length){
+    $('rev-queue').innerHTML=`<div class="rev-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><h3>Queue is clear</h3><p>No courses pending review right now.</p></div>`;
+    return;
+  }
+  $('rev-queue').innerHTML='';
+  for(const c of reviewable){
+    const sc=c.status==='live'?'rs-live':c.status==='rejected'?'rs-rejected':'rs-review';
+    const sl=c.status==='live'?'Live':c.status==='rejected'?'Rejected':'Under Review';
+    const card=document.createElement('div'); card.className='rev-card';
+    card.innerHTML=`
+      <div class="rev-head">
+        <div class="rev-icon">${esc(c.icon||'📘')}</div>
+        <div class="rev-info">
+          <div class="rev-card-title">${esc(c.title)}</div>
+          <div class="rev-meta">${esc(c.category||'')}${c.level?' · '+esc(c.level):''}${c.duration?' · '+esc(c.duration):''}</div>
+        </div>
+        <span class="rev-status ${sc}">${sl}</span>
+      </div>
+      <div class="rev-body">
+        <div class="rev-desc">${esc(c.description||'No description provided.')}</div>
+        ${c.url?`<div class="rev-url"><a href="${esc(c.url)}" target="_blank">🔗 ${esc(c.url)}</a></div>`:''}
+        ${c.reviewComment?`<div class="rev-history">💬 Last comment: ${esc(c.reviewComment)}</div>`:''}
+        <div class="rev-actions">
+          <textarea class="rev-comment" id="rc-${c.id}" placeholder="Optional comment for admin…"></textarea>
+          <button class="rev-approve" data-id="${c.id}">✓ Approve</button>
+          <button class="rev-reject" data-id="${c.id}">✗ Reject</button>
+        </div>
+      </div>`;
+    card.querySelector('.rev-head').addEventListener('click',()=>card.classList.toggle('open'));
+    card.querySelector('.rev-approve').addEventListener('click',()=>reviewAction(c.id,'live'));
+    card.querySelector('.rev-reject').addEventListener('click',()=>reviewAction(c.id,'rejected'));
+    $('rev-queue').appendChild(card);
+  }
+}
+
+async function reviewAction(courseId,status){
+  const comment=(document.getElementById('rc-'+courseId)||{value:''}).value.trim();
+  try{
+    await setDoc(doc(db,'courses',courseId),{status,reviewComment:comment,reviewedBy:me.email,reviewedAt:serverTimestamp()},{merge:true});
+    toast(status==='live'?'Course approved! ✓':'Course rejected.',status==='live'?'success':'error');
+    await loadReviewQueue();
+  }catch{toast('Error.','error');}
+}
+
+/* ══ UTILS ══ */
+function $(id){return document.getElementById(id);}
+function show(id){$(id).style.display='block';}
+function hide(id){$(id).style.display='none';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&#34;');}
+function lighten(hex){
+  try{let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  r=Math.min(255,r+60);g=Math.min(255,g+60);b=Math.min(255,b+60);
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');}catch{return hex;}
+}
+let toastTimer;
+function toast(msg,type=''){
+  const t=$('toast'); t.textContent=msg; t.className=type;
+  t.classList.add('show'); clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
