@@ -464,17 +464,42 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     <div class="admin-tab-content" id="atc-nominations">
       <div class="atc-inner">
         <div class="nom-section">
-          <div class="nom-section-title">Exam Nominations</div>
-          <div class="fg" style="margin-bottom:14px;"><label>Select Exam</label>
-            <select class="nom-select" id="nom-exam-select"><option value="">— Select an exam —</option></select>
-          </div>
-          <div id="nom-area" style="display:none;">
-            <div class="nom-add-row">
-              <input type="email" id="nom-email-input" placeholder="employee@sourcefuse.com">
-              <button id="nom-add-btn">+ Nominate</button>
+          <div class="nom-section-title">Nominations</div>
+
+          <!-- Step 1: Category selector -->
+          <div style="margin-bottom:20px;">
+            <label class="fg" style="margin-bottom:8px;display:block;"><span style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Step 1 — Select Category</span></label>
+            <div style="display:flex;gap:12px;">
+              <button id="nom-cat-course" onclick="nomSetCategory('course')"
+                style="flex:1;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;">
+                📚 Courses
+              </button>
+              <button id="nom-cat-exam" onclick="nomSetCategory('exam')"
+                style="flex:1;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;">
+                🎓 Exams
+              </button>
             </div>
-            <div id="nom-list-container"><div class="nom-empty">Loading…</div></div>
           </div>
+
+          <!-- Step 2: Item selector (hidden until category chosen) -->
+          <div id="nom-step2" style="display:none;">
+            <div class="fg" style="margin-bottom:14px;">
+              <label id="nom-select-label" style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;display:block;">Step 2 — Select Item</label>
+              <select class="nom-select" id="nom-item-select" onchange="onNomItemChange()">
+                <option value="">— Select —</option>
+              </select>
+            </div>
+
+            <!-- Nominations list + add -->
+            <div id="nom-area" style="display:none;">
+              <div class="nom-add-row">
+                <input type="email" id="nom-email-input" placeholder="employee@sourcefuse.com">
+                <button id="nom-add-btn">+ Nominate</button>
+              </div>
+              <div id="nom-list-container"><div class="nom-empty">Loading…</div></div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -980,8 +1005,8 @@ async function initAdmin() {
   $('add-exam-btn').addEventListener('click', () => openExamForm());
   $('cancel-exam-btn').addEventListener('click', () => $('exam-form-wrap').classList.remove('open'));
   $('save-exam-btn').addEventListener('click', saveExam);
-  $('nom-exam-select').addEventListener('change', onNomExamChange);
-  $('nom-add-btn').addEventListener('click', addExamNom);
+  // nominations wired via inline onchange and onclick handlers
+  $('nom-add-btn').addEventListener('click', addNomination);
   $('admin-refresh-btn').addEventListener('click', () => loadProctorSessions());
 
   proctorRefreshTimer = setInterval(() => {
@@ -1162,57 +1187,118 @@ function confirmDelExam(id, title) {
 }
 
 /* ══════════════════════════════════════
-   ADMIN — NOMINATIONS
+   NOMINATIONS — TWO-STEP FLOW
 ═══════════════════════════════════════ */
+let nomCategory = null; // 'course' | 'exam'
+
 async function populateNomExamSelect() {
-  const sel = $('nom-exam-select');
-  sel.innerHTML = '<option value="">— Select an exam —</option>';
-  if (!exams.length) await loadAdminExams();
-  for (const e of exams) {
-    const o = document.createElement('option'); o.value=e.id; o.textContent=e.title; sel.appendChild(o);
-  }
-  // Auto-select first exam and load its nominations
-  if (exams.length) {
-    sel.value = exams[0].id;
-    await onNomExamChange();
-  }
+  // Reset to initial state each time tab is opened
+  nomCategory = null;
+  nomResetCategoryButtons();
+  $('nom-step2').style.display  = 'none';
+  $('nom-area').style.display   = 'none';
+  $('nom-list-container').innerHTML = '';
 }
 
-async function onNomExamChange() {
-  const id = $('nom-exam-select').value;
-  if (!id) { $('nom-area').style.display='none'; return; }
+function nomResetCategoryButtons() {
+  ['course','exam'].forEach(cat => {
+    const btn = $(`nom-cat-${cat}`);
+    btn.style.background   = 'var(--surface)';
+    btn.style.color        = 'var(--muted)';
+    btn.style.borderColor  = 'var(--border)';
+  });
+}
+
+window.nomSetCategory = async cat => {
+  nomCategory = cat;
+  nomResetCategoryButtons();
+  const activeBtn = $(`nom-cat-${cat}`);
+  activeBtn.style.background  = cat === 'course' ? 'rgba(59,130,246,.12)' : 'rgba(245,158,11,.12)';
+  activeBtn.style.color       = cat === 'course' ? 'var(--highlight)' : 'var(--gold)';
+  activeBtn.style.borderColor = cat === 'course' ? 'var(--accent)' : 'var(--gold)';
+
+  $('nom-select-label').textContent = cat === 'course'
+    ? 'Step 2 — Select Course' : 'Step 2 — Select Exam';
+
+  const sel = $('nom-item-select');
+  sel.innerHTML = '<option value="">— Loading… —</option>';
+  $('nom-step2').style.display = 'block';
+  $('nom-area').style.display  = 'none';
+
+  if (cat === 'course') {
+    const snap = await getDocs(collection(db, 'courses'));
+    sel.innerHTML = '<option value="">— Select a course —</option>';
+    snap.forEach(d => {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.data().title || d.id;
+      sel.appendChild(o);
+    });
+  } else {
+    if (!exams.length) await loadAdminExams();
+    sel.innerHTML = '<option value="">— Select an exam —</option>';
+    exams.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.id;
+      o.textContent = e.title;
+      sel.appendChild(o);
+    });
+  }
+};
+
+async function onNomItemChange() {
+  const id = $('nom-item-select').value;
+  if (!id) { $('nom-area').style.display = 'none'; return; }
   $('nom-area').style.display = 'block';
-  await loadExamNominations(id);
+  await loadNominations(id);
 }
 
-async function loadExamNominations(examId) {
+async function loadNominations(itemId) {
   $('nom-list-container').innerHTML = '<div class="nom-empty">Loading…</div>';
-  const snap = await getDocs(collection(db,'exams',examId,'nominations'));
-  const noms = []; snap.forEach(d => noms.push({email:d.id,...d.data()}));
-  if (!noms.length) { $('nom-list-container').innerHTML='<div class="nom-empty">No users nominated.</div>'; return; }
-  const list = document.createElement('div'); list.className='nom-list';
+  const collPath = nomCategory === 'course'
+    ? collection(db, 'courses', itemId, 'nominations')
+    : collection(db, 'exams',   itemId, 'nominations');
+  const snap = await getDocs(collPath);
+  const noms = [];
+  snap.forEach(d => noms.push({email: d.id, ...d.data()}));
+  if (!noms.length) {
+    $('nom-list-container').innerHTML = '<div class="nom-empty">No users nominated.</div>';
+    return;
+  }
+  const list = document.createElement('div');
+  list.className = 'nom-list';
   for (const n of noms) {
-    const it = document.createElement('div'); it.className='nom-item';
-    it.innerHTML=`<span>${esc(n.email)}</span><button class="nom-rem">×</button>`;
-    it.querySelector('.nom-rem').addEventListener('click', () => removeExamNom(examId,n.email));
+    const it = document.createElement('div');
+    it.className = 'nom-item';
+    it.innerHTML = `<span>${esc(n.email)}</span><button class="nom-rem">×</button>`;
+    it.querySelector('.nom-rem').addEventListener('click', () => removeNomination(itemId, n.email));
     list.appendChild(it);
   }
-  $('nom-list-container').innerHTML=''; $('nom-list-container').appendChild(list);
+  $('nom-list-container').innerHTML = '';
+  $('nom-list-container').appendChild(list);
 }
 
-async function addExamNom() {
-  const examId = $('nom-exam-select').value;
+async function addNomination() {
+  const itemId = $('nom-item-select').value;
   const email  = $('nom-email-input').value.trim().toLowerCase();
-  if (!examId || !email) { toast('Select an exam and enter an email.','error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Invalid email.','error'); return; }
-  await setDoc(doc(db,'exams',examId,'nominations',email), {nominated:true,nominatedAt:serverTimestamp(),nominatedBy:me.email});
-  $('nom-email-input').value='';
-  await loadExamNominations(examId); toast(`${email} nominated!`,'success');
+  if (!itemId || !email) { toast('Select an item and enter an email.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Invalid email.', 'error'); return; }
+  const collPath = nomCategory === 'course'
+    ? doc(db, 'courses', itemId, 'nominations', email)
+    : doc(db, 'exams',   itemId, 'nominations', email);
+  await setDoc(collPath, {nominated: true, nominatedAt: serverTimestamp(), nominatedBy: me.email});
+  $('nom-email-input').value = '';
+  await loadNominations(itemId);
+  toast(`${email} nominated!`, 'success');
 }
 
-async function removeExamNom(examId, email) {
-  await deleteDoc(doc(db,'exams',examId,'nominations',email));
-  await loadExamNominations(examId); toast(`Removed ${email}.`,'success');
+async function removeNomination(itemId, email) {
+  const collPath = nomCategory === 'course'
+    ? doc(db, 'courses', itemId, 'nominations', email)
+    : doc(db, 'exams',   itemId, 'nominations', email);
+  await deleteDoc(collPath);
+  await loadNominations(itemId);
+  toast(`Removed ${email}.`, 'success');
 }
 
 /* ══════════════════════════════════════
