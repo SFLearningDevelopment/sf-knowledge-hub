@@ -46,6 +46,54 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-card.certify .choice-arrow{color:var(--gold);}
 @media(max-width:600px){.choice-cards{grid-template-columns:1fr;}}
 
+
+/* ══ ADMIN CHOICE SCREEN ══ */
+#admin-choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);overflow-y:auto;}
+.admin-choice-wrap{display:flex;flex-direction:column;align-items:center;gap:36px;padding:40px 20px;width:100%;max-width:960px;}
+.admin-welcome{text-align:center;}
+.admin-welcome-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:50px;padding:5px 14px;font-size:12px;font-weight:600;color:#fbbf24;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;}
+.admin-welcome h1{font-size:clamp(22px,3.5vw,34px);font-weight:800;line-height:1.2;margin-bottom:8px;}
+.admin-welcome h1 em{font-style:normal;color:var(--accent);}
+.admin-welcome p{color:var(--muted);font-size:15px;}
+.admin-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;}
+.admin-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;animation:fadeUp .45s ease both;}
+.admin-card:nth-child(2){animation-delay:.06s;}
+.admin-card:nth-child(3){animation-delay:.12s;}
+.admin-card:nth-child(4){animation-delay:.18s;}
+.admin-card:nth-child(5){animation-delay:.24s;}
+.admin-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;border-radius:20px;}
+.admin-card:hover{transform:translateY(-4px);box-shadow:0 18px 44px rgba(0,0,0,.5);}
+.admin-card:hover::before{opacity:1;}
+.admin-card.ac-blue::before{background:radial-gradient(ellipse 80% 60% at 50% 110%,rgba(59,130,246,.14) 0%,transparent 70%);}
+.admin-card.ac-gold::before{background:radial-gradient(ellipse 80% 60% at 50% 110%,rgba(245,158,11,.12) 0%,transparent 70%);}
+.admin-card.ac-green::before{background:radial-gradient(ellipse 80% 60% at 50% 110%,rgba(16,185,129,.12) 0%,transparent 70%);}
+.admin-card.ac-purple::before{background:radial-gradient(ellipse 80% 60% at 50% 110%,rgba(139,92,246,.12) 0%,transparent 70%);}
+.admin-card.ac-red::before{background:radial-gradient(ellipse 80% 60% at 50% 110%,rgba(239,68,68,.10) 0%,transparent 70%);}
+.admin-card.ac-blue:hover{border-color:rgba(59,130,246,.5);}
+.admin-card.ac-gold:hover{border-color:rgba(245,158,11,.45);}
+.admin-card.ac-green:hover{border-color:rgba(16,185,129,.45);}
+.admin-card.ac-purple:hover{border-color:rgba(139,92,246,.45);}
+.admin-card.ac-red:hover{border-color:rgba(239,68,68,.4);}
+.admin-card-icon{font-size:36px;line-height:1;}
+.admin-card-label{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;line-height:1.25;}
+.admin-card-desc{color:var(--muted);font-size:13px;line-height:1.55;flex:1;}
+.admin-card-arrow{font-size:18px;margin-top:4px;}
+.ac-blue .admin-card-arrow{color:var(--accent);}
+.ac-gold .admin-card-arrow{color:var(--gold);}
+.ac-green .admin-card-arrow{color:#34d399;}
+.ac-purple .admin-card-arrow{color:#a78bfa;}
+.ac-red .admin-card-arrow{color:#f87171;}
+.admin-card-tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:50px;margin-bottom:2px;}
+.tag-blue{background:rgba(59,130,246,.12);color:var(--highlight);border:1px solid rgba(59,130,246,.25);}
+.tag-gold{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25);}
+.tag-green{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);}
+.tag-purple{background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25);}
+.tag-red{background:rgba(239,68,68,.10);color:#f87171;border:1px solid rgba(239,68,68,.25);}
+.admin-signout{font-size:13px;color:var(--muted);cursor:pointer;padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:none;transition:all .2s;}
+.admin-signout:hover{color:#f87171;border-color:rgba(239,68,68,.4);}
+@media(max-width:780px){.admin-cards{grid-template-columns:1fr 1fr;}}
+@media(max-width:500px){.admin-cards{grid-template-columns:1fr;}}
+
 /* ══ AUTH SCREEN ══ */
 #auth-screen{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;background:var(--navy);}
 .auth-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 52px;display:flex;flex-direction:column;align-items:center;gap:24px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.5);animation:fadeUp .4s ease both;}
@@ -288,6 +336,66 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     </div>
   </div>
 </div>
+
+<!-- ADMIN CHOICE SCREEN -->
+<div id="admin-choice-screen">
+  <div class="admin-choice-wrap">
+    <div class="choice-brand">
+      <div class="choice-badge">SF</div>
+      <div class="choice-brand-text"><span>SF</span> Learning &amp; Development</div>
+    </div>
+    <div class="admin-welcome">
+      <div class="admin-welcome-eyebrow">⚙ Admin Console</div>
+      <h1>Welcome back,<br><em id="admin-first-name">Admin</em></h1>
+      <p>What would you like to manage today?</p>
+    </div>
+    <div class="admin-cards">
+
+      <div class="admin-card ac-blue" onclick="adminNav('courses')">
+        <span class="admin-card-tag tag-blue">Courses</span>
+        <div class="admin-card-icon">📚</div>
+        <div class="admin-card-label">Add New Courses</div>
+        <div class="admin-card-desc">Create, edit, and publish learning courses. Manage nominations and set access controls.</div>
+        <div class="admin-card-arrow">→</div>
+      </div>
+
+      <div class="admin-card ac-gold" onclick="adminNav('certifications')">
+        <span class="admin-card-tag tag-gold">Certifications</span>
+        <div class="admin-card-icon">🎓</div>
+        <div class="admin-card-label">Add New Certifications</div>
+        <div class="admin-card-desc">Set up certification exams, configure attempt limits, and link them to courses.</div>
+        <div class="admin-card-arrow">→</div>
+      </div>
+
+      <div class="admin-card ac-green" onclick="adminNav('proctor')">
+        <span class="admin-card-tag tag-green">Proctoring</span>
+        <div class="admin-card-icon">👁</div>
+        <div class="admin-card-label">Assign Proctor</div>
+        <div class="admin-card-desc">Assign proctors to exam candidates and manage active proctoring sessions.</div>
+        <div class="admin-card-arrow">→</div>
+      </div>
+
+      <div class="admin-card ac-purple" onclick="adminNav('console')">
+        <span class="admin-card-tag tag-purple">Admin Console</span>
+        <div class="admin-card-icon">🖥</div>
+        <div class="admin-card-label">Admin Console</div>
+        <div class="admin-card-desc">Full certification hub — manage live exam sessions, view candidate status, and proctoring tools.</div>
+        <div class="admin-card-arrow">→</div>
+      </div>
+
+      <div class="admin-card ac-red" onclick="adminNav('reports')">
+        <span class="admin-card-tag tag-red">Reports</span>
+        <div class="admin-card-icon">📊</div>
+        <div class="admin-card-label">View Reports</div>
+        <div class="admin-card-desc">View nominations, proctor events, course progress, and certification results across all users.</div>
+        <div class="admin-card-arrow">→</div>
+      </div>
+
+    </div>
+    <button class="admin-signout" onclick="adminSignOut()">Sign out</button>
+  </div>
+</div>
+
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
@@ -546,14 +654,16 @@ $('signout-btn').addEventListener('click', () => {
   pendingMode = null;
   signOut(auth);
   $('app').style.display = 'none';
+  $('admin-choice-screen').style.display = 'none';
   $('choice-screen').style.display = 'flex';
 });
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    // Not signed in — restore choice screen only if app was showing
-    if ($('app').style.display === 'block') {
+    // Not signed in — restore choice screen only if app/admin screen was showing
+    if ($('app').style.display === 'block' || $('admin-choice-screen').style.display === 'flex') {
       $('app').style.display = 'none';
+      $('admin-choice-screen').style.display = 'none';
       $('choice-screen').style.display = 'flex';
     }
     return;
@@ -571,7 +681,6 @@ onAuthStateChanged(auth, async user => {
   me = user;
   $('auth-screen').style.display = 'none';
   $('choice-screen').style.display = 'none';
-  $('app').style.display = 'block';
   $('user-name').textContent = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
 
@@ -582,17 +691,60 @@ onAuthStateChanged(auth, async user => {
     myRole = snap.exists() ? (snap.data().role || 'student') : 'student';
   }
 
+  // Admins always go to the admin choice screen first
+  if (myRole === 'admin') {
+    const firstName = (user.displayName || user.email).split(' ')[0].split('@')[0];
+    $('admin-first-name').textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+    $('admin-choice-screen').style.display = 'flex';
+    return;
+  }
+
   // If user refreshes while already logged in, default to 'learn'
   if (!pendingMode) pendingMode = 'learn';
 
   // Certify mode → send non-admins straight to certs hub
-  if (pendingMode === 'certify' && myRole !== 'admin') {
+  if (pendingMode === 'certify') {
     window.location.href = 'sf-certs-hub.html'; return;
   }
 
+  $('app').style.display = 'block';
   showChips();
   route();
 });
+
+window.adminNav = function(section) {
+  $('admin-choice-screen').style.display = 'none';
+  if (section === 'console') {
+    window.location.href = 'sf-certs-hub.html'; return;
+  }
+  if (section === 'certifications') {
+    window.location.href = 'sf-certs-hub.html'; return;
+  }
+  // courses, proctor, reports all go to the admin view
+  $('app').style.display = 'block';
+  showChips();
+  show('admin-view');
+  if (section === 'proctor') {
+    // Jump straight to People & Roles tab, proctor sub-tab
+    loadAdminCourses();
+    setTimeout(() => switchTab('people'), 100);
+  } else if (section === 'reports') {
+    loadAdminCourses();
+    // Reports panel will be added later; for now show admin view
+    toast('Reports coming soon — showing Admin Console.', '');
+  } else {
+    // courses
+    loadAdminCourses();
+  }
+};
+
+window.adminSignOut = function() {
+  pendingMode = null;
+  signOut(auth);
+  $('admin-choice-screen').style.display = 'none';
+  $('app').style.display = 'none';
+  $('choice-screen').style.display = 'flex';
+};
 
 function showChips() {
   $('chip-admin').style.display    = myRole==='admin'    ? 'inline-flex' : 'none';
