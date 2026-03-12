@@ -603,16 +603,32 @@ const authTimeout = setTimeout(() => {
   $('no-session-screen').style.display = 'flex';
 }, 6000);
 
+let authResolved = false;
+
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
-  $('loading-splash').classList.add('hidden');
 
   if (!user) {
-    // No active Google SSO session — show no-session screen
-    // Normal users arrive here via SF LMS which handles Google SSO
-    $('no-session-screen').style.display = 'flex';
+    // Don't immediately show no-session — Firebase sometimes fires null 
+    // briefly before resolving an existing Google SSO session.
+    // Wait 2 seconds before giving up.
+    if (authResolved) {
+      // Already resolved once — user genuinely signed out
+      $('loading-splash').classList.add('hidden');
+      $('no-session-screen').style.display = 'flex';
+    } else {
+      setTimeout(() => {
+        if (!auth.currentUser) {
+          $('loading-splash').classList.add('hidden');
+          $('no-session-screen').style.display = 'flex';
+        }
+      }, 2000);
+    }
     return;
   }
+
+  authResolved = true;
+  $('loading-splash').classList.add('hidden');
 
   // Wrong domain — sign out and show access denied on choice screen
   if (user.email.split('@')[1] !== DOMAIN) {
