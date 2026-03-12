@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SF Certifications Hub</title>
+<title>SF Learning Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -245,6 +245,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   .form-grid{grid-template-columns:1fr;}
 }
 </style>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwQTE2MjgiLz4KICA8dGV4dCB4PSIzMiIgeT0iNDQiIGZvbnQtZmFtaWx5PSJBcmlhbCxzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iODAwIiBmb250LXNpemU9IjMwIiBmaWxsPSIjRjU5RTBCIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TRjwvdGV4dD4KPC9zdmc+">
 </head>
 <body>
 
@@ -260,7 +261,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <div class="auth-card" id="signin-box">
     <div class="auth-logo">
       <div class="a-badge">🎓</div>
-      <div class="a-brand"><span>SF</span> Certifications</div>
+      <div class="a-brand"><span>SF</span> Learning Hub</div>
     </div>
     <div class="auth-divider"></div>
     <span class="mode-badge">Get Certified</span>
@@ -305,7 +306,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <nav>
     <div class="nav-brand">
       <div class="nav-badge">🎓</div>
-      <div class="nav-title"><span>SF</span> Certifications
+      <div class="nav-title"><span>SF</span> Learning Hub
         <span class="nav-chip chip-admin" id="chip-admin">Admin</span>
         <span class="nav-chip chip-proctor" id="chip-proctor">Proctor</span>
       </div>
@@ -313,6 +314,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     <div class="nav-right">
       <!-- Hidden for proctors; shown for students/admins -->
       <a href="https://sflearningdevelopment.github.io/sf-learning-hub/index.html" class="nav-link" id="hub-link" style="display:none;">📚 Learning Hub</a>
+      <a href="sf-certs-hub.html" class="nav-link" id="certs-hub-link" style="display:none;">🎓 Certifications</a>
       <div id="user-chip">
         <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
         <span id="user-name"></span>
@@ -532,7 +534,9 @@ onAuthStateChanged(auth, async user => {
 
   // Hub link: visible for students and admins; HIDDEN for proctors
   // Proctors should stay focused on their proctoring task only
-  $('hub-link').style.display = myRole === 'proctor' ? 'none' : 'inline-flex';
+  $('hub-link').style.display      = myRole === 'proctor' ? 'none' : 'inline-flex';
+  // Certifications nav link — admins only (students use exam cards, proctors stay on monitor)
+  $('certs-hub-link').style.display = myRole === 'admin' ? 'inline-flex' : 'none';
 
   route();
 });
