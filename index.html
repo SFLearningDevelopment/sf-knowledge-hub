@@ -29,15 +29,7 @@ body::before{content:'';position:fixed;inset:0;background:
 #loading-splash{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--navy);}
 #loading-splash.hidden{display:none;}
 .splash-spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite;}
-#choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);}
-.choice-wrap{display:flex;flex-direction:column;align-items:center;gap:40px;padding:20px;width:100%;max-width:780px;}
-.choice-brand{display:flex;align-items:center;gap:14px;}
 .choice-badge{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:24px;color:#fff;}
-.choice-brand-text{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;}
-.choice-brand-text span{color:var(--accent);}
-.choice-headline{font-family:'Syne',sans-serif;font-size:clamp(20px,3vw,30px);font-weight:800;text-align:center;line-height:1.2;}
-.choice-headline em{font-style:normal;color:var(--accent);}
-.choice-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;}
 .choice-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:36px 28px;display:flex;flex-direction:column;align-items:flex-start;gap:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;animation:fadeUp .5s ease both;}
 .choice-card:nth-child(2){animation-delay:.1s;}
 .choice-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;}
@@ -52,10 +44,27 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-desc{color:var(--muted);font-size:14px;line-height:1.6;}
 .choice-arrow{margin-top:auto;font-size:20px;color:var(--accent);}
 .choice-card.certify .choice-arrow{color:var(--gold);}
-@media(max-width:600px){.choice-cards{grid-template-columns:1fr;}}
+@media(max-width:600px){}
 
 
 /* ══ ADMIN CHOICE SCREEN ══ */
+#choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);}
+.choice-wrap{display:flex;flex-direction:column;align-items:center;gap:32px;padding:40px 20px;width:100%;max-width:560px;}
+.choice-brand{display:flex;align-items:center;gap:14px;}
+.choice-badge{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#fff;font-family:'Syne',sans-serif;}
+.choice-brand-text{font-size:20px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;line-height:1.2;}
+.choice-brand-text span{color:var(--blue);}
+.choice-headline{font-size:32px;font-weight:800;color:var(--text);text-align:center;font-family:'Syne',sans-serif;line-height:1.2;}
+.choice-headline em{color:var(--blue);font-style:normal;}
+.choice-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;}
+.choice-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px 24px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:10px;}
+.choice-card:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,.15);}
+.choice-icon{font-size:32px;}
+.choice-label{font-size:18px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;}
+.choice-desc{font-size:13px;color:var(--muted);line-height:1.5;}
+.choice-arrow{font-size:18px;color:var(--blue);margin-top:auto;}
+.choice-card.certify .choice-arrow{color:var(--accent);}
+#no-session-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);}
 #admin-choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);overflow-y:auto;}
 .admin-choice-wrap{display:flex;flex-direction:column;align-items:center;gap:36px;padding:40px 20px;width:100%;max-width:960px;}
 .admin-welcome{text-align:center;}
@@ -103,31 +112,13 @@ body::before{content:'';position:fixed;inset:0;background:
 @media(max-width:500px){.admin-cards{grid-template-columns:1fr;}}
 
 /* ══ AUTH SCREEN ══ */
-#auth-screen{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;background:var(--navy);}
-.auth-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 52px;display:flex;flex-direction:column;align-items:center;gap:24px;max-width:420px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.5);animation:fadeUp .4s ease both;}
-.auth-logo{display:flex;align-items:center;gap:12px;}
 .auth-badge{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:#fff;}
 .auth-brand{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;}
 .auth-brand span{color:var(--accent);}
-.auth-divider{width:100%;height:1px;background:var(--border);}
-.mode-badge{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 14px;border-radius:50px;}
 .mode-learn{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:var(--highlight);}
 .mode-certify{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fbbf24;}
-.auth-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;text-align:center;line-height:1.3;}
-.auth-sub{color:var(--muted);font-size:14px;text-align:center;line-height:1.6;}
-#google-btn{display:flex;align-items:center;gap:12px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;padding:13px 28px;font-size:15px;font-weight:500;cursor:pointer;width:100%;justify-content:center;transition:box-shadow .2s,transform .15s;box-shadow:0 2px 8px rgba(0,0,0,.3);}
-#google-btn:hover{box-shadow:0 6px 20px rgba(0,0,0,.4);transform:translateY(-1px);}
-#google-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
-#google-btn img{width:20px;height:20px;}
 .auth-back{font-size:13px;color:var(--muted);cursor:pointer;transition:color .2s;}
 .auth-back:hover{color:var(--accent);}
-#auth-error{color:#f87171;font-size:13px;text-align:center;display:none;}
-#denied-box{display:none;flex-direction:column;align-items:center;gap:16px;text-align:center;}
-.denied-icon{font-size:48px;}
-#denied-box h2{font-family:'Syne',sans-serif;}
-#denied-box p{color:var(--muted);font-size:14px;line-height:1.6;}
-#switch-btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;transition:all .2s;}
-#switch-btn:hover{color:var(--text);border-color:var(--accent);}
 
 /* ══ NAV ══ */
 nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:68px;background:rgba(10,22,40,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
@@ -352,6 +343,15 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   </div>
 </div>
 
+<!-- NO SESSION SCREEN — shown only if no Google SSO session detected -->
+<div id="no-session-screen" style="display:none;position:fixed;inset:0;z-index:200;background:var(--navy);align-items:center;justify-content:center;flex-direction:column;gap:20px;font-family:'Syne',sans-serif;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 52px;max-width:420px;width:90%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;">
+    <div style="font-size:48px;">🔒</div>
+    <div style="font-size:20px;font-weight:700;color:var(--text);">Session Not Found</div>
+    <div style="font-size:14px;color:var(--muted);line-height:1.6;">Please access the SF Learning Hub through the <strong style="color:var(--text);">SF LMS portal</strong> where you are already signed in with your SourceFuse Google account.</div>
+  </div>
+</div>
+
 <!-- ADMIN CHOICE SCREEN -->
 <div id="admin-choice-screen">
   <div class="admin-choice-wrap">
@@ -411,32 +411,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   </div>
 </div>
 
-
-<!-- AUTH SCREEN -->
-<div id="auth-screen">
-  <div class="auth-card" id="signin-box">
-    <div class="auth-logo">
-      <div class="auth-badge">SF</div>
-      <div class="auth-brand"><span>SF</span> Learning &amp; Development</div>
-    </div>
-    <div class="auth-divider"></div>
-    <span class="mode-badge mode-learn" id="mode-badge">Learn Mode</span>
-    <div class="auth-title" id="auth-title">Sign in to access<br>your courses</div>
-    <div class="auth-sub">Use your SourceFuse Google account to continue.</div>
-    <button id="google-btn">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
-      Continue with Google
-    </button>
-    <div id="auth-error">Sign-in failed. Please use your @sourcefuse.com account.</div>
-    <span class="auth-back" onclick="backToChoice()">← Back</span>
-  </div>
-  <div class="auth-card" id="denied-box">
-    <div class="denied-icon">🔒</div>
-    <h2>Access Restricted</h2>
-    <p>This hub is for SourceFuse employees only. Please sign in with your <strong>@sourcefuse.com</strong> account.</p>
-    <button id="switch-btn">Sign out &amp; try another account</button>
-  </div>
-</div>
 
 <!-- APP -->
 <div id="app">
@@ -589,7 +563,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp
@@ -609,102 +583,47 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── Google provider with domain hint ──
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ hd: DOMAIN });
 
-let me = null, myRole = null, pendingMode = null;
+let me = null, myRole = null;
 let courses = [], people = [];
 let selCourse = null, selPerson = null, adminTab = 'courses';
 
 /* ══ CHOICE ══ */
-window.chooseMode = mode => {
-  pendingMode = mode;
-  $('choice-screen').style.display = 'none';
-  $('mode-badge').className = 'mode-badge ' + (mode==='certify' ? 'mode-certify' : 'mode-learn');
-  $('mode-badge').textContent = mode==='certify' ? 'Get Certified' : 'Learn Mode';
-  $('auth-title').innerHTML = mode==='certify'
-    ? 'Sign in to access<br>your certifications'
-    : 'Sign in to access<br>your courses';
-  // Reset button state
-  const btn = $('google-btn');
-  btn.disabled = false;
-  btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"> Continue with Google';
-  $('auth-error').style.display = 'none';
-  $('auth-screen').style.display = 'flex';
-  $('signin-box').style.display = 'flex';
-  $('denied-box').style.display = 'none';
-};
 
-window.backToChoice = () => {
-  $('auth-screen').style.display = 'none';
-  $('choice-screen').style.display = 'flex';
-  pendingMode = null;
-};
+
+
 
 /* ══ AUTH ══ */
-$('google-btn').addEventListener('click', async () => {
-  const btn = $('google-btn');
-  const errEl = $('auth-error');
-  errEl.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
-  try {
-    await signInWithPopup(auth, googleProvider);
-    // onAuthStateChanged handles routing
-  } catch(e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
-      errEl.textContent = 'Sign-in cancelled. Please try again.';
-    } else if (e.code === 'auth/popup-blocked') {
-      errEl.textContent = 'Pop-up blocked — please allow pop-ups for this site and try again.';
-    } else {
-      errEl.textContent = 'Sign-in failed: ' + (e.message || 'Unknown error');
-    }
-    errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"> Continue with Google';
-  }
-});
 
-$('switch-btn').addEventListener('click', () => signOut(auth));
-
-$('signout-btn').addEventListener('click', () => {
-  pendingMode = null;
-  signOut(auth);
-  $('app').style.display = 'none';
-  $('admin-choice-screen').style.display = 'none';
-  $('choice-screen').style.display = 'flex';
-});
 
 // Hide splash and show choice screen after 5s if Firebase is slow
 const authTimeout = setTimeout(() => {
+  // Firebase took too long — show no-session screen
   $('loading-splash').classList.add('hidden');
-  $('choice-screen').style.display = 'flex';
-}, 5000);
+  $('no-session-screen').style.display = 'flex';
+}, 6000);
 
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
   $('loading-splash').classList.add('hidden');
 
   if (!user) {
-    // Not signed in — show choice screen
-    $('app').style.display = 'none';
-    $('admin-choice-screen').style.display = 'none';
-    $('choice-screen').style.display = 'flex';
+    // No active Google SSO session — show no-session screen
+    // Normal users arrive here via SF LMS which handles Google SSO
+    $('no-session-screen').style.display = 'flex';
     return;
   }
 
-  // Wrong domain — sign out and show access denied
+  // Wrong domain — sign out and show access denied on choice screen
   if (user.email.split('@')[1] !== DOMAIN) {
     await signOut(auth);
-    $('auth-screen').style.display = 'flex';
-    $('signin-box').style.display = 'none';
-    $('denied-box').style.display = 'flex';
+    $('no-session-screen').style.display = 'flex';
+    toast('Access denied — please use your @sourcefuse.com account.', 'error');
     return;
   }
 
   me = user;
-  $('auth-screen').style.display = 'none';
-  $('choice-screen').style.display = 'none';
+  $('no-session-screen').style.display = 'none';
   $('user-name').textContent = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
 
@@ -723,26 +642,32 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // If user refreshes while already logged in, default to 'learn'
-  if (!pendingMode) pendingMode = 'learn';
-
-  // Certify mode → send non-admins straight to certs hub
-  if (pendingMode === 'certify') {
-    window.location.href = 'sf-certs-hub.html'; return;
-  }
-
-  $('app').style.display = 'block';
-  showChips();
-  route();
+  // Non-admin — show their choice screen (Learn / Get Certified)
+  $('choice-screen').style.display = 'flex';
 });
 
 let inLearnerView = false;
+
+
+
+window.chooseMode = function(mode) {
+  $('choice-screen').style.display = 'none';
+  if (mode === 'certify') {
+    window.location.href = 'sf-certs-hub.html';
+  } else {
+    $('app').style.display = 'block';
+    showChips();
+    route();
+  }
+};
 
 window.backToAdminConsole = function() {
   $('app').style.display = 'none';
   inLearnerView = false;
   $('admin-choice-screen').style.display = 'flex';
 };
+
+window.adminNav = function(section) {
   $('admin-choice-screen').style.display = 'none';
   if (section === 'console' || section === 'certifications') {
     window.location.href = 'sf-certs-hub.html'; return;
@@ -789,8 +714,7 @@ window.toggleLearnerView = function() {
 };
 
 window.adminSignOut = function() {
-  pendingMode = null;
-  signOut(auth);
+    signOut(auth);
   $('admin-choice-screen').style.display = 'none';
   $('app').style.display = 'none';
   $('choice-screen').style.display = 'flex';
