@@ -1261,7 +1261,7 @@ window.nomSetCategory = async cat => {
   // Do NOT auto-select — wait for user to choose from dropdown
 };
 
-async function onNomItemChange() {
+window.onNomItemChange = async function() {
   const id = $('nom-item-select').value;
   if (!id) { $('nom-area').style.display = 'none'; return; }
   $('nom-area').style.display = 'block';
