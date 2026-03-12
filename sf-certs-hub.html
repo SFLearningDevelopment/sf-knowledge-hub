@@ -1171,6 +1171,11 @@ async function populateNomExamSelect() {
   for (const e of exams) {
     const o = document.createElement('option'); o.value=e.id; o.textContent=e.title; sel.appendChild(o);
   }
+  // Auto-select first exam and load its nominations
+  if (exams.length) {
+    sel.value = exams[0].id;
+    await onNomExamChange();
+  }
 }
 
 async function onNomExamChange() {
