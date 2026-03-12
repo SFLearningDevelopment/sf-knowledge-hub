@@ -316,8 +316,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     </div>
     <div class="nav-right">
       <!-- Hidden for proctors; shown for students/admins -->
-      <a href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html?view=courses" class="nav-link" id="hub-link" style="display:none;">📚 Learning Hub</a>
-      <a href="sf-certs-hub.html" class="nav-link" id="certs-hub-link" style="display:none;">🎓 Certifications</a>
+      <a href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html" class="nav-link" id="admin-dashboard-link">🏠 Admin Dashboard</a>
       <div id="user-chip">
         <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
         <span id="user-name"></span>
@@ -550,9 +549,7 @@ onAuthStateChanged(auth, async user => {
 
   // Hub link: visible for students and admins; HIDDEN for proctors
   // Proctors should stay focused on their proctoring task only
-  $('hub-link').style.display      = myRole === 'proctor' ? 'none' : 'inline-flex';
-  // Certifications nav link — admins only (students use exam cards, proctors stay on monitor)
-  $('certs-hub-link').style.display = myRole === 'admin' ? 'inline-flex' : 'none';
+  $('admin-dashboard-link').style.display = myRole === 'admin' ? 'inline-flex' : 'none';
 
   route();
 });
