@@ -64,7 +64,6 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-desc{font-size:13px;color:var(--muted);line-height:1.5;}
 .choice-arrow{font-size:18px;color:var(--blue);margin-top:auto;}
 .choice-card.certify .choice-arrow{color:var(--accent);}
-#no-session-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);}
 #admin-choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);overflow-y:auto;}
 .admin-choice-wrap{display:flex;flex-direction:column;align-items:center;gap:36px;padding:40px 20px;width:100%;max-width:960px;}
 .admin-welcome{text-align:center;}
@@ -340,15 +339,13 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
         <div class="choice-arrow">→</div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- NO SESSION SCREEN — shown only if no Google SSO session detected -->
-<div id="no-session-screen" style="display:none;position:fixed;inset:0;z-index:200;background:var(--navy);align-items:center;justify-content:center;flex-direction:column;gap:20px;font-family:'Syne',sans-serif;">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 52px;max-width:420px;width:90%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;">
-    <div style="font-size:48px;">🔒</div>
-    <div style="font-size:20px;font-weight:700;color:var(--text);">Session Not Found</div>
-    <div style="font-size:14px;color:var(--muted);line-height:1.6;">Please access the SF Learning Hub through the <strong style="color:var(--text);">SF LMS portal</strong> where you are already signed in with your SourceFuse Google account.</div>
+    <div style="margin-top:8px;text-align:center;">
+      <button id="manual-signin-btn" onclick="manualSignIn()" style="display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:500;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G">
+        Sign in with Google
+      </button>
+      <p style="color:var(--muted);font-size:12px;margin-top:10px;">Use your @sourcefuse.com account</p>
+    </div>
   </div>
 </div>
 
@@ -563,7 +560,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
-import { getAuth, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp
@@ -600,8 +597,11 @@ let selCourse = null, selPerson = null, adminTab = 'courses';
 const authTimeout = setTimeout(() => {
   // Firebase took too long — show no-session screen
   $('loading-splash').classList.add('hidden');
-  $('no-session-screen').style.display = 'flex';
+  $('choice-screen').style.display = 'flex';
 }, 6000);
+
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ hd: 'sourcefuse.com', prompt: 'select_account' });
 
 let authResolved = false;
 
@@ -609,20 +609,22 @@ onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
 
   if (!user) {
-    // Don't immediately show no-session — Firebase sometimes fires null 
-    // briefly before resolving an existing Google SSO session.
-    // Wait 2 seconds before giving up.
     if (authResolved) {
-      // Already resolved once — user genuinely signed out
+      // User explicitly signed out — show choice screen
       $('loading-splash').classList.add('hidden');
-      $('no-session-screen').style.display = 'flex';
-    } else {
-      setTimeout(() => {
-        if (!auth.currentUser) {
-          $('loading-splash').classList.add('hidden');
-          $('no-session-screen').style.display = 'flex';
-        }
-      }, 2000);
+      $('choice-screen').style.display = 'flex';
+      return;
+    }
+    // First load — auto-trigger Google SSO popup silently
+    // Since user is already signed into Google via SF LMS,
+    // the popup resolves instantly without any visible prompt
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged will fire again with the user
+    } catch(e) {
+      // Popup blocked or dismissed — show choice screen with manual option
+      $('loading-splash').classList.add('hidden');
+      $('choice-screen').style.display = 'flex';
     }
     return;
   }
@@ -633,13 +635,13 @@ onAuthStateChanged(auth, async user => {
   // Wrong domain — sign out and show access denied on choice screen
   if (user.email.split('@')[1] !== DOMAIN) {
     await signOut(auth);
-    $('no-session-screen').style.display = 'flex';
+    $('choice-screen').style.display = 'flex';
     toast('Access denied — please use your @sourcefuse.com account.', 'error');
     return;
   }
 
   me = user;
-  $('no-session-screen').style.display = 'none';
+  
   $('user-name').textContent = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
 
@@ -665,6 +667,23 @@ onAuthStateChanged(auth, async user => {
 let inLearnerView = false;
 
 
+
+window.manualSignIn = async function() {
+  const btn = $('manual-signin-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="splash-spinner" style="width:18px;height:18px;border-width:2px;margin:0 auto;"></div>';
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+    if (e.code === 'auth/popup-blocked') {
+      toast('Pop-up blocked — please allow pop-ups for this site.', 'error');
+    } else if (e.code !== 'auth/popup-closed-by-user') {
+      toast('Sign-in failed: ' + (e.message||'Unknown error'), 'error');
+    }
+  }
+};
 
 window.chooseMode = function(mode) {
   $('choice-screen').style.display = 'none';
