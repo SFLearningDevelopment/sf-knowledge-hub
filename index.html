@@ -713,10 +713,10 @@ const db = getFirestore(app);
 
 // ── Google provider with domain hint ──
 
-let me = null, myRole = null, isPreviewMode = false, previewEmail = null;
+let me = null, meEmail = null, myRole = null, isPreviewMode = false, previewEmail = null;
 
 // Returns the email to use for Firestore lookups — previewEmail when previewing as another user
-function lookupEmail() { return (isPreviewMode && previewEmail) ? previewEmail : me.email; }
+function lookupEmail() { return (isPreviewMode && previewEmail) ? previewEmail : meEmail; }
 
 // Returns uid for Firestore lookups — fetches from users collection in preview mode
 async function lookupUid() {
@@ -773,17 +773,17 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // Normalize email to lowercase — Google Workspace can return mixed case
-  // but nomination docs are written with .toLowerCase(), so keys must match
-  me = {...user, email: user.email.toLowerCase()};
-  
+  // Keep Firebase User object intact — separately store normalized lowercase email
+  me = user;
+  meEmail = user.email.toLowerCase();
+
   $('user-name').textContent = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
 
-  if (ADMINS.includes(me.email)) {
+  if (ADMINS.includes(meEmail)) {
     myRole = 'admin';
   } else {
-    const snap = await getDoc(doc(db, 'users', user.email));
+    const snap = await getDoc(doc(db, 'users', meEmail));
     myRole = snap.exists() ? (snap.data().role || 'student') : 'student';
   }
 
@@ -1897,7 +1897,6 @@ function launchPreviewAs(u) {
   showPreviewBanner('Learner', u);
 }
 
-window.previewAsStudent = window.previewAsStudent;
 
 window.previewAsReviewer = function() {
   $('admin-choice-screen').style.display = 'none';
@@ -1953,7 +1952,7 @@ window.previewAsProctor = function() {
       </div>
 
       <!-- User list -->
-      <div id="picker-list" style="display:none;display:flex;flex-direction:column;gap:10px;"></div>
+      <div id="picker-list" style="display:none;flex-direction:column;gap:10px;"></div>
       <div id="picker-empty" style="display:none;text-align:center;padding:40px;color:rgba(255,255,255,.3);font-size:13px;">No matching users found.</div>
     </div>
   </div>
