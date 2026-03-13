@@ -312,6 +312,38 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   .main-panel{padding:24px 20px;}
   .rev-main{padding:32px 20px 60px;}
 }
+/* ══ EXAM SCHEDULING ══ */
+#schedule-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;}
+.schedule-wrap{max-width:560px;margin:60px auto;padding:0 20px 80px;}
+.schedule-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;}
+.schedule-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:6px;}
+.schedule-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5;}
+.schedule-field{margin-bottom:18px;}
+.schedule-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+.schedule-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;transition:border .2s;}
+.schedule-input:focus{border-color:var(--accent);}
+.schedule-tz{font-size:12px;color:var(--muted);margin-top:5px;}
+.schedule-tz a{color:var(--accent);cursor:pointer;text-decoration:underline;}
+.consent-box{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:16px;margin-bottom:20px;}
+.consent-title{font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:8px;}
+.consent-text{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+.consent-check{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--text);cursor:pointer;}
+.consent-check input{margin-top:2px;accent-color:var(--accent);}
+.photo-preview{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);margin-bottom:10px;display:block;}
+.photo-upload-btn{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;display:block;margin-bottom:4px;}
+.photo-upload-input{display:none;}
+.slot-status{display:flex;align-items:center;gap:8px;font-size:12px;padding:8px 12px;border-radius:8px;margin-top:12px;}
+.slot-status.awaiting{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fbbf24;}
+.slot-status.confirmed{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);color:#34d399;}
+.slot-status.cancelled{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;}
+.notif-bell{position:relative;cursor:pointer;}
+.notif-badge{position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;display:none;}
+.notif-panel{display:none;position:absolute;top:40px;right:0;width:320px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:1000;overflow:hidden;}
+.notif-header{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;}
+.notif-item{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;line-height:1.5;color:var(--muted);}
+.notif-item.unread{background:rgba(59,130,246,.06);color:var(--text);}
+.notif-empty{padding:24px;text-align:center;color:var(--muted);font-size:13px;}
+
 </style></head>
 <body>
 
@@ -458,6 +490,14 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <button class="nav-link" id="admin-console-btn" style="display:none;cursor:pointer;background:none;" onclick="backToAdminConsole()">⚙ Admin Dashboard</button>
       <a href="sf-certs-hub.html" class="nav-link" id="certs-link">🎓 Certifications</a>
       <button class="nav-link" id="learner-view-btn" style="display:none;cursor:pointer;background:none;" onclick="toggleLearnerView()">📚 Learner View</button>
+      <div class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()" style="position:relative;display:none;">
+        🔔
+        <span class="notif-badge" id="notif-badge"></span>
+        <div class="notif-panel" id="notif-panel">
+          <div class="notif-header">🔔 Notifications</div>
+          <div id="notif-list"><div class="notif-empty">No notifications yet.</div></div>
+        </div>
+      </div>
       <div id="user-chip">
         <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
         <span id="user-name"></span>
@@ -693,7 +733,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
-  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp
+  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
+  query, where, onSnapshot
 } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const FB = {
@@ -815,6 +856,7 @@ onAuthStateChanged(auth, async user => {
   $('app').style.display = 'block';
   showChips();
   route();
+  startNotifListener(); // Start real-time notification listener for students
 });
 
 let inLearnerView = false;
@@ -1676,8 +1718,27 @@ async function loadStudentExams() {
       } catch {}
     }
 
+    // Fetch existing exam slots for this learner
+    const slotMap = {};
+    try {
+      const slotSnap = await getDocs(query(
+        collection(db, 'examSlots'),
+        where('learnerEmail', '==', lookupEmail())
+      ));
+      slotSnap.forEach(d => {
+        const s = {id: d.id, ...d.data()};
+        // Keep most recent slot per exam
+        if (!slotMap[s.examId] || s.bookedAt?.seconds > slotMap[s.examId].bookedAt?.seconds)
+          slotMap[s.examId] = s;
+      });
+    } catch(e) { console.warn('slot fetch:', e); }
+
     for (const exam of nominatedExams) {
-      const examWithFlag = {...exam, examEligible: examEligibilityMap[exam.id] || false};
+      const examWithFlag = {
+        ...exam,
+        examEligible: examEligibilityMap[exam.id] || false,
+        _slot: slotMap[exam.id] || null
+      };
       grid.appendChild(buildStudentExamCard(examWithFlag, myResults, myProgress));
     }
   } catch(err) {
@@ -1728,6 +1789,32 @@ function buildStudentExamCard(exam, myResults, myProgress) {
   else if (attemptsLeft === 0)
     notice = `<div class="notice-box notice-no-attempts" style="margin-top:12px;">All ${maxAttempts} attempts used for this exam.</div>`;
 
+  // Check for existing slot
+  const slot = exam._slot || null;
+  const slotStatus = slot ? slot.status : null;
+
+  // Slot status display
+  let slotStatusHtml = '';
+  if (slotStatus === 'bookedByLearner') {
+    const d = slot.requestedDate || ''; const t = slot.requestedTime || '';
+    slotStatusHtml = `<div class="slot-status awaiting">⏳ Awaiting proctor confirmation · ${d} ${t}</div>`;
+  } else if (slotStatus === 'confirmed') {
+    const d = slot.requestedDate || ''; const t = slot.requestedTime || '';
+    slotStatusHtml = `<div class="slot-status confirmed">✅ Slot confirmed · ${d} ${t}</div>`;
+  }
+
+  // Footer action
+  let footerHtml = '';
+  if (slotStatus === 'confirmed') {
+    footerHtml = `<button class="card-btn btn-enter" onclick="beginExamSession('${exam.id}','${slot?.id||''}')">🎥 Begin Session →</button>`;
+  } else if (slotStatus === 'bookedByLearner') {
+    footerHtml = `<button class="card-btn btn-locked" disabled>⏳ Awaiting Confirmation</button>`;
+  } else if (canTake) {
+    footerHtml = `<button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">📅 Schedule Exam</button>`;
+  } else {
+    footerHtml = `<button class="card-btn btn-locked" disabled>${attemptsLeft===0?'No Attempts Left':'🔒 Complete Course First'}</button>`;
+  }
+
   const el = document.createElement('div');
   el.className = 'course-card';
   el.innerHTML = `
@@ -1750,11 +1837,10 @@ function buildStudentExamCard(exam, myResults, myProgress) {
         <div class="attempts-dots">${dots}</div>
       </div>
       ${notice}
+      ${slotStatusHtml}
     </div>
     <div class="card-footer">
-      ${canTake && exam.url
-        ? `<a href="${esc(exam.url)}" class="card-btn btn-enter" target="_blank">Take Exam →</a>`
-        : `<button class="card-btn btn-locked" disabled>${attemptsLeft===0?'No Attempts Left':'🔒 Complete Course First'}</button>`}
+      ${footerHtml}
     </div>`;
   return el;
 }
@@ -1920,6 +2006,245 @@ window.previewAsProctor = function() {
   window.open('sf-certs-hub.html?preview=proctor', '_blank');
   // No banner needed — opens in new tab
 };
+// ══════════════════════════════════════
+//  EXAM SCHEDULING
+// ══════════════════════════════════════
+
+let _schedExamId = null;
+let _schedPhotoBase64 = null;
+let _detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let _activeTz = _detectedTz;
+
+window.openScheduleModal = function(examId, examTitle) {
+  _schedExamId = examId;
+  _schedPhotoBase64 = null;
+  $('sched-exam-title').textContent = examTitle;
+  $('sched-error').style.display = 'none';
+  $('sched-consent-check').checked = false;
+  $('sched-photo-preview').style.display = 'none';
+  $('sched-photo-status').textContent = '';
+  $('sched-submit-btn').textContent = 'Request Slot →';
+  $('sched-submit-btn').disabled = false;
+
+  // Set min date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  $('sched-date').min = tomorrow.toISOString().split('T')[0];
+  $('sched-date').value = '';
+
+  // Show detected timezone
+  updateTzDisplay();
+
+  // Pre-fill photo from Google profile if available
+  if (me && me.photoURL) {
+    $('sched-photo-preview').src = me.photoURL;
+    $('sched-photo-preview').style.display = 'block';
+    $('sched-photo-status').textContent = 'Using your Google profile photo. You can upload a different one below.';
+    _schedPhotoBase64 = me.photoURL; // URL, not base64 — will store as URL
+  }
+
+  $('schedule-modal').style.display = 'block';
+};
+
+function updateTzDisplay() {
+  $('sched-tz-display').innerHTML =
+    `Scheduling in <strong>${_activeTz}</strong>. ` +
+    `<a onclick="promptTzOverride()">Not you? Change here</a>`;
+}
+
+window.promptTzOverride = function() {
+  const zones = [
+    'Asia/Kolkata','Asia/Dubai','Europe/London','Europe/Berlin',
+    'America/New_York','America/Chicago','America/Los_Angeles',
+    'Asia/Singapore','Asia/Tokyo','Australia/Sydney'
+  ];
+  const sel = prompt(
+    'Enter your timezone (e.g. Asia/Kolkata):
+
+Common options:
+' + zones.join('
+'),
+    _activeTz
+  );
+  if (sel && sel.trim()) {
+    try {
+      // Validate by trying to format a date with it
+      new Intl.DateTimeFormat('en', {timeZone: sel.trim()}).format(new Date());
+      _activeTz = sel.trim();
+      updateTzDisplay();
+    } catch {
+      alert('Invalid timezone. Please try again.');
+    }
+  }
+};
+
+window.handlePhotoUpload = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 500000) {
+    $('sched-photo-status').textContent = '⚠️ Photo too large. Please use an image under 500KB.';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    _schedPhotoBase64 = e.target.result; // base64 data URL
+    $('sched-photo-preview').src = _schedPhotoBase64;
+    $('sched-photo-preview').style.display = 'block';
+    $('sched-photo-status').textContent = '✅ Photo ready.';
+  };
+  reader.readAsDataURL(file);
+};
+
+window.closeScheduleModal = function() {
+  $('schedule-modal').style.display = 'none';
+  _schedExamId = null;
+  _schedPhotoBase64 = null;
+};
+
+window.submitExamSlot = async function() {
+  const date    = $('sched-date').value;
+  const time    = $('sched-time').value;
+  const consent = $('sched-consent-check').checked;
+
+  // Validate
+  if (!date) { showSchedError('Please select a date.'); return; }
+  if (!time) { showSchedError('Please select a time.'); return; }
+  if (!_schedPhotoBase64) { showSchedError('Please upload or confirm your photo.'); return; }
+  if (!consent) { showSchedError('Please give consent to share your photo with the proctor.'); return; }
+
+  // Convert to UTC
+  let utcDateTime = null;
+  try {
+    // Parse as local time in selected timezone
+    const localStr = `${date}T${time}:00`;
+    utcDateTime = new Date(localStr);
+  } catch { showSchedError('Invalid date/time.'); return; }
+
+  if (utcDateTime <= new Date()) { showSchedError('Please select a future date and time.'); return; }
+
+  const btn = $('sched-submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  try {
+    await addDoc(collection(db, 'examSlots'), {
+      examId:          _schedExamId,
+      learnerEmail:    lookupEmail(),
+      learnerName:     me.displayName || lookupEmail(),
+      learnerPhoto:    _schedPhotoBase64,
+      learnerPhotoConsent: true,
+      requestedDate:   date,
+      requestedTime:   time,
+      requestedTimezone: _activeTz,
+      utcDateTime:     utcDateTime.toISOString(),
+      status:          'bookedByLearner',
+      bookedAt:        serverTimestamp(),
+      confirmedBy:     null,
+      confirmedAt:     null,
+      admitted:        false,
+      admittedBy:      null,
+      adminOverride:   false,
+      snapshots:       []
+    });
+
+    // Add notification for learner
+    await addDoc(collection(db, 'notifications', lookupEmail(), 'items'), {
+      message: `📅 Your exam slot request for ${date} at ${time} (${_activeTz}) has been submitted. Awaiting proctor confirmation.`,
+      type: 'slot_requested',
+      read: false,
+      createdAt: serverTimestamp()
+    });
+
+    closeScheduleModal();
+    toast('Slot requested! Awaiting proctor confirmation.', 'success');
+
+    // Reload exams tab to show updated status
+    await loadStudentExams();
+
+  } catch(err) {
+    console.error('submitExamSlot:', err);
+    showSchedError('Error submitting slot. Please try again.');
+    btn.disabled = false; btn.textContent = 'Request Slot →';
+  }
+};
+
+function showSchedError(msg) {
+  const el = $('sched-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// Placeholder for Begin Session (camera phase — coming next)
+window.beginExamSession = function(examId, slotId) {
+  toast('Camera proctoring coming soon! Exam session will start here.', 'success');
+};
+
+// ══ NOTIFICATIONS ══
+let _notifUnsubscribe = null;
+
+function startNotifListener() {
+  if (!lookupEmail()) return;
+  try {
+    const q = query(
+      collection(db, 'notifications', lookupEmail(), 'items'),
+      where('read', '==', false)
+    );
+    _notifUnsubscribe = onSnapshot(q, snap => {
+      const count = snap.size;
+      const badge = $('notif-badge');
+      const bell  = $('notif-bell');
+      if (badge && bell) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+        bell.style.display = 'flex';
+        bell.style.alignItems = 'center';
+      }
+      renderNotifications(snap);
+    });
+  } catch(e) { console.warn('notif listener:', e); }
+}
+
+function renderNotifications(snap) {
+  const list = $('notif-list');
+  if (!list) return;
+  if (snap.empty) {
+    list.innerHTML = '<div class="notif-empty">No new notifications.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  snap.forEach(d => {
+    const data = d.data();
+    const item = document.createElement('div');
+    item.className = 'notif-item unread';
+    item.innerHTML = `<div>${data.message || ''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+        ${data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : 'Just now'}
+      </div>`;
+    item.onclick = () => markNotifRead(d.id);
+    list.appendChild(item);
+  });
+}
+
+async function markNotifRead(notifId) {
+  try {
+    await setDoc(doc(db, 'notifications', lookupEmail(), 'items', notifId),
+      {read: true}, {merge: true});
+  } catch {}
+}
+
+window.toggleNotifPanel = function() {
+  const panel = $('notif-panel');
+  if (panel) panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+};
+
+// Close notif panel when clicking outside
+document.addEventListener('click', e => {
+  const bell = $('notif-bell');
+  if (bell && !bell.contains(e.target)) {
+    const panel = $('notif-panel');
+    if (panel) panel.style.display = 'none';
+  }
+});
+
 </script>
 <footer style="padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);text-align:center;background:rgba(13,17,23,.5);">
   <div style="font-size:11px;color:#4d5562;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0;">
@@ -1963,5 +2288,55 @@ window.previewAsProctor = function() {
       <div id="picker-empty" style="display:none;text-align:center;padding:40px;color:rgba(255,255,255,.3);font-size:13px;">No matching users found.</div>
     </div>
   </div>
+<!-- ══ SCHEDULE EXAM MODAL ══ -->
+<div id="schedule-modal">
+  <div class="schedule-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">📅 Schedule Your Exam</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;">Pick a date and time. A proctor will confirm your slot.</div>
+      </div>
+      <button onclick="closeScheduleModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px;">✕</button>
+    </div>
+    <div class="schedule-card">
+      <div class="schedule-title" id="sched-exam-title">Exam</div>
+      <div class="schedule-sub">Choose a convenient date and time for your exam. A proctor will review and confirm your slot.</div>
+
+      <div class="schedule-field">
+        <div class="schedule-label">Date</div>
+        <input type="date" id="sched-date" class="schedule-input" min="">
+      </div>
+      <div class="schedule-field">
+        <div class="schedule-label">Time</div>
+        <input type="time" id="sched-time" class="schedule-input" value="10:00">
+        <div class="schedule-tz" id="sched-tz-display"></div>
+      </div>
+
+      <!-- Photo upload + consent -->
+      <div class="consent-box">
+        <div class="consent-title">📸 Identity Verification Photo</div>
+        <div class="consent-text">Your photo will be shared with your proctor (a SourceFuse employee only) to verify your identity before the exam begins. This photo will not be shared outside of SourceFuse.</div>
+        <img id="sched-photo-preview" class="photo-preview" src="" style="display:none;">
+        <label class="photo-upload-btn" for="sched-photo-input">
+          📷 Upload your photo
+        </label>
+        <input type="file" id="sched-photo-input" class="photo-upload-input" accept="image/*" onchange="handlePhotoUpload(event)">
+        <div id="sched-photo-status" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
+        <label class="consent-check">
+          <input type="checkbox" id="sched-consent-check">
+          I consent to sharing my photo with the assigned proctor for identity verification purposes.
+        </label>
+      </div>
+
+      <div id="sched-error" style="display:none;font-size:13px;color:#f87171;margin-bottom:14px;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2);"></div>
+
+      <div style="display:flex;gap:12px;">
+        <button onclick="closeScheduleModal()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--muted);font-size:14px;cursor:pointer;">Cancel</button>
+        <button onclick="submitExamSlot()" id="sched-submit-btn" style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Request Slot →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
