@@ -713,7 +713,7 @@ const db = getFirestore(app);
 
 // ── Google provider with domain hint ──
 
-let me = null, myRole = null;
+let me = null, myRole = null, isPreviewMode = false;
 let courses = [], people = [];
 let selCourse = null, selPerson = null, adminTab = 'courses';
 
@@ -934,12 +934,12 @@ async function loadStudentCourses() {
 }
 
 async function buildCard(c) {
-  // Admins always have full access — skip nomination check
-  let nom = myRole === 'admin';
+  // Admins always have full access — skip nomination check (except in preview mode)
+  let nom = myRole === 'admin' && !isPreviewMode;
   if (!nom) {
     try {
       const s = await getDoc(doc(db,'courses',c.id,'nominations',me.email));
-      nom = s.exists() && s.data().nominated;
+      nom = s.exists() && s.data().nominated !== false; // treat missing field as nominated
     } catch{}
   }
   const ac = c.accentColor || '#3b82f6';
@@ -1610,14 +1610,15 @@ async function loadStudentExams() {
     // For each exam, check nomination
     const nominatedExams = [];
     for (const exam of allExams) {
-      let nominated = myRole === 'admin';
+      let nominated = myRole === 'admin' && !isPreviewMode;
       if (!nominated) {
         try {
           const s = await getDoc(doc(db,'exams',exam.id,'nominations',me.email));
-          nominated = s.exists() && s.data().nominated;
+          // Show exam if: doc exists with nominated !== false, OR examEligible:true (override)
+          nominated = s.exists() && (s.data().nominated !== false || s.data().examEligible === true);
         } catch {}
       }
-      if (nominated || myRole === 'admin') nominatedExams.push(exam);
+      if (nominated) nominatedExams.push(exam);
     }
 
     loading.style.display = 'none';
@@ -1637,9 +1638,19 @@ async function loadStudentExams() {
       if (ps.exists()) myProgress = ps.data();
     } catch {}
 
+    // Fetch examEligible flag from each nomination doc
+    const examEligibilityMap = {};
+    for (const exam of nominatedExams) {
+      try {
+        const nomDoc = await getDoc(doc(db,'exams',exam.id,'nominations',me.email));
+        examEligibilityMap[exam.id] = nomDoc.exists() && nomDoc.data().examEligible === true;
+      } catch {}
+    }
+
     grid.dataset.loaded = '1';
     for (const exam of nominatedExams) {
-      grid.appendChild(buildStudentExamCard(exam, myResults, myProgress));
+      const examWithFlag = {...exam, examEligible: examEligibilityMap[exam.id] || false};
+      grid.appendChild(buildStudentExamCard(examWithFlag, myResults, myProgress));
     }
   } catch(err) {
     loading.style.display = 'none';
@@ -1658,13 +1669,16 @@ function buildStudentExamCard(exam, myResults, myProgress) {
   const bestPassed   = res?.bestPassed   ?? null;
   const attemptsLeft = Math.max(0, maxAttempts - attemptCount);
 
-  // Course completion check
+  // examEligible override — admin can grant exam access without course completion
+  const examEligible = exam.examEligible === true;
+
+  // Course completion check — skipped if admin granted override
   let courseComplete = true;
-  if (exam.linkedCourseId) {
+  if (exam.linkedCourseId && !examEligible) {
     courseComplete = myProgress['course_'+exam.linkedCourseId] === true;
   }
 
-  const canTake = courseComplete && attemptsLeft > 0;
+  const canTake = (courseComplete || examEligible) && attemptsLeft > 0;
 
   // Status badge
   const statusBadge = bestPassed === true
@@ -1679,8 +1693,10 @@ function buildStudentExamCard(exam, myResults, myProgress) {
     `<div class="a-dot ${i < attemptCount ? 'used' : 'avail'}"></div>`).join('');
 
   let notice = '';
-  if (!courseComplete && exam.linkedCourseId)
+  if (!courseComplete && exam.linkedCourseId && !examEligible)
     notice = `<div class="notice-box notice-course-lock" style="margin-top:12px;">⚠️ Complete the linked course before attempting this exam.</div>`;
+  else if (examEligible && !courseComplete)
+    notice = `<div class="notice-box" style="margin-top:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fbbf24;">⚡ Course override enabled — you can take this exam directly.</div>`;
   else if (attemptsLeft === 0)
     notice = `<div class="notice-box notice-no-attempts" style="margin-top:12px;">All ${maxAttempts} attempts used for this exam.</div>`;
 
@@ -1728,6 +1744,7 @@ function showPreviewBanner(label) {
 }
 
 window.exitPreview = function() {
+  isPreviewMode = false;
   const banner = $('preview-banner');
   if (banner) banner.style.display = 'none';
   hide('student-view'); hide('reviewer-view'); hide('admin-view'); hide('examresults-view');
@@ -1736,12 +1753,16 @@ window.exitPreview = function() {
 };
 
 window.previewAsStudent = function() {
+  isPreviewMode = true;
   $('admin-choice-screen').style.display = 'none';
   $('app').style.display = 'block';
   showChips();
   hide('admin-view'); hide('reviewer-view'); hide('examresults-view');
   show('student-view');
   loadStudentCourses();
+  // Also load the exams tab so it reflects real eligibility state
+  const examsTab = $('student-exams-grid');
+  if (examsTab) { examsTab.dataset.loaded = ''; }
   showPreviewBanner('Learner');
 };
 
