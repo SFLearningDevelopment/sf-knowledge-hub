@@ -1757,10 +1757,8 @@ window.previewAsReviewer = function() {
 
 window.previewAsProctor = function() {
   $('admin-choice-screen').style.display = 'none';
-  window.open('sf-certs-hub.html', '_blank');
-  showPreviewBanner('Proctor');
-  // Restore admin choice screen after short delay since we opened a new tab
-  setTimeout(() => { $('admin-choice-screen').style.display = 'flex'; }, 300);
+  window.open('sf-certs-hub.html?preview=proctor', '_blank');
+  // No banner needed — opens in new tab
 };
 </script>
 <footer style="padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);text-align:center;background:rgba(13,17,23,.5);">
