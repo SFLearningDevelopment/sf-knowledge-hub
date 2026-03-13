@@ -2058,14 +2058,8 @@ window.promptTzOverride = function() {
     'America/New_York','America/Chicago','America/Los_Angeles',
     'Asia/Singapore','Asia/Tokyo','Australia/Sydney'
   ];
-  const sel = prompt(
-    'Enter your timezone (e.g. Asia/Kolkata):
-
-Common options:
-' + zones.join('
-'),
-    _activeTz
-  );
+  const msg = 'Enter your timezone (e.g. Asia/Kolkata):\n\nCommon options:\n' + zones.join('\n');
+  const sel = prompt(msg, _activeTz);
   if (sel && sel.trim()) {
     try {
       // Validate by trying to format a date with it
