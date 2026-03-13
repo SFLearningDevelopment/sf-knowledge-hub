@@ -704,7 +704,7 @@ const FB = {
   projectId:"sfcertification-grafana",
   appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"
 };
-const ADMINS = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
+const ADMINS = ['jv.ravichandran@sourcefuse.com']; // noushin.khan temporarily removed for learner test
 const DOMAIN = 'sourcefuse.com';
 
 const app = initializeApp(FB);
@@ -776,6 +776,7 @@ onAuthStateChanged(auth, async user => {
   // Keep Firebase User object intact — separately store normalized lowercase email
   me = user;
   meEmail = user.email.toLowerCase();
+  console.log('[SF Auth] meEmail:', meEmail, '| displayName:', user.displayName, '| uid:', user.uid);
 
   $('user-name').textContent = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
