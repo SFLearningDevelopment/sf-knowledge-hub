@@ -547,6 +547,19 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
               </div>
               <div id="current-assignment"></div>
             </div>
+
+            <!-- REVIEWER SECTION -->
+            <div id="reviewer-section" style="display:none;">
+              <div class="p-section-title" style="margin-bottom:12px;">📚 Course Assignment</div>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Assign a course this reviewer will see in their dashboard.</p>
+              <div class="fg">
+                <label>Assigned Course</label>
+                <select id="p-reviewer-course" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;width:100%;">
+                  <option value="">— Select a course —</option>
+                </select>
+              </div>
+            </div>
+
             <button class="save-btn" id="save-person-btn">Save</button>
           </div>
         </div>
@@ -1027,7 +1040,8 @@ $('sb-add-person').addEventListener('click', () => {
   $('person-panel').style.display = 'flex';
   $('p-email').value = ''; $('p-email').disabled = false;
   $('p-role').value = 'student';
-  $('proctor-section').style.display = 'none';
+  $('proctor-section').style.display  = 'none';
+  $('reviewer-section').style.display = 'none';
   $('current-assignment').innerHTML = '';
 });
 
@@ -1043,12 +1057,28 @@ async function selectPerson(email) {
 }
 
 $('p-role').addEventListener('change', async e => {
-  if (selPerson && selPerson!=='__new__') await toggleProctorSection(e.target.value, selPerson);
-  else $('proctor-section').style.display = e.target.value==='proctor' ? 'block' : 'none';
+  const role = e.target.value;
+  if (selPerson && selPerson!=='__new__') await toggleProctorSection(role, selPerson);
+  else {
+    $('proctor-section').style.display  = role==='proctor'  ? 'block' : 'none';
+    $('reviewer-section').style.display = role==='reviewer' ? 'block' : 'none';
+  }
+  if (role==='reviewer') await populateReviewerCourseDropdown();
 });
 
 async function toggleProctorSection(role, email) {
-  $('proctor-section').style.display = role==='proctor' ? 'block' : 'none';
+  $('proctor-section').style.display  = role==='proctor'  ? 'block' : 'none';
+  $('reviewer-section').style.display = role==='reviewer' ? 'block' : 'none';
+
+  if (role==='reviewer') {
+    await populateReviewerCourseDropdown();
+    // Pre-select assigned course if exists
+    const snap = await getDoc(doc(db,'users',email));
+    const assigned = snap.exists() ? snap.data().assignedCourseId : null;
+    if (assigned) $('p-reviewer-course').value = assigned;
+    return;
+  }
+
   if (role!=='proctor') return;
   const snap = await getDocs(collection(db,'users'));
   const sel = $('p-candidate'); sel.innerHTML = '<option value="">— Select candidate —</option>';
@@ -1072,6 +1102,23 @@ async function toggleProctorSection(role, email) {
   }
 }
 
+async function populateReviewerCourseDropdown() {
+  const sel = $('p-reviewer-course');
+  if (sel.options.length > 1) return; // already populated
+  sel.innerHTML = '<option value="">— Loading courses… —</option>';
+  try {
+    const snap = await getDocs(collection(db, 'courses'));
+    sel.innerHTML = '<option value="">— Select a course —</option>';
+    snap.forEach(d => {
+      const c = d.data();
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = `${c.title || d.id}${c.status === 'draft' ? ' (Draft)' : ''}`;
+      sel.appendChild(o);
+    });
+  } catch { sel.innerHTML = '<option value="">Error loading courses</option>'; }
+}
+
 $('assign-btn').addEventListener('click', async () => {
   const candidate = $('p-candidate').value;
   if (!candidate || !selPerson || selPerson==='__new__') { toast('Select a candidate first.','error'); return; }
@@ -1091,7 +1138,13 @@ $('save-person-btn').addEventListener('click', async () => {
   // if (ADMINS.includes(email)) { toast('Cannot modify admin accounts.','error'); return; }
   const btn = $('save-person-btn'); btn.disabled=true; btn.textContent='Saving…';
   try {
-    await setDoc(doc(db,'users',email), {role,updatedAt:serverTimestamp(),updatedBy:me.email}, {merge:true});
+    const payload = {role, updatedAt:serverTimestamp(), updatedBy:me.email};
+    if (role === 'reviewer') {
+      const courseId = $('p-reviewer-course').value;
+      if (!courseId) { toast('Please select a course to assign to this reviewer.','error'); btn.disabled=false; btn.textContent='Save'; return; }
+      payload.assignedCourseId = courseId;
+    }
+    await setDoc(doc(db,'users',email), payload, {merge:true});
     const i = people.findIndex(p=>p.email===email);
     if (i>=0) people[i].role=role; else people.push({email,role});
     selPerson=email; $('p-email').disabled=true;
