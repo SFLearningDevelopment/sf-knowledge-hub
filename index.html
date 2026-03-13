@@ -64,7 +64,7 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-desc{font-size:13px;color:var(--muted);line-height:1.5;}
 .choice-arrow{font-size:18px;color:var(--blue);margin-top:auto;}
 .choice-card.certify .choice-arrow{color:var(--accent);}
-#admin-choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:var(--navy);overflow-y:auto;}
+#admin-choice-screen{position:fixed;inset:0;z-index:200;display:none;align-items:flex-start;justify-content:center;background:var(--navy);overflow-y:auto;padding-top:60px;}
 .admin-choice-wrap{display:flex;flex-direction:column;align-items:center;gap:36px;padding:40px 20px;width:100%;max-width:960px;}
 .admin-welcome{text-align:center;}
 .admin-welcome-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:50px;padding:5px 14px;font-size:12px;font-weight:600;color:#fbbf24;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;}
@@ -327,7 +327,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <div class="choice-wrap">
     <div class="choice-brand">
       <div class="choice-badge">SF</div>
-      <div class="choice-brand-text"><span>SF</span> Learning &amp; Development</div>
+      <div class="choice-brand-text">Learning &amp; Development</div>
     </div>
     <div class="choice-headline">What do you want to<br><em>do today?</em></div>
     <div class="choice-cards">
@@ -359,7 +359,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <div class="admin-choice-wrap">
     <div class="choice-brand">
       <div class="choice-badge">SF</div>
-      <div class="choice-brand-text"><span>SF</span> Learning &amp; Development</div>
+      <div class="choice-brand-text">Learning &amp; Development</div>
     </div>
     <div class="admin-welcome">
       <div class="admin-welcome-eyebrow">⚙ Admin Dashboard</div>
@@ -416,6 +416,14 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
         <div class="admin-card-arrow" style="color:#f87171;">→</div>
       </div>
 
+      <div class="admin-card" onclick="previewAsStudent()" style="border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.06);grid-column:1/-1;">
+        <span class="admin-card-tag" style="background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3);">Testing</span>
+        <div class="admin-card-icon">🧪</div>
+        <div class="admin-card-label">Preview as Student</div>
+        <div class="admin-card-desc">View the platform as a student would see it — courses, exams, and progress. Your admin role is preserved.</div>
+        <div class="admin-card-arrow" style="color:#818cf8;">→</div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -426,7 +434,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <nav>
     <div class="nav-brand">
       <div class="nav-badge">SF</div>
-      <div class="nav-title"><span>SF</span> Learning Hub
+      <div class="nav-title">Learning Hub
         <span class="nav-chip chip-admin" id="chip-admin">Admin</span>
         <span class="nav-chip chip-reviewer" id="chip-reviewer">Reviewer</span>
         <span class="nav-chip chip-proctor" id="chip-proctor">Proctor</span>
@@ -717,23 +725,9 @@ onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
 
   if (!user) {
-    if (authResolved) {
-      // User explicitly signed out — show choice screen
-      $('loading-splash').classList.add('hidden');
-      $('choice-screen').style.display = 'flex';
-      return;
-    }
-    // First load — auto-trigger Google SSO popup silently
-    // Since user is already signed into Google via SF LMS,
-    // the popup resolves instantly without any visible prompt
-    try {
-      await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged will fire again with the user
-    } catch(e) {
-      // Popup blocked or dismissed — show choice screen with manual option
-      $('loading-splash').classList.add('hidden');
-      $('choice-screen').style.display = 'flex';
-    }
+    // No session — show choice screen immediately, let user sign in manually
+    $('loading-splash').classList.add('hidden');
+    $('choice-screen').style.display = 'flex';
     return;
   }
 
@@ -841,11 +835,13 @@ window.adminNav = function(section) {
   $('learner-view-btn').textContent = '📚 Learner View';
   $('learner-view-btn').classList.remove('active-view');
   if (section === 'proctor') {
+    hide('learner-view-btn');
     loadAdminCourses();
     setTimeout(() => switchTab('people'), 100);
   } else if (section === 'examresults') {
     hide('admin-view');
     show('examresults-view');
+    hide('learner-view-btn');
     loadExamResultsView();
   } else {
     loadAdminCourses();
@@ -1702,6 +1698,33 @@ function buildStudentExamCard(exam, myResults, myProgress) {
     </div>`;
   return el;
 }
+
+window.previewAsStudent = function() {
+  $('admin-choice-screen').style.display = 'none';
+  $('app').style.display = 'block';
+  showChips();
+  hide('admin-view'); hide('reviewer-view'); hide('examresults-view');
+  show('student-view');
+  loadStudentCourses();
+  // Show a persistent banner so admin knows they're in preview mode
+  let banner = $('student-preview-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'student-preview-banner';
+    banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(99,102,241,.95);color:#fff;padding:10px 20px;border-radius:50px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.4);';
+    banner.innerHTML = '🧪 Student Preview Mode &nbsp;·&nbsp; <button onclick="exitStudentPreview()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:50px;cursor:pointer;font-size:12px;font-weight:600;">Exit Preview</button>';
+    document.body.appendChild(banner);
+  }
+  banner.style.display = 'flex';
+};
+
+window.exitStudentPreview = function() {
+  const banner = $('student-preview-banner');
+  if (banner) banner.style.display = 'none';
+  hide('student-view');
+  $('app').style.display = 'none';
+  $('admin-choice-screen').style.display = 'flex';
+};
 </script>
 <footer style="padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);text-align:center;background:rgba(13,17,23,.5);">
   <div style="font-size:11px;color:#4d5562;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0;">
