@@ -785,11 +785,13 @@ window.toggleLearnerView = function() {
 };
 
 window.adminSignOut = function() {
-    signOut(auth);
+  signOut(auth);
   $('admin-choice-screen').style.display = 'none';
   $('app').style.display = 'none';
   $('choice-screen').style.display = 'flex';
 };
+
+$('signout-btn').addEventListener('click', () => adminSignOut());
 
 function showChips() {
   $('chip-admin').style.display    = myRole==='admin'    ? 'inline-flex' : 'none';
