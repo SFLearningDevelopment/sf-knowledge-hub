@@ -1422,22 +1422,47 @@ async function loadNominations(itemId) {
     const it = document.createElement('div');
     it.className = 'nom-item';
     it.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;';
-    it.innerHTML = `
-      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${esc(n.email)}</span>
-      ${isExam ? `
-        <label title="Allow exam without course completion" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;">
-          <div class="override-toggle ${eligible ? 'on' : ''}" data-email="${esc(n.email)}" data-item="${esc(itemId)}"
-               onclick="toggleExamEligible(this)" style="
-               width:34px;height:18px;border-radius:9px;position:relative;cursor:pointer;transition:background .2s;
-               background:${eligible ? 'var(--accent)' : 'var(--border)'};flex-shrink:0;">
-            <div style="position:absolute;top:2px;left:${eligible ? '16px' : '2px'};width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;"></div>
-          </div>
-          <span style="font-size:11px;color:${eligible ? 'var(--accent)' : 'var(--muted)'};white-space:nowrap;font-weight:${eligible ? '600' : '400'};">
-            ${eligible ? 'Override ON' : 'Override OFF'}
-          </span>
-        </label>` : ''}
-      <button class="nom-rem" style="flex-shrink:0;">×</button>`;
-    it.querySelector('.nom-rem').addEventListener('click', () => removeNomination(itemId, n.email));
+
+    // Email label
+    const emailSpan = document.createElement('span');
+    emailSpan.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;';
+    emailSpan.textContent = n.email;
+    it.appendChild(emailSpan);
+
+    // Override toggle — only for exam nominations
+    if (isExam) {
+      const lbl = document.createElement('label');
+      lbl.title = 'Allow exam without course completion';
+      lbl.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;';
+
+      const track = document.createElement('div');
+      track.className = 'override-toggle' + (eligible ? ' on' : '');
+      track.dataset.email = n.email;
+      track.dataset.item  = itemId;
+      track.style.cssText = 'width:34px;height:18px;border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;background:' + (eligible ? 'var(--accent)' : 'var(--border)');
+      track.addEventListener('click', function(){ toggleExamEligible(this); });
+
+      const thumb = document.createElement('div');
+      thumb.style.cssText = 'position:absolute;top:2px;left:' + (eligible ? '16px' : '2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;';
+      track.appendChild(thumb);
+
+      const toggleLabel = document.createElement('span');
+      toggleLabel.style.cssText = 'font-size:11px;white-space:nowrap;font-weight:' + (eligible ? '600' : '400') + ';color:' + (eligible ? 'var(--accent)' : 'var(--muted)');
+      toggleLabel.textContent = eligible ? 'Override ON' : 'Override OFF';
+
+      lbl.appendChild(track);
+      lbl.appendChild(toggleLabel);
+      it.appendChild(lbl);
+    }
+
+    // Remove button
+    const remBtn = document.createElement('button');
+    remBtn.className = 'nom-rem';
+    remBtn.style.cssText = 'flex-shrink:0;';
+    remBtn.textContent = '×';
+    remBtn.addEventListener('click', () => removeNomination(itemId, n.email));
+    it.appendChild(remBtn);
+
     list.appendChild(it);
   }
   $('nom-list-container').innerHTML = header;
