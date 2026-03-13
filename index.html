@@ -358,7 +358,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="choice-brand-text"><span>SF</span> Learning &amp; Development</div>
     </div>
     <div class="admin-welcome">
-      <div class="admin-welcome-eyebrow">⚙ Admin Console</div>
+      <div class="admin-welcome-eyebrow">⚙ Admin Dashboard</div>
       <h1>Welcome back,<br><em id="admin-first-name">Admin</em></h1>
       <p>What would you like to manage today?</p>
     </div>
@@ -389,9 +389,9 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       </div>
 
       <div class="admin-card ac-purple" onclick="adminNav('console')">
-        <span class="admin-card-tag tag-purple">Admin Console</span>
+        <span class="admin-card-tag tag-purple">Admin Dashboard</span>
         <div class="admin-card-icon">🖥</div>
-        <div class="admin-card-label">Admin Console</div>
+        <div class="admin-card-label">Admin Dashboard</div>
         <div class="admin-card-desc">Full certification hub — manage live exam sessions, view candidate status, and proctoring tools.</div>
         <div class="admin-card-arrow">→</div>
       </div>
@@ -429,7 +429,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       </div>
     </div>
     <div class="nav-right">
-      <button class="nav-link" id="admin-console-btn" style="display:none;cursor:pointer;background:none;" onclick="backToAdminConsole()">⚙ Admin Console</button>
+      <button class="nav-link" id="admin-console-btn" style="display:none;cursor:pointer;background:none;" onclick="backToAdminConsole()">⚙ Admin Dashboard</button>
       <a href="sf-certs-hub.html" class="nav-link" id="certs-link">🎓 Certifications</a>
       <button class="nav-link" id="learner-view-btn" style="display:none;cursor:pointer;background:none;" onclick="toggleLearnerView()">📚 Learner View</button>
       <div id="user-chip">
@@ -739,10 +739,13 @@ window.backToAdminConsole = function() {
 };
 
 window.adminNav = function(section) {
-  $('admin-choice-screen').style.display = 'none';
-  if (section === 'console' || section === 'certifications') {
+  if (section === 'certifications') {
     window.location.href = 'sf-certs-hub.html'; return;
   }
+  if (section === 'reports') {
+    window.location.href = 'sf-certs-hub.html?tab=reports'; return;
+  }
+  $('admin-choice-screen').style.display = 'none';
   inLearnerView = false;
   $('app').style.display = 'block';
   showChips();
@@ -753,9 +756,6 @@ window.adminNav = function(section) {
   if (section === 'proctor') {
     loadAdminCourses();
     setTimeout(() => switchTab('people'), 100);
-  } else if (section === 'reports') {
-    loadAdminCourses();
-    toast('Reports coming soon — showing Admin Console.', '');
   } else {
     loadAdminCourses();
   }
@@ -1231,20 +1231,19 @@ function toast(msg, type='') {
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
-<footer style="margin-top:60px;padding:32px;border-top:1px solid rgba(255,255,255,.08);text-align:center;background:rgba(13,17,23,.6);">
-  <div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
-    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;font-size:12px;color:#7d8590;">
-      <span>🤖 <strong style="color:#e6edf3;">AI-Generated Content</strong> — Reviewed by subject matter experts</span>
-      <span>📚 <strong style="color:#e6edf3;">Educational Use Only</strong> — Internal training purposes</span>
-      <span>🔒 <strong style="color:#e6edf3;">Data Privacy</strong> — Progress stored securely in Firebase</span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;font-size:12px;color:#7d8590;">
-      <span>🔗 <strong style="color:#e6edf3;">External Resources</strong> — Links provided for reference only</span>
-      <span>🔄 <strong style="color:#e6edf3;">Content Updates</strong> — Course content current as of March 2026</span>
-    </div>
-    <div style="font-size:11px;color:#4d5562;margin-top:4px;">
-      © 2026 SourceFuse Technologies · SF Learning Hub · Content accuracy should be verified against official documentation
-    </div>
+<footer style="padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);text-align:center;background:rgba(13,17,23,.5);">
+  <div style="font-size:11px;color:#4d5562;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0;">
+    <span>🤖 AI-Generated &amp; Expert-Reviewed</span>
+    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>📚 Educational Use Only</span>
+    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🔒 Data stored securely in Firebase</span>
+    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🔗 External links for reference only</span>
+    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🔄 Content current as of March 2026</span>
+    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>© 2026 SourceFuse Technologies</span>
   </div>
 </footer>
 </body>
