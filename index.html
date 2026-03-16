@@ -42,6 +42,8 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column;gap:10px;transition:all .2s;}
 .choice-card.manage{border-color:rgba(99,102,241,.3);cursor:pointer;}
 .choice-card.manage:hover{border-color:rgba(99,102,241,.6);box-shadow:0 8px 30px rgba(99,102,241,.2);background:rgba(99,102,241,.08);}
+.choice-card.manage{border-color:rgba(99,102,241,.3);cursor:pointer;}
+.choice-card.manage:hover{border-color:rgba(99,102,241,.6);box-shadow:0 8px 30px rgba(99,102,241,.2);background:rgba(99,102,241,.08);}
 .choice-icon{font-size:32px;}
 .choice-label{font-size:18px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;}
 .choice-desc{font-size:13px;color:var(--muted);line-height:1.5;}
@@ -291,22 +293,28 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .set-role-user-row.selected{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);}
 
 /* ══ PREVIEW READ-ONLY OVERLAY ══ */
-.preview-readonly-wrap{
-  position:relative;
-  pointer-events:none;
-  user-select:none;
-}
-.preview-readonly-wrap *{
+/* Preview read-only mode — applied as a class on the view div */
+.preview-mode-active button:not(.s-tab):not(.preview-tab-exempt),
+.preview-mode-active input,
+.preview-mode-active select,
+.preview-mode-active textarea,
+.preview-mode-active a[onclick]:not(.preview-tab-exempt){
   pointer-events:none!important;
   cursor:not-allowed!important;
+  opacity:.45!important;
 }
-.preview-readonly-wrap button,
-.preview-readonly-wrap input,
-.preview-readonly-wrap select,
-.preview-readonly-wrap textarea,
-.preview-readonly-wrap a[onclick]{
-  opacity:.5!important;
-  pointer-events:none!important;
+/* Nav tabs explicitly override — must come AFTER the blocking rule */
+.preview-mode-active .s-tabs,
+.preview-mode-active .s-tabs .s-tab,
+.preview-mode-active .s-tab,
+.s-tab.preview-mode-active,
+#student-view.preview-mode-active .s-tabs button,
+#student-view.preview-mode-active .s-tab {
+  pointer-events:all!important;
+  cursor:pointer!important;
+  opacity:1!important;
+  position:relative;
+  z-index:1;
 }
 .preview-readonly-banner{
   position:sticky;
@@ -322,6 +330,16 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   align-items:center;
   gap:8px;
   letter-spacing:.01em;
+}
+/* Nav tabs always above read-only overlay in preview mode */
+body.preview-active .s-tabs,
+body.preview-active .s-tab,
+body.preview-active .p-slot-tabs,
+body.preview-active .p-slot-tab {
+  position:relative;
+  z-index:701;
+  pointer-events:all;
+  cursor:pointer;
 }
 
 </style>
@@ -352,13 +370,9 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="choice-card certify" style="cursor:default;opacity:0.7;">
         <div class="choice-icon">🎓</div>
         <div class="choice-label">Get Certified</div>
-        <div class="choice-desc">Take your certification evaluation exam and earn your SF internal certification badge.</div>
+        <div class="choice-desc">Take your certification evaluation exam and earn your SF internal certifica tion badge.</div>
       </div>
-      <div class="choice-card manage" id="manage-card" style="display:none;cursor:pointer;" onclick="goToAdminConsole()">
-        <div class="choice-icon">⚡</div>
-        <div class="choice-label">Manage</div>
-        <div class="choice-desc">Open the Admin Console to manage courses, exams, learners, and proctoring.</div>
-      </div>
+
     </div>
     <div style="margin-top:8px;text-align:center;">
       <button id="manual-signin-btn" onclick="manualSignIn()" style="display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:500;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3);">
@@ -834,9 +848,6 @@ onAuthStateChanged(auth, async user => {
     }
     const firstName = (user.displayName || user.email).split(' ')[0].split('@')[0];
     $('admin-first-name').textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
-    // Show Manage card on landing screen briefly then redirect to admin console
-    const mc = $('manage-card');
-    if (mc) mc.style.display = 'flex';
     $('admin-choice-screen').style.display = 'flex';
     return;
   }
@@ -1583,7 +1594,7 @@ function applyPreviewReadOnly(role, u) {
   const label = '&#128065; Preview Mode &mdash; Read Only &nbsp;&bull;&nbsp; Viewing as <strong>' +
     role + ':</strong> ' + (u.name||u.email) + ' &nbsp;&bull;&nbsp; No actions will be saved.';
 
-  // 1. Sticky banner at the very top of #app
+  // 1. Sticky read-only banner at top of #app
   const banner = document.createElement('div');
   banner.className = 'preview-readonly-banner';
   banner.id = 'preview-ro-banner';
@@ -1591,49 +1602,27 @@ function applyPreviewReadOnly(role, u) {
   const app = $('app');
   if (app) app.insertBefore(banner, app.firstChild);
 
-  // 2. Full-screen click-blocker overlay (covers everything below the nav)
-  const overlay = document.createElement('div');
-  overlay.id = 'preview-ro-overlay';
-  overlay.style.cssText = [
-    'position:fixed',
-    'inset:0',
-    'z-index:700',
-    'cursor:not-allowed',
-    'background:transparent',
-    'pointer-events:all'
-  ].join(';');
-  overlay.addEventListener('wheel', e => e.target.scrollTop += e.deltaY, {passive:true});
-  overlay.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
-  document.body.appendChild(overlay);
-
-  // 3. Raise nav tabs above the overlay so they remain clickable (navigation only, no data changes)
-  const tabContainers = document.querySelectorAll('.s-tabs, .reviewer-tabs, .p-slot-tabs');
-  tabContainers.forEach(el => {
-    el.setAttribute('data-prev-zindex', el.style.zIndex || '');
-    el.setAttribute('data-prev-position', el.style.position || '');
-    el.style.position = 'relative';
-    el.style.zIndex   = '701';
+  // 2. Add class to the active view — CSS handles disabling buttons while keeping tabs clickable
+  ['student-view', 'reviewer-view'].forEach(id => {
+    const view = $(id);
+    if (view) view.classList.add('preview-mode-active');
   });
 }
 
 function removePreviewReadOnly() {
-  const banner  = document.getElementById('preview-ro-banner');
-  const overlay = document.getElementById('preview-ro-overlay');
-  if (banner)  banner.remove();
-  if (overlay) overlay.remove();
-  // Restore tab z-index
-  document.querySelectorAll('.s-tabs, .reviewer-tabs, .p-slot-tabs').forEach(el => {
-    el.style.zIndex   = el.getAttribute('data-prev-zindex')   || '';
-    el.style.position = el.getAttribute('data-prev-position') || '';
-    el.removeAttribute('data-prev-zindex');
-    el.removeAttribute('data-prev-position');
+  // Remove banner
+  const banner = document.getElementById('preview-ro-banner');
+  if (banner) banner.remove();
+  // Remove class from all views
+  ['student-view', 'reviewer-view'].forEach(id => {
+    const view = $(id);
+    if (view) view.classList.remove('preview-mode-active');
   });
-  // Clean up any legacy wrap divs
+  // Clean up any legacy elements
   document.querySelectorAll('.preview-readonly-banner').forEach(el => el.remove());
-  document.querySelectorAll('.preview-readonly-wrap').forEach(el => {
-    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
-    el.remove();
-  });
+  document.querySelectorAll('.preview-ro-overlay').forEach(el => el.remove());
+  const legacyOverlay = document.getElementById('preview-ro-overlay');
+  if (legacyOverlay) legacyOverlay.remove();
 }
 
 window.closePreviewPicker  = function() { $('preview-picker').style.display  = 'none'; };
