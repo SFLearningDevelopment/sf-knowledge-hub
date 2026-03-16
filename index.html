@@ -40,10 +40,6 @@ body::before{content:'';position:fixed;inset:0;background:
 .choice-headline em{color:var(--accent);font-style:normal;}
 .choice-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;}
 .choice-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column;gap:10px;transition:all .2s;}
-.choice-card.manage{border-color:rgba(99,102,241,.3);cursor:pointer;}
-.choice-card.manage:hover{border-color:rgba(99,102,241,.6);box-shadow:0 8px 30px rgba(99,102,241,.2);background:rgba(99,102,241,.08);}
-.choice-card.manage{border-color:rgba(99,102,241,.3);cursor:pointer;}
-.choice-card.manage:hover{border-color:rgba(99,102,241,.6);box-shadow:0 8px 30px rgba(99,102,241,.2);background:rgba(99,102,241,.08);}
 .choice-icon{font-size:32px;}
 .choice-label{font-size:18px;font-weight:700;color:var(--text);font-family:'Syne',sans-serif;}
 .choice-desc{font-size:13px;color:var(--muted);line-height:1.5;}
@@ -371,11 +367,6 @@ body.preview-active .p-slot-tab {
         <div class="choice-icon">🎓</div>
         <div class="choice-label">Get Certified</div>
         <div class="choice-desc">Take your certification evaluation exam and earn your SF internal certification badge.</div>
-      </div>
-      <div class="choice-card manage" id="manage-card" style="display:none;cursor:pointer;" onclick="goToAdminConsole()">
-        <div class="choice-icon">⚡</div>
-        <div class="choice-label">Manage</div>
-        <div class="choice-desc">Admin Console — manage courses, exams, learners and proctoring.</div>
       </div>
     </div>
     <div style="margin-top:8px;text-align:center;">
@@ -813,9 +804,6 @@ onAuthStateChanged(auth, async user => {
     // Hide all screens that might be showing
     $('admin-choice-screen').style.display = 'none';
     $('app').style.display = 'none';
-    // Hide Manage card — only admin sees it after login
-    const mc = $('manage-card');
-    if (mc) mc.style.display = 'none';
     // Reset sign-in button
     const btn = $('manual-signin-btn');
     if (btn) {
@@ -864,11 +852,9 @@ onAuthStateChanged(auth, async user => {
     }
     const firstName = (user.displayName || user.email).split(' ')[0].split('@')[0];
     $('admin-first-name').textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
-    // Show choice-screen with Manage card for admin
-    // Admin sees Learn + Get Certified + Manage, then clicks Manage to enter console
-    const mc = $('manage-card');
-    if (mc) mc.style.display = 'flex';
-    $('choice-screen').style.display = 'flex';
+    // Admins go directly to admin console — no landing screen
+    $('choice-screen').style.display = 'none';
+    $('admin-choice-screen').style.display = 'flex';
     return;
   }
 
@@ -902,11 +888,6 @@ window.selectMode = function(mode) {
 window.backToAdminConsole = function() {
   $('app').style.display = 'none';
   inLearnerView = false;
-  $('admin-choice-screen').style.display = 'flex';
-};
-
-window.goToAdminConsole = function() {
-  $('choice-screen').style.display = 'none';
   $('admin-choice-screen').style.display = 'flex';
 };
 
