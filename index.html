@@ -375,7 +375,7 @@ body.preview-active .p-slot-tab {
       <div class="choice-card manage" id="manage-card" style="display:none;cursor:pointer;" onclick="goToAdminConsole()">
         <div class="choice-icon">⚡</div>
         <div class="choice-label">Manage</div>
-        <div class="choice-desc">Open the Admin Console to manage courses, exams, learners and proctoring.</div>
+        <div class="choice-desc">Admin Console — manage courses, exams, learners and proctoring.</div>
       </div>
     </div>
     <div style="margin-top:8px;text-align:center;">
@@ -810,14 +810,18 @@ onAuthStateChanged(auth, async user => {
 
   if (!user) {
     $('loading-splash').classList.add('hidden');
-    // Reset sign-in button whenever we land on the sign-in screen
+    // Hide all screens that might be showing
+    $('admin-choice-screen').style.display = 'none';
+    $('app').style.display = 'none';
+    // Hide Manage card — only admin sees it after login
+    const mc = $('manage-card');
+    if (mc) mc.style.display = 'none';
+    // Reset sign-in button
     const btn = $('manual-signin-btn');
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
     }
-    const mc = $('manage-card');
-    if (mc) mc.style.display = 'none';
     $('choice-screen').style.display = 'flex';
     return;
   }
@@ -860,7 +864,8 @@ onAuthStateChanged(auth, async user => {
     }
     const firstName = (user.displayName || user.email).split(' ')[0].split('@')[0];
     $('admin-first-name').textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
-    // Show landing screen with Manage card visible — admin clicks Manage to enter console
+    // Show choice-screen with Manage card for admin
+    // Admin sees Learn + Get Certified + Manage, then clicks Manage to enter console
     const mc = $('manage-card');
     if (mc) mc.style.display = 'flex';
     $('choice-screen').style.display = 'flex';
@@ -918,20 +923,12 @@ window.adminNav = function(section) {
   loadAdminCourses();
 };
 
-window.adminSignOut = function() {
-  signOut(auth);
+window.adminSignOut = async function() {
+  // Hide all screens — let onAuthStateChanged handle showing choice-screen cleanly
   $('admin-choice-screen').style.display = 'none';
-  $('app').style.display = 'none';
-  // Hide manage card — will be re-shown on next admin sign-in
-  const mc = $('manage-card');
-  if (mc) mc.style.display = 'none';
-  // Reset sign-in button to original state
-  const btn = $('manual-signin-btn');
-  if (btn) {
-    btn.disabled = false;
-    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
-  }
-  $('choice-screen').style.display = 'flex';
+  $('choice-screen').style.display       = 'none';
+  $('app').style.display                 = 'none';
+  await signOut(auth);
 }
 
 $('signout-btn').addEventListener('click', () => adminSignOut());
