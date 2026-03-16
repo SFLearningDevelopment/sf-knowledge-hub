@@ -269,6 +269,14 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .approve-btn{padding:9px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
 .reject-btn{padding:9px 20px;border-radius:8px;border:none;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);font-size:13px;font-weight:700;cursor:pointer;}
 .rq-comment{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;margin-bottom:12px;resize:vertical;min-height:80px;font-family:'Syne',sans-serif;}
+/* ══ FLAG DELAY ══ */
+.flag-delay-box{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px 14px;margin-top:10px;}
+.flag-delay-label{font-size:12px;color:#f87171;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.flag-delay-check{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);cursor:pointer;line-height:1.5;}
+.flag-delay-check input{margin-top:2px;accent-color:#ef4444;width:14px;height:14px;flex-shrink:0;}
+.flag-raised-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 14px;margin-top:10px;font-size:12px;color:#f87171;font-weight:600;}
+.flag-actioned-box{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:10px 14px;margin-top:10px;font-size:12px;color:#34d399;font-weight:600;}
+
 </style>
 </head>
 <body>
@@ -1055,6 +1063,32 @@ function buildStudentExamCard(exam, myResults, myProgress) {
     slotStatusHtml = `<div class="slot-status awaiting">&#9203; Awaiting proctor confirmation &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}</div>`;
   } else if (slotStatus === 'confirmed') {
     slotStatusHtml = `<div class="slot-status confirmed">&#10003; Slot confirmed &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}</div>`;
+
+    // Flag delay logic — show checkbox 5+ mins after scheduled start
+    if (slot.requestedDate && slot.requestedTime) {
+      const scheduledMs = new Date(slot.requestedDate + 'T' + slot.requestedTime + ':00').getTime();
+      const minsLate    = Math.floor((Date.now() - scheduledMs) / 60000);
+      if (slot.admitted === true) {
+        slotStatusHtml += '<div class="flag-actioned-box">&#10003; Actioned by Proctor</div>';
+      } else if (slot.rejectedAt) {
+        slotStatusHtml += '<div class="flag-actioned-box">&#10003; Actioned by Proctor (denied)</div>';
+      } else if (slot.flagged) {
+        slotStatusHtml += '<div class="flag-raised-box">&#128680; Delay flagged &mdash; awaiting admin action</div>';
+      } else if (minsLate >= 5) {
+        slotStatusHtml += '<div class="flag-delay-box">' +
+          '<div class="flag-delay-label">&#9888;&#65039; Proctor has not responded ('+minsLate+' min delay)</div>' +
+          '<label class="flag-delay-check">' +
+          '<input type="checkbox" id="flag-check-'+slot.id+'" onchange="raiseDelayFlag(\'' + slot.id + '\', this.checked)">' +
+          'I want to flag this delay for admin attention' +
+          '</label></div>';
+      } else if (minsLate >= -10) {
+        const minsToStart = Math.max(0, -minsLate);
+        slotStatusHtml += '<div style="font-size:12px;color:var(--muted);margin-top:8px;">&#128338; ' +
+          (minsLate < 0 ? 'Exam starts in ' + minsToStart + ' min. Be ready 10 min before.' : 'Waiting for proctor. Flag option activates after 5 min delay.') +
+          '</div>';
+      }
+    }
+
   } else if (slotStatus === 'awaitingAdmit') {
     slotStatusHtml = `<div class="slot-status awaiting">&#128250; Snapshots sent &mdash; waiting for proctor to admit</div>`;
   }
@@ -1782,6 +1816,39 @@ window.closeSessionModal = function() {
   if (_sessionStream) { _sessionStream.getTracks().forEach(t => t.stop()); _sessionStream = null; }
   if (_admitListener) { _admitListener(); _admitListener = null; }
   $('session-modal').style.display = 'none';
+};
+
+// ══ FLAG DELAY ══
+window.raiseDelayFlag = async function(slotId, checked) {
+  if (!checked) return;
+  const checkbox = document.getElementById('flag-check-' + slotId);
+  if (checkbox) checkbox.disabled = true;
+  try {
+    await setDoc(doc(db, 'examSlots', slotId), {
+      flagged:    true,
+      flaggedAt:  serverTimestamp(),
+      flaggedBy:  lookupEmail()
+    }, {merge: true});
+
+    // Notify admin
+    for (const adminEmail of ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com']) {
+      await addDoc(collection(db, 'notifications', adminEmail, 'items'), {
+        message:   'FLAGGED: Learner ' + (me.displayName||lookupEmail()) + ' has flagged a proctor delay for their exam slot.',
+        type:      'proctor_delay_flag',
+        slotId:    slotId,
+        read:      false,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    toast('Delay flagged. Admin has been notified.', 'success');
+    // Reload exams to show updated flag status
+    await loadStudentExams();
+  } catch(e) {
+    console.error('raiseDelayFlag:', e);
+    toast('Error raising flag.', 'error');
+    if (checkbox) checkbox.disabled = false;
+  }
 };
 
 // ══ NOTIFICATIONS ══
