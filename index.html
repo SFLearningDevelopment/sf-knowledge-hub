@@ -288,6 +288,40 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .set-role-user-row:hover{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2);}
 .set-role-user-row.selected{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);}
 
+/* ══ PREVIEW READ-ONLY OVERLAY ══ */
+.preview-readonly-wrap{
+  position:relative;
+  pointer-events:none;
+  user-select:none;
+}
+.preview-readonly-wrap *{
+  pointer-events:none!important;
+  cursor:not-allowed!important;
+}
+.preview-readonly-wrap button,
+.preview-readonly-wrap input,
+.preview-readonly-wrap select,
+.preview-readonly-wrap textarea,
+.preview-readonly-wrap a[onclick]{
+  opacity:.5!important;
+  pointer-events:none!important;
+}
+.preview-readonly-banner{
+  position:sticky;
+  top:0;
+  z-index:801;
+  background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(245,158,11,.08));
+  border-bottom:2px solid rgba(245,158,11,.4);
+  color:#fbbf24;
+  font-size:13px;
+  font-weight:700;
+  padding:8px 20px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  letter-spacing:.01em;
+}
+
 </style>
 </head>
 <body>
@@ -1525,6 +1559,49 @@ function showPreviewBanner(role, u) {
   $('preview-banner-text').innerHTML = '&#129514; Previewing as <strong>' + role + '</strong> &mdash; ' + (u.name||u.email);
   banner.style.display = 'flex';
   toast('Viewing as ' + role + ': ' + (u.name||u.email), 'info');
+  applyPreviewReadOnly(role, u);
+}
+
+function applyPreviewReadOnly(role, u) {
+  // Remove any existing overlays first
+  removePreviewReadOnly();
+
+  // Find the currently visible preview view
+  const viewIds = ['student-view', 'reviewer-view'];
+  for (const id of viewIds) {
+    const view = $(id);
+    if (!view || view.style.display === 'none') continue;
+
+    // Inject sticky read-only banner as first child of the view
+    const banner = document.createElement('div');
+    banner.className = 'preview-readonly-banner';
+    banner.innerHTML = '&#128065; Preview Mode &mdash; Read Only &nbsp;&bull;&nbsp; Viewing as <strong>' +
+      role + ':</strong> ' + (u.name||u.email) + ' &nbsp;&bull;&nbsp; No actions will be saved.';
+    view.insertBefore(banner, view.firstChild);
+
+    // Find the scrollable content container inside the view
+    // For student-view it's .s-main, for reviewer-view it's the first child div
+    let inner = view.querySelector('.s-main') || view.querySelector('div');
+    // Don't wrap the banner we just inserted
+    if (inner && inner.classList && inner.classList.contains('preview-readonly-banner')) {
+      inner = inner.nextElementSibling;
+    }
+    if (inner) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preview-readonly-wrap';
+      inner.parentNode.insertBefore(wrapper, inner);
+      wrapper.appendChild(inner);
+    }
+    break;
+  }
+}
+
+function removePreviewReadOnly() {
+  document.querySelectorAll('.preview-readonly-banner').forEach(el => el.remove());
+  document.querySelectorAll('.preview-readonly-wrap').forEach(el => {
+    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+    el.remove();
+  });
 }
 
 window.closePreviewPicker  = function() { $('preview-picker').style.display  = 'none'; };
@@ -1534,6 +1611,7 @@ window.closeProctorPicker  = function() { $('proctor-picker').style.display  = '
 window.exitPreview = function() {
   isPreviewMode = false;
   previewEmail  = null;
+  removePreviewReadOnly();
   $('preview-banner').style.display = 'none';
   // Hide all views and return to admin choice screen
   hide('student-view'); hide('reviewer-view'); hide('admin-view'); hide('examresults-view');
