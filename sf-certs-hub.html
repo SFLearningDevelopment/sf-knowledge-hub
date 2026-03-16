@@ -294,6 +294,26 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .flag-alert-actions{display:flex;gap:8px;margin-top:10px;}
 .flag-actioned{border-radius:12px;padding:14px 18px;margin-bottom:14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);display:flex;align-items:center;gap:12px;font-size:13px;color:#34d399;}
 
+/* ══ PROCTOR BOOKED SLOTS ══ */
+.proctor-section-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text);}
+.proctor-section-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+.p-slot-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:18px;transition:box-shadow .2s;}
+.p-slot-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.p-slot-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;}
+.p-slot-selfie{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);flex-shrink:0;}
+.p-slot-initials{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0;}
+.p-slot-info{flex:1;}
+.p-slot-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.p-slot-email{font-size:12px;color:var(--muted);margin-top:2px;}
+.p-slot-time{font-size:12px;font-weight:600;padding:4px 12px;border-radius:50px;background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);white-space:nowrap;flex-shrink:0;}
+.p-slot-body{padding:16px 20px;}
+.p-slot-confirm-btn{width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s;margin-top:12px;font-family:'Syne',sans-serif;}
+.p-slot-confirm-btn:hover{background:#059669;}
+.p-slot-confirmed-tag{font-size:12px;font-weight:700;padding:4px 12px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+.p-slot-tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);}
+.p-slot-tab{background:none;border:none;padding:9px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;font-family:'Syne',sans-serif;}
+.p-slot-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
 </style></head>
 <body>
 
@@ -385,19 +405,35 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <!-- PROCTOR VIEW — ONLY assigned candidate session, nothing else -->
   <div id="proctor-view">
     <div class="proctor-main">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px;">
-        <div>
-          <div class="proctor-title">🎯 Live Exam Monitor</div>
-          <div class="proctor-sub" id="proctor-candidate-label">Loading assigned candidate…</div>
+      <!-- Proctor sub-tabs -->
+      <div class="p-slot-tabs">
+        <button class="p-slot-tab active" id="ptab-slots" onclick="switchProctorTab('slots')">📋 My Assigned Slots</button>
+        <button class="p-slot-tab" id="ptab-live" onclick="switchProctorTab('live')">🎯 Live Session</button>
+      </div>
+
+      <!-- My Assigned Slots -->
+      <div id="ptab-content-slots">
+        <div class="proctor-section-title">Your Assigned Exam Slots</div>
+        <div class="proctor-section-sub">Learners assigned to you by the admin. Confirm a slot to notify the learner of their scheduled time.</div>
+        <div id="proctor-slots-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading your slots…</div></div>
+      </div>
+
+      <!-- Live Session -->
+      <div id="ptab-content-live" style="display:none;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div class="proctor-title">🎯 Live Exam Monitor</div>
+            <div class="proctor-sub" id="proctor-candidate-label">Loading assigned candidate…</div>
+          </div>
+          <button class="refresh-btn" id="refresh-btn" onclick="loadProctorSession()">⟳ Refresh Now</button>
         </div>
-        <button class="refresh-btn" id="refresh-btn">⟳ Refresh Now</button>
+        <div class="proctor-stats">
+          <div class="stat-card"><div class="stat-label">Session Status</div><div class="stat-val green" id="stat-active">—</div></div>
+          <div class="stat-card"><div class="stat-label">Flags Raised</div><div class="stat-val red" id="stat-flags">—</div></div>
+          <div class="stat-card"><div class="stat-label">Progress</div><div class="stat-val yellow" id="stat-progress">—</div></div>
+        </div>
+        <div id="live-sessions"></div>
       </div>
-      <div class="proctor-stats">
-        <div class="stat-card"><div class="stat-label">Session Status</div><div class="stat-val green" id="stat-active">—</div></div>
-        <div class="stat-card"><div class="stat-label">Flags Raised</div><div class="stat-val red" id="stat-flags">—</div></div>
-        <div class="stat-card"><div class="stat-label">Progress</div><div class="stat-val yellow" id="stat-progress">—</div></div>
-      </div>
-      <div id="live-sessions"></div>
     </div>
   </div>
 
@@ -974,11 +1010,203 @@ function cleanup() {
    No exams list, no course data, no admin panel.
 ═══════════════════════════════════════ */
 async function initProctor() {
+  // Load slots first (default tab)
+  await loadProctorAssignedSlots();
   await loadProctorSession();
-  // Auto-refresh every 30 seconds
-  proctorRefreshTimer = setInterval(loadProctorSession, 30000);
-  $('refresh-btn').addEventListener('click', loadProctorSession);
+  proctorRefreshTimer = setInterval(() => {
+    if (document.getElementById('ptab-content-live') &&
+        document.getElementById('ptab-content-live').style.display !== 'none') {
+      loadProctorSession();
+    }
+  }, 30000);
 }
+
+window.switchProctorTab = function(tab) {
+  ['slots','live'].forEach(t => {
+    const btn  = $('ptab-' + t);
+    const pane = $('ptab-content-' + t);
+    if (btn)  btn.className  = 'p-slot-tab' + (t===tab ? ' active' : '');
+    if (pane) pane.style.display = t===tab ? 'block' : 'none';
+  });
+  if (tab === 'slots') loadProctorAssignedSlots();
+  if (tab === 'live')  loadProctorSession();
+};
+
+async function loadProctorAssignedSlots() {
+  const container = $('proctor-slots-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading your slots…</div>';
+
+  const proctorEmail = _previewProctorEmail || meEmail;
+  if (!proctorEmail) return;
+
+  try {
+    // Fetch all examSlots where assignedProctor === this proctor
+    const snap = await getDocs(query(
+      collection(db, 'examSlots'),
+      where('assignedProctor', '==', proctorEmail)
+    ));
+
+    const slots = [];
+    snap.forEach(d => slots.push({id: d.id, ...d.data()}));
+
+    // Also include slots where status is bookedByLearner but no proctor yet
+    // (admin assigned this proctor via nomination doc, slot may not have assignedProctor set yet)
+    // Check nomination docs for this proctor's assigned candidate
+    try {
+      const userSnap = await getDoc(doc(db, 'users', proctorEmail));
+      if (userSnap.exists()) {
+        const assignedCandidate = userSnap.data().assignedCandidate;
+        const assignedExamId    = userSnap.data().assignedExamId;
+        if (assignedCandidate && assignedExamId) {
+          // Fetch slots for this candidate+exam that aren't already in results
+          const existingIds = new Set(slots.map(s => s.id));
+          const candSnap = await getDocs(query(
+            collection(db, 'examSlots'),
+            where('learnerEmail', '==', assignedCandidate),
+            where('examId', '==', assignedExamId)
+          ));
+          candSnap.forEach(d => {
+            if (!existingIds.has(d.id)) {
+              slots.push({id: d.id, ...d.data()});
+              // Also update the slot with assignedProctor if missing
+              if (!d.data().assignedProctor) {
+                setDoc(doc(db, 'examSlots', d.id), {assignedProctor: proctorEmail}, {merge: true})
+                  .catch(() => {});
+              }
+            }
+          });
+        }
+      }
+    } catch(e) { console.warn('proctor candidate lookup:', e); }
+
+    if (!slots.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No slots assigned to you yet.<br><span style="font-size:12px;">Ask your L&D administrator to assign you to a learner.</span></div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    // Sort: pending first, then by date
+    slots.sort((a,b) => {
+      const order = {bookedByLearner:0, confirmed:1, awaitingAdmit:2, inProgress:3, completed:4, rejected:5};
+      return (order[a.status]||0) - (order[b.status]||0);
+    });
+
+    for (const slot of slots) {
+      container.appendChild(buildProctorSlotCard(slot));
+    }
+  } catch(e) {
+    console.error('loadProctorAssignedSlots:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading slots.</div>';
+  }
+}
+
+function buildProctorSlotCard(slot) {
+  const card = document.createElement('div');
+  card.className = 'p-slot-card';
+  card.id = 'p-slot-' + slot.id;
+
+  const initials = (slot.learnerName||slot.learnerEmail||'?').charAt(0).toUpperCase();
+  const photoHtml = slot.learnerSelfie
+    ? `<img src="${slot.learnerSelfie}" class="p-slot-selfie" onerror="this.style.display=&apos;none&apos;">`
+    : `<div class="p-slot-initials">${initials}</div>`;
+
+  const timeStr = slot.requestedDate && slot.requestedTime
+    ? `${slot.requestedDate} ${slot.requestedTime} (${slot.requestedTimezone||''})`
+    : 'Time not specified';
+
+  // Status tag
+  const statusMap = {
+    bookedByLearner: {label:'Awaiting Your Confirmation', color:'#fbbf24', bg:'rgba(245,158,11,.1)'},
+    confirmed:       {label:'Confirmed', color:'#34d399', bg:'rgba(16,185,129,.1)'},
+    awaitingAdmit:   {label:'Snapshots Ready — Admit/Deny', color:'#60a5fa', bg:'rgba(59,130,246,.1)'},
+    inProgress:      {label:'Exam In Progress', color:'#a78bfa', bg:'rgba(139,92,246,.1)'},
+    completed:       {label:'Completed', color:'var(--muted)', bg:'var(--surface)'},
+    rejected:        {label:'Rejected', color:'#f87171', bg:'rgba(239,68,68,.1)'},
+  };
+  const st = statusMap[slot.status] || {label:slot.status||'Unknown', color:'var(--muted)', bg:'var(--surface)'};
+  const statusTag = `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:${st.bg};color:${st.color};border:1px solid ${st.color}33;">${st.label}</span>`;
+
+  // Check reschedule info
+  const rescheduleCount = slot.rescheduleCount || 0;
+  const rescheduleNote = rescheduleCount > 0
+    ? `<div style="font-size:12px;color:#fbbf24;margin-top:6px;">&#128197; Rescheduled ${rescheduleCount}x — New time: <strong>${timeStr}</strong></div>`
+    : '';
+
+  // Action buttons based on status
+  let actions = '';
+  if (slot.status === 'bookedByLearner') {
+    actions = `<button class="p-slot-confirm-btn" onclick="proctorConfirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">
+      ✅ Confirm This Slot
+    </button>`;
+  } else if (slot.status === 'awaitingAdmit') {
+    actions = `<div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="admit-btn" style="flex:1;padding:10px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit</button>
+      <button class="reject-btn-slot" style="flex:1;padding:10px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny</button>
+    </div>`;
+  } else if (slot.status === 'confirmed') {
+    actions = `<div style="font-size:13px;color:#34d399;margin-top:10px;padding:8px 12px;background:rgba(16,185,129,.06);border-radius:8px;border:1px solid rgba(16,185,129,.2);">
+      &#10003; Slot confirmed. Waiting for learner to begin session at the scheduled time.
+    </div>`;
+  }
+
+  // Snapshots for awaitingAdmit
+  let snapshotsHtml = '';
+  if (slot.status === 'awaitingAdmit' && slot.snapshots && slot.snapshots.length > 0) {
+    snapshotsHtml = '<div style="margin-bottom:12px;"><div class="slot-selfie-label" style="margin-bottom:8px;">Live Snapshots</div><div class="slot-snapshots">';
+    slot.snapshots.forEach(snap => {
+      const score = snap.matchScore;
+      const color = score == null ? 'var(--border)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
+      snapshotsHtml += `<div class="snap-item"><img src="${snap.image}" class="snap-img" style="border-color:${color};" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${color};">${score != null ? score+'%' : '&mdash;'}</div></div>`;
+    });
+    snapshotsHtml += '</div></div>';
+  }
+
+  card.innerHTML = `
+    <div class="p-slot-header">
+      ${photoHtml}
+      <div class="p-slot-info">
+        <div class="p-slot-name">${esc(slot.learnerName||slot.learnerEmail||'Unknown')}</div>
+        <div class="p-slot-email">${esc(slot.learnerEmail||'')}</div>
+        <div style="margin-top:6px;">${statusTag}</div>
+      </div>
+      <div class="p-slot-time">&#128197; ${esc(timeStr)}</div>
+    </div>
+    <div class="p-slot-body">
+      ${rescheduleNote}
+      ${snapshotsHtml}
+      ${actions}
+    </div>`;
+
+  return card;
+}
+
+// Proctor-specific confirm slot (same logic as admin confirmSlot but from proctor view)
+window.proctorConfirmSlot = async function(slotId, learnerEmail, learnerName, timeStr) {
+  if (!confirm('Confirm exam slot for ' + learnerName + ' at ' + timeStr + '?')) return;
+  const proctorEmail = _previewProctorEmail || meEmail;
+  try {
+    await setDoc(doc(db,'examSlots',slotId), {
+      status:          'confirmed',
+      confirmedBy:     proctorEmail,
+      confirmedAt:     serverTimestamp(),
+      assignedProctor: proctorEmail
+    }, {merge: true});
+
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message:   'Your exam slot for ' + timeStr + ' has been confirmed by your proctor. You can begin your session at the scheduled time.',
+      type:      'slot_confirmed',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    toast('Slot confirmed! Learner has been notified.', 'success');
+    await loadProctorAssignedSlots();
+  } catch(e) {
+    console.error('proctorConfirmSlot:', e);
+    toast('Error confirming slot.', 'error');
+  }
+};
 
 async function loadProctorSession() {
   const container = $('live-sessions');
