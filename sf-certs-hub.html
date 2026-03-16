@@ -631,6 +631,13 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;">🎓 Exam Sessions</div>
         <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Completed session logs with proctoring flags.</div>
         <div id="report-list"><div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading…</div></div>
+
+      <!-- Reschedule History Section -->
+      <div style="margin-top:36px;">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;">&#128197; Reschedule History</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">All rescheduled exam slots — original slot is deleted and replaced with the new one.</div>
+        <div id="resched-history-list"><div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading…</div></div>
+      </div>
       </div>
     </div>
   </div>
@@ -2293,8 +2300,9 @@ window.loadProctorSessions = async function() {
    REPORTS
 ═══════════════════════════════════════ */
 async function loadReports() {
-  loadTestResults();   // load in parallel
-  loadCourseReviews(); // load in parallel
+  loadTestResults();       // load in parallel
+  loadCourseReviews();     // load in parallel
+  loadRescheduleHistory(); // load in parallel
   $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">Loading…</div>';
   const snap = await getDocs(collection(db,'examSessions'));
   const sessions=[]; snap.forEach(d=>sessions.push({id:d.id,...d.data()}));
@@ -2551,6 +2559,82 @@ async function loadCourseReviews() {
   } catch(err) {
     container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading course reviews.</div>';
     console.error('loadCourseReviews:', err);
+  }
+}
+
+async function loadRescheduleHistory() {
+  const container = document.getElementById('resched-history-list');
+  if (!container) return;
+  try {
+    const snap = await getDocs(collection(db, 'rescheduleHistory'));
+    const records = [];
+    snap.forEach(d => records.push({id: d.id, ...d.data()}));
+
+    if (!records.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">No reschedules yet.</div>';
+      return;
+    }
+
+    // Sort by most recent first
+    records.sort((a,b) => (b.rescheduledAt?.seconds||0) - (a.rescheduledAt?.seconds||0));
+
+    // Build summary stats
+    const total = records.length;
+    const byExam = {};
+    records.forEach(r => {
+      const key = r.examId || 'Unknown';
+      byExam[key] = (byExam[key] || 0) + 1;
+    });
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:var(--accent);">${total}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Total Reschedules</div>
+      </div>
+    </div>`;
+
+    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += `<thead><tr style="background:var(--surface2);">
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Learner</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Exam</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Proctor</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Original Slot</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Rescheduled To</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Count</th>
+      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Date</th>
+    </tr></thead><tbody>`;
+
+    for (const r of records) {
+      // Fetch exam title if we have examId
+      let examTitle = r.examId || '—';
+      if (r.examId) {
+        try {
+          const eSnap = await getDoc(doc(db, 'exams', r.examId));
+          if (eSnap.exists()) examTitle = eSnap.data().title || r.examId;
+        } catch {}
+      }
+      const reschDate = r.rescheduledAt?.seconds
+        ? new Date(r.rescheduledAt.seconds*1000).toLocaleDateString() : '—';
+      const countColor = r.rescheduleCount >= 2 ? '#f87171' : '#fbbf24';
+
+      html += `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:10px 14px;">
+          <div style="font-weight:600;">${esc(r.learnerName||r.learnerEmail||'—')}</div>
+          <div style="font-size:11px;color:var(--muted);">${esc(r.learnerEmail||'')}</div>
+        </td>
+        <td style="padding:10px 14px;color:var(--text);">${esc(examTitle)}</td>
+        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${esc(r.assignedProctor||'—')}</td>
+        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${esc((r.originalDate||''))} ${esc((r.originalTime||''))}</td>
+        <td style="padding:10px 14px;font-weight:600;color:#34d399;">${esc(r.newDate||'')} ${esc(r.newTime||'')}</td>
+        <td style="padding:10px 14px;"><span style="font-weight:700;color:${countColor};">${r.rescheduleCount||'—'}/2</span></td>
+        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${reschDate}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('loadRescheduleHistory:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Error loading reschedule history.</div>';
   }
 }
 
