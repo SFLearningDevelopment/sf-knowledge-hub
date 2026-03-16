@@ -806,6 +806,14 @@ onAuthStateChanged(auth, async user => {
 
   if (!user) {
     $('loading-splash').classList.add('hidden');
+    // Reset sign-in button whenever we land on the sign-in screen
+    const btn = $('manual-signin-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+    }
+    const mc = $('manage-card');
+    if (mc) mc.style.display = 'none';
     $('choice-screen').style.display = 'flex';
     return;
   }
@@ -907,6 +915,15 @@ window.adminSignOut = function() {
   signOut(auth);
   $('admin-choice-screen').style.display = 'none';
   $('app').style.display = 'none';
+  // Hide manage card — will be re-shown on next admin sign-in
+  const mc = $('manage-card');
+  if (mc) mc.style.display = 'none';
+  // Reset sign-in button to original state
+  const btn = $('manual-signin-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+  }
   $('choice-screen').style.display = 'flex';
 }
 
