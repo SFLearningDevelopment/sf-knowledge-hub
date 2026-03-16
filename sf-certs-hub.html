@@ -249,6 +249,41 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   #exam-grid{grid-template-columns:1fr;}
   .form-grid{grid-template-columns:1fr;}
 }
+/* ══ PROCTOR SLOTS ══ */
+.slot-card{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+.slot-card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;}
+.slot-learner-photo{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);flex-shrink:0;}
+.slot-learner-initials{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;}
+.slot-learner-info{flex:1;}
+.slot-learner-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.slot-learner-email{font-size:12px;color:var(--muted);margin-top:2px;}
+.slot-time-badge{font-size:12px;font-weight:600;padding:4px 12px;border-radius:50px;background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.slot-card-body{padding:16px 20px;}
+.slot-selfie-wrap{margin-bottom:16px;}
+.slot-selfie-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.slot-selfie-img{width:120px;height:90px;border-radius:8px;object-fit:cover;border:2px solid var(--accent);}
+.slot-snapshots{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.snap-item{text-align:center;}
+.snap-img{width:72px;height:54px;border-radius:6px;object-fit:cover;border:2px solid var(--border);}
+.snap-img.match-hi{border-color:#34d399;}
+.snap-img.match-mid{border-color:#f59e0b;}
+.snap-img.match-lo{border-color:#ef4444;}
+.snap-score{font-size:10px;font-weight:700;margin-top:3px;}
+.slot-actions{display:flex;gap:10px;margin-top:16px;}
+.admit-btn{flex:1;padding:12px;border-radius:10px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s;}
+.admit-btn:hover{background:#059669;}
+.reject-btn-slot{flex:1;padding:12px;border-radius:10px;border:none;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);font-size:14px;font-weight:700;cursor:pointer;}
+.reject-btn-slot:hover{background:rgba(239,68,68,.2);}
+.override-btn{padding:10px 20px;border-radius:10px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#fbbf24;font-size:13px;font-weight:700;cursor:pointer;}
+.slot-status-tag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;}
+.sst-booked{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.sst-awaiting{background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);}
+.sst-confirmed{background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+.sst-admitted{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+.sst-rejected{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);}
+.waiting-pulse{animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+
 </style></head>
 <body>
 
@@ -530,16 +565,39 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="atc-inner">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <div>
-            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">All Active Sessions</div>
-            <div style="color:var(--muted);font-size:13px;margin-top:3px;">Admin view — all candidates, all exams.</div>
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">Live Monitor</div>
+            <div style="color:var(--muted);font-size:13px;margin-top:3px;">Manage exam slots, admit learners, and monitor active sessions.</div>
           </div>
-          <button class="refresh-btn" id="admin-refresh-btn">⟳ Refresh</button>
+          <button class="refresh-btn" id="admin-refresh-btn" onclick="loadProctorSessions()">⟳ Refresh</button>
         </div>
-        <div class="proctor-stats">
-          <div class="stat-card"><div class="stat-label">Active Sessions</div><div class="stat-val green" id="a-stat-active">—</div></div>
-          <div class="stat-card"><div class="stat-label">Flagged Events</div><div class="stat-val red" id="a-stat-flags">—</div></div>
+
+        <!-- Sub-tabs -->
+        <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0;">
+          <button class="s-tab active" id="mtab-slots" onclick="switchMonitorTab('slots')" style="font-size:13px;padding:8px 16px;">📋 Booked Slots</button>
+          <button class="s-tab" id="mtab-admit" onclick="switchMonitorTab('admit')" style="font-size:13px;padding:8px 16px;">🎥 Awaiting Admit</button>
+          <button class="s-tab" id="mtab-active" onclick="switchMonitorTab('active')" style="font-size:13px;padding:8px 16px;">📡 Active Sessions</button>
         </div>
-        <div id="admin-sessions"></div>
+
+        <!-- Booked Slots -->
+        <div id="mtab-content-slots">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners who have requested an exam slot. Confirm a slot to notify the learner.</div>
+          <div id="booked-slots-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div></div>
+        </div>
+
+        <!-- Awaiting Admit -->
+        <div id="mtab-content-admit" style="display:none;">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners who have submitted identity snapshots and are waiting to be admitted.</div>
+          <div id="awaiting-admit-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div></div>
+        </div>
+
+        <!-- Active Sessions -->
+        <div id="mtab-content-active" style="display:none;">
+          <div class="proctor-stats" style="margin-bottom:20px;">
+            <div class="stat-card"><div class="stat-label">Active Sessions</div><div class="stat-val green" id="a-stat-active">—</div></div>
+            <div class="stat-card"><div class="stat-label">Flagged Events</div><div class="stat-val red" id="a-stat-flags">—</div></div>
+          </div>
+          <div id="admin-sessions"></div>
+        </div>
       </div>
     </div>
 
@@ -576,7 +634,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc,
-  serverTimestamp, query, where
+  serverTimestamp, query, where, onSnapshot
 } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const FB = {
@@ -641,7 +699,7 @@ onAuthStateChanged(auth, async user => {
   }
 
   // Valid user — set up session
-  me = user;
+  me = {...user, email: user.email.toLowerCase()};
   $('auth-screen').style.display = 'none';
   $('app').style.display         = 'block';
   $('user-name').textContent     = user.displayName || user.email;
@@ -1093,7 +1151,7 @@ window.switchAdminTab = tab => {
   });
   if (tab === 'courses')     loadAdminCourses();
   if (tab === 'cprogress')   loadCourseProgress();
-  if (tab === 'monitor')     loadProctorSessions();
+  if (tab === 'monitor')     { loadBookedSlots(); }
   if (tab === 'reports')     loadReports();
   if (tab === 'nominations') populateNomExamSelect();
 };
@@ -1535,6 +1593,266 @@ async function removeNomination(itemId, email) {
 /* ══════════════════════════════════════
    ADMIN — LIVE MONITOR (all sessions)
 ═══════════════════════════════════════ */
+// ══ MONITOR TAB SWITCHING ══
+window.switchMonitorTab = function(tab) {
+  ['slots','admit','active'].forEach(t => {
+    const btn = $('mtab-'+t);
+    const content = $('mtab-content-'+t);
+    if (btn) btn.className = 's-tab' + (t===tab?' active':'');
+    if (content) content.style.display = t===tab ? 'block' : 'none';
+  });
+  if (tab === 'slots')  loadBookedSlots();
+  if (tab === 'admit')  loadAwaitingAdmit();
+  if (tab === 'active') loadProctorSessions();
+};
+
+// ══ BOOKED SLOTS — learners awaiting proctor confirmation ══
+async function loadBookedSlots() {
+  const container = $('booked-slots-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
+  try {
+    const snap = await getDocs(query(collection(db,'examSlots'), where('status','==','bookedByLearner')));
+    const slots = [];
+    snap.forEach(d => slots.push({id:d.id,...d.data()}));
+    if (!slots.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No pending slot requests.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    // Sort by bookedAt
+    slots.sort((a,b) => (a.bookedAt?.seconds||0) - (b.bookedAt?.seconds||0));
+    for (const slot of slots) container.appendChild(buildBookedSlotCard(slot, 'booked'));
+  } catch(e) {
+    console.error('loadBookedSlots:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading slots.</div>';
+  }
+}
+
+// ══ AWAITING ADMIT — snapshots submitted, proctor to admit/reject ══
+async function loadAwaitingAdmit() {
+  const container = $('awaiting-admit-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
+  try {
+    const snap = await getDocs(query(collection(db,'examSlots'), where('status','==','awaitingAdmit')));
+    const slots = [];
+    snap.forEach(d => slots.push({id:d.id,...d.data()}));
+    if (!slots.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No learners waiting to be admitted.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    slots.sort((a,b) => (a.snapshotsTakenAt||'') < (b.snapshotsTakenAt||'') ? -1 : 1);
+    for (const slot of slots) container.appendChild(buildBookedSlotCard(slot, 'admit'));
+  } catch(e) {
+    console.error('loadAwaitingAdmit:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>';
+  }
+}
+
+function buildBookedSlotCard(slot, mode) {
+  const card = document.createElement('div');
+  card.className = 'slot-card';
+  card.id = 'slot-card-' + slot.id;
+
+  // Header — learner info
+  const initials = (slot.learnerName||slot.learnerEmail||'?').charAt(0).toUpperCase();
+  const photoHtml = slot.learnerSelfie
+    ? `<img src="${slot.learnerSelfie}" class="slot-learner-photo" onerror="this.style.display=&apos;none&apos;">`
+    : `<div class="slot-learner-initials">${initials}</div>`;
+
+  const timeStr = slot.requestedDate && slot.requestedTime
+    ? slot.requestedDate + ' ' + slot.requestedTime + ' (' + (slot.requestedTimezone||'UTC') + ')'
+    : 'Time not specified';
+
+  const statusTag = mode === 'booked'
+    ? '<span class="slot-status-tag sst-booked">Awaiting Confirmation</span>'
+    : '<span class="slot-status-tag sst-awaiting waiting-pulse">🎥 Waiting for Admit</span>';
+
+  let bodyHtml = '';
+
+  // Selfie section (always show if available)
+  if (slot.learnerSelfie) {
+    bodyHtml += `
+      <div class="slot-selfie-wrap">
+        <div class="slot-selfie-label">Identity Selfie (taken at scheduling)</div>
+        <img src="${slot.learnerSelfie}" class="slot-selfie-img" onerror="this.style.display=&apos;none&apos;">
+      </div>`;
+  }
+
+  // Snapshots section (only in admit mode)
+  if (mode === 'admit' && slot.snapshots && slot.snapshots.length > 0) {
+    bodyHtml += '<div class="slot-selfie-label" style="margin-bottom:8px;">Live Snapshots (taken at exam time)</div>';
+    bodyHtml += '<div class="slot-snapshots">';
+    slot.snapshots.forEach((snap, i) => {
+      const score = snap.matchScore;
+      const scoreClass = score === null || score === undefined ? '' : score >= 70 ? 'match-hi' : score >= 50 ? 'match-mid' : 'match-lo';
+      const scoreColor = score === null || score === undefined ? 'var(--muted)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#f87171';
+      bodyHtml += `<div class="snap-item">
+        <img src="${snap.image}" class="snap-img ${scoreClass}" onerror="this.style.display=&apos;none&apos;">
+        <div class="snap-score" style="color:${scoreColor};">${score !== null && score !== undefined ? score+'%' : '&mdash;'}</div>
+      </div>`;
+    });
+    bodyHtml += '</div>';
+
+    // Overall match score
+    const scores = (slot.snapshots||[]).map(s => s.matchScore).filter(s => s !== null && s !== undefined);
+    if (scores.length > 0) {
+      const avg = Math.round(scores.reduce((a,b) => a+b, 0) / scores.length);
+      const avgColor = avg >= 70 ? '#34d399' : avg >= 50 ? '#f59e0b' : '#f87171';
+      bodyHtml += `<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:13px;color:var(--muted);">Average Face Match Score</span>
+        <span style="font-size:18px;font-weight:800;color:${avgColor};">${avg}%</span>
+      </div>`;
+    }
+  }
+
+  // Actions
+  if (mode === 'booked') {
+    bodyHtml += `<div class="slot-actions">
+      <button class="admit-btn" onclick="confirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">
+        ✅ Confirm This Slot
+      </button>
+    </div>`;
+  } else if (mode === 'admit') {
+    bodyHtml += `<div class="slot-actions">
+      <button class="admit-btn" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
+        ✅ Admit to Exam
+      </button>
+      <button class="reject-btn-slot" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
+        ❌ Deny Access
+      </button>
+      <button class="override-btn" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">
+        ⚡ Admin Override
+      </button>
+    </div>`;
+  }
+
+  card.innerHTML = `
+    <div class="slot-card-header">
+      ${photoHtml}
+      <div class="slot-learner-info">
+        <div class="slot-learner-name">${esc(slot.learnerName||slot.learnerEmail||'Unknown')}</div>
+        <div class="slot-learner-email">${esc(slot.learnerEmail||'')}</div>
+        <div style="margin-top:4px;">${statusTag}</div>
+      </div>
+      <span class="slot-time-badge">📅 ${esc(timeStr)}</span>
+    </div>
+    <div class="slot-card-body">${bodyHtml}</div>`;
+
+  return card;
+}
+
+// ══ CONFIRM SLOT (proctor picks a learner's slot) ══
+window.confirmSlot = async function(slotId, learnerEmail, learnerName, timeStr) {
+  if (!confirm('Confirm exam slot for ' + learnerName + ' at ' + timeStr + '?')) return;
+  try {
+    await setDoc(doc(db,'examSlots',slotId), {
+      status:       'confirmed',
+      confirmedBy:  me.email,
+      confirmedAt:  serverTimestamp(),
+      assignedProctor: me.email
+    }, {merge: true});
+
+    // Notify learner
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message:   'Your exam slot for ' + timeStr + ' has been confirmed by your proctor. You can now begin your session at the scheduled time.',
+      type:      'slot_confirmed',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    toast('Slot confirmed! Learner notified.', 'success');
+    loadBookedSlots();
+  } catch(e) {
+    console.error('confirmSlot:', e);
+    toast('Error confirming slot.', 'error');
+  }
+};
+
+// ══ ADMIT LEARNER ══
+window.admitLearner = async function(slotId, learnerEmail) {
+  if (!confirm('Admit this learner to the exam?')) return;
+  try {
+    await setDoc(doc(db,'examSlots',slotId), {
+      admitted:   true,
+      admittedBy: me.email,
+      admittedAt: serverTimestamp(),
+      status:     'inProgress'
+    }, {merge: true});
+
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message:   'You have been admitted to your exam by your proctor. Good luck!',
+      type:      'admitted',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    toast('Learner admitted!', 'success');
+    loadAwaitingAdmit();
+  } catch(e) {
+    console.error('admitLearner:', e);
+    toast('Error admitting learner.', 'error');
+  }
+};
+
+// ══ REJECT LEARNER ══
+window.rejectLearner = async function(slotId, learnerEmail) {
+  if (!confirm('Deny this learner access? Their attempt will be consumed.')) return;
+  try {
+    await setDoc(doc(db,'examSlots',slotId), {
+      admitted:    false,
+      rejectedBy:  me.email,
+      rejectedAt:  serverTimestamp(),
+      status:      'rejected'
+    }, {merge: true});
+
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message:   'Your exam session was denied by your proctor. Please contact your manager for more information.',
+      type:      'rejected',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    toast('Learner denied. Attempt consumed.', 'error');
+    loadAwaitingAdmit();
+  } catch(e) {
+    console.error('rejectLearner:', e);
+    toast('Error rejecting.', 'error');
+  }
+};
+
+// ══ ADMIN OVERRIDE ADMIT ══
+window.adminOverrideAdmit = async function(slotId, learnerEmail) {
+  if (!confirm('Override proctor and admit this learner directly? This action will be logged.')) return;
+  try {
+    await setDoc(doc(db,'examSlots',slotId), {
+      admitted:      true,
+      admittedBy:    me.email,
+      admittedAt:    serverTimestamp(),
+      adminOverride: true,
+      overriddenBy:  me.email,
+      overriddenAt:  serverTimestamp(),
+      status:        'inProgress'
+    }, {merge: true});
+
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message:   'You have been admitted to your exam (admin override). Good luck!',
+      type:      'admitted',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    toast('Admin override — learner admitted.', 'success');
+    loadAwaitingAdmit();
+  } catch(e) {
+    console.error('adminOverride:', e);
+    toast('Error with override.', 'error');
+  }
+};
+
+
 async function loadProctorSessions() {
   const container = $('admin-sessions');
   if (!container) return;
