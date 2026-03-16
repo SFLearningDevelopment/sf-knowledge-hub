@@ -1644,7 +1644,14 @@ async function loadAwaitingAdmit() {
     }
     container.innerHTML = '';
     slots.sort((a,b) => (a.snapshotsTakenAt||'') < (b.snapshotsTakenAt||'') ? -1 : 1);
-    for (const slot of slots) container.appendChild(buildBookedSlotCard(slot, 'admit'));
+    const now = Date.now();
+    for (const slot of slots) {
+      // Check if waiting more than 5 minutes since snapshots taken
+      const snapTime = slot.snapshotsTakenAt ? new Date(slot.snapshotsTakenAt).getTime() : null;
+      const waitMins = snapTime ? Math.floor((now - snapTime) / 60000) : null;
+      slot._waitMins = waitMins;
+      container.appendChild(buildBookedSlotCard(slot, 'admit'));
+    }
   } catch(e) {
     console.error('loadAwaitingAdmit:', e);
     container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>';
@@ -1672,13 +1679,22 @@ function buildBookedSlotCard(slot, mode) {
 
   let bodyHtml = '';
 
-  // Selfie section (always show if available)
-  if (slot.learnerSelfie) {
+  // Selfie section — only show in admit mode (privacy: only confirmed proctor sees selfie)
+  if (mode === 'admit' && slot.learnerSelfie) {
     bodyHtml += `
       <div class="slot-selfie-wrap">
         <div class="slot-selfie-label">Identity Selfie (taken at scheduling)</div>
         <img src="${slot.learnerSelfie}" class="slot-selfie-img" onerror="this.style.display=&apos;none&apos;">
       </div>`;
+  }
+
+  // Booked mode — show proctor assignment info
+  if (mode === 'booked') {
+    const proctorInfo = slot.assignedProctor || slot.confirmedBy || null;
+    bodyHtml += `<div style="font-size:13px;color:var(--muted);padding:4px 0;">
+      <span style="font-weight:600;color:var(--text);">Assigned Proctor:</span> 
+      ${proctorInfo ? `<span style="color:#34d399;">${esc(proctorInfo)}</span>` : '<span style="color:#f59e0b;">Not yet assigned</span>'}
+    </div>`;
   }
 
   // Snapshots section (only in admit mode)
@@ -1708,14 +1724,22 @@ function buildBookedSlotCard(slot, mode) {
     }
   }
 
-  // Actions
+  // Actions — booked mode shows no button, admit mode shows admit/reject
   if (mode === 'booked') {
-    bodyHtml += `<div class="slot-actions">
-      <button class="admit-btn" onclick="confirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">
-        ✅ Confirm This Slot
-      </button>
-    </div>`;
+    // No action button — just informational display
+    bodyHtml += '';
   } else if (mode === 'admit') {
+    // 5-minute warning
+    const waitMins = slot._waitMins;
+    if (waitMins !== null && waitMins >= 5) {
+      bodyHtml += `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#f87171;">
+        ⚠️ Waiting for <strong>${waitMins} minute${waitMins!==1?'s':''}</strong> — proctor has not responded. Admin override recommended.
+      </div>`;
+    } else if (waitMins !== null) {
+      bodyHtml += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+        ⏱ Waiting for ${waitMins} minute${waitMins!==1?'s':''} — proctor has ${5-waitMins} minute${(5-waitMins)!==1?'s':''} before override is suggested.
+      </div>`;
+    }
     bodyHtml += `<div class="slot-actions">
       <button class="admit-btn" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
         ✅ Admit to Exam
