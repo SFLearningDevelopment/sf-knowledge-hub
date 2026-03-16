@@ -1079,7 +1079,11 @@ function buildStudentExamCard(exam, myResults, myProgress) {
   const slotStatus = slot ? slot.status : null;
   let slotStatusHtml = '';
   if (slotStatus === 'bookedByLearner') {
-    slotStatusHtml = `<div class="slot-status awaiting">&#9203; Awaiting proctor confirmation &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}</div>`;
+    const rc = slot.rescheduleCount || 0;
+    const reschedTag = rc > 0
+      ? `<span style="font-size:11px;margin-left:8px;padding:2px 8px;border-radius:50px;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.2);">Rescheduled ${rc}/2</span>`
+      : '';
+    slotStatusHtml = `<div class="slot-status awaiting">&#9203; Awaiting proctor confirmation &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}${reschedTag}</div>`;
   } else if (slotStatus === 'confirmed') {
     slotStatusHtml = `<div class="slot-status confirmed">&#10003; Slot confirmed &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}</div>`;
 
@@ -1116,8 +1120,21 @@ function buildStudentExamCard(exam, myResults, myProgress) {
   let footerHtml = '';
   if (slotStatus === 'confirmed') {
     footerHtml = `<button class="card-btn btn-enter" onclick="beginExamSession('${exam.id}','${slot?.id||''}')">&#127909; Begin Session &rarr;</button>`;
-  } else if (slotStatus === 'bookedByLearner' || slotStatus === 'awaitingAdmit') {
+  } else if (slotStatus === 'awaitingAdmit') {
     footerHtml = `<button class="card-btn btn-locked" disabled>&#9203; Awaiting Confirmation</button>`;
+  } else if (slotStatus === 'bookedByLearner') {
+    const reschedCount = slot.rescheduleCount || 0;
+    const reschedLeft  = 2 - reschedCount;
+    if (reschedLeft > 0) {
+      footerHtml = `<div style="display:flex;gap:10px;">
+        <button class="card-btn btn-locked" disabled style="flex:1;">&#9203; Awaiting Confirmation</button>
+        <button class="card-btn btn-enter" style="flex:1;background:#7c3aed;" onclick="openRescheduleModal('${slot.id}','${esc(exam.title)}',${reschedLeft})">
+          &#128197; Reschedule (${reschedLeft} left)
+        </button>
+      </div>`;
+    } else {
+      footerHtml = `<button class="card-btn btn-locked" disabled>&#9203; Awaiting Confirmation</button>`;
+    }
   } else if (canTake) {
     footerHtml = `<button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128197; Schedule Exam</button>`;
   } else {
@@ -2199,6 +2216,111 @@ document.addEventListener('click', e => {
   }
 });
 
+// ══ RESCHEDULE EXAM SLOT ══
+let _reschedSlotId = null;
+
+window.openRescheduleModal = function(slotId, examTitle, reschedLeft) {
+  _reschedSlotId = slotId;
+  $('reschedule-subtitle').textContent = examTitle + ' — ' + reschedLeft + ' reschedule' + (reschedLeft===1?'':'s') + ' remaining after this.';
+  $('resched-error').style.display = 'none';
+  $('resched-date').value = '';
+  $('resched-time').value = '';
+  $('resched-submit-btn').disabled    = false;
+  $('resched-submit-btn').textContent = 'Confirm Reschedule';
+
+  // Min date = tomorrow (enforce 24h via validation, not just date)
+  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  $('resched-date').min = minDate.toISOString().split('T')[0];
+
+  $('reschedule-modal').style.display = 'block';
+};
+
+window.closeRescheduleModal = function() {
+  $('reschedule-modal').style.display = 'none';
+  _reschedSlotId = null;
+};
+
+window.submitReschedule = async function() {
+  const date = $('resched-date').value;
+  const time = $('resched-time').value;
+  if (!date) { showReschedError('Please select a new date.'); return; }
+  if (!time) { showReschedError('Please select a new time.'); return; }
+
+  // Enforce 24h minimum
+  const chosen = new Date(date + 'T' + time + ':00');
+  const minAllowed = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  if (chosen < minAllowed) {
+    showReschedError('New date/time must be at least 24 hours from now. Please choose a later time.');
+    return;
+  }
+
+  const btn = $('resched-submit-btn');
+  btn.disabled = true; btn.textContent = 'Rescheduling…';
+
+  try {
+    // Read current slot to get reschedule count and assigned proctor
+    const slotSnap = await getDoc(doc(db, 'examSlots', _reschedSlotId));
+    if (!slotSnap.exists()) { showReschedError('Slot not found.'); btn.disabled=false; btn.textContent='Confirm Reschedule'; return; }
+
+    const slotData      = slotSnap.data();
+    const currentCount  = slotData.rescheduleCount || 0;
+    if (currentCount >= 2) { showReschedError('Maximum reschedules reached.'); btn.disabled=false; btn.textContent='Confirm Reschedule'; return; }
+
+    const newCount = currentCount + 1;
+
+    await setDoc(doc(db, 'examSlots', _reschedSlotId), {
+      requestedDate:    date,
+      requestedTime:    time,
+      requestedTimezone: _activeTz || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      utcDateTime:      chosen.toISOString(),
+      status:           'bookedByLearner',  // reset to awaiting confirmation
+      rescheduleCount:  newCount,
+      rescheduledAt:    serverTimestamp(),
+      rescheduledBy:    lookupEmail(),
+      confirmedBy:      null,
+      confirmedAt:      null,
+      admitted:         false,
+      flagged:          false,
+    }, {merge: true});
+
+    // Notify the assigned proctor if any
+    if (slotData.assignedProctor) {
+      await addDoc(collection(db, 'notifications', slotData.assignedProctor, 'items'), {
+        message:   'Learner ' + (slotData.learnerName||slotData.learnerEmail||lookupEmail()) +
+                   ' has rescheduled their exam slot to ' + date + ' at ' + time +
+                   '. Please confirm the new slot. (' + newCount + '/2 reschedules used)',
+        type:      'slot_rescheduled',
+        slotId:    _reschedSlotId,
+        read:      false,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    // Notify the learner
+    await addDoc(collection(db, 'notifications', lookupEmail(), 'items'), {
+      message:   'Your exam slot has been rescheduled to ' + date + ' at ' + time +
+                 '. Awaiting proctor confirmation. (' + newCount + '/2 reschedules used)',
+      type:      'slot_rescheduled',
+      read:      false,
+      createdAt: serverTimestamp()
+    });
+
+    closeRescheduleModal();
+    toast('Slot rescheduled! Awaiting proctor confirmation.', 'success');
+    await loadStudentExams();
+  } catch(e) {
+    console.error('submitReschedule:', e);
+    showReschedError('Error rescheduling. Please try again.');
+    btn.disabled = false; btn.textContent = 'Confirm Reschedule';
+  }
+};
+
+function showReschedError(msg) {
+  const el = $('resched-error');
+  el.textContent   = msg;
+  el.style.display = 'block';
+}
+
 // ══ SET PERSON ROLE MODAL ══
 let _setRoleUsers = [];
 let _setRoleSelected = null;
@@ -2603,6 +2725,37 @@ function showApError(msg) {
           style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;opacity:.5;" disabled>
           Save Role
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESCHEDULE MODAL -->
+<div id="reschedule-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:520px;margin:80px auto;padding:0 20px 80px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">&#128197; Reschedule Exam</h2>
+        <p id="reschedule-subtitle" style="font-size:13px;color:var(--muted);margin-top:4px;"></p>
+      </div>
+      <button onclick="closeRescheduleModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&#10005;</button>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;">
+      <div style="font-size:13px;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 14px;margin-bottom:20px;">
+        &#9888;&#65039; New date/time must be at least <strong>24 hours</strong> from now.
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">New Date</label>
+        <input type="date" id="resched-date" class="schedule-input" style="width:100%;">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">New Time</label>
+        <input type="time" id="resched-time" class="schedule-input" style="width:100%;">
+      </div>
+      <div id="resched-error" style="display:none;font-size:13px;color:#f87171;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2);margin-bottom:14px;"></div>
+      <div style="display:flex;gap:12px;">
+        <button onclick="closeRescheduleModal()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--muted);font-size:14px;cursor:pointer;">Cancel</button>
+        <button onclick="submitReschedule()" id="resched-submit-btn" style="flex:2;padding:12px;border-radius:10px;border:none;background:#7c3aed;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Confirm Reschedule</button>
       </div>
     </div>
   </div>
