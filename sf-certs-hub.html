@@ -284,6 +284,16 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .waiting-pulse{animation:pulse 1.5s ease-in-out infinite;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
 
+/* ══ FLAG ALERTS ══ */
+@keyframes flagFlash{0%,100%{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);}50%{background:rgba(239,68,68,.25);border-color:rgba(239,68,68,.7);}}
+.flag-alert{border-radius:12px;padding:16px 20px;margin-bottom:16px;border:2px solid rgba(239,68,68,.4);animation:flagFlash 1.2s ease-in-out infinite;display:flex;align-items:center;gap:16px;}
+.flag-alert-icon{font-size:28px;flex-shrink:0;}
+.flag-alert-body{flex:1;}
+.flag-alert-title{font-size:14px;font-weight:800;color:#f87171;margin-bottom:3px;}
+.flag-alert-sub{font-size:12px;color:var(--muted);}
+.flag-alert-actions{display:flex;gap:8px;margin-top:10px;}
+.flag-actioned{border-radius:12px;padding:14px 18px;margin-bottom:14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);display:flex;align-items:center;gap:12px;font-size:13px;color:#34d399;}
+
 </style></head>
 <body>
 
@@ -310,7 +320,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       Continue with Google
     </button>
     <div id="auth-error">Sign-in failed. Please use your @sourcefuse.com account.</div>
-    <a href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html?view=courses" class="hub-back">← Back to Learning Hub</a>
   </div>
   <div class="auth-card" id="denied-box">
     <div class="denied-icon">🔒</div>
@@ -578,6 +587,9 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           <button class="s-tab" id="mtab-active" onclick="switchMonitorTab('active')" style="font-size:13px;padding:8px 16px;">📡 Active Sessions</button>
         </div>
 
+        <!-- FLAGGED ALERTS (shown in all sub-tabs) -->
+        <div id="flag-alerts-container" style="margin-bottom:8px;"></div>
+
         <!-- Booked Slots -->
         <div id="mtab-content-slots">
           <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners who have requested an exam slot. Confirm a slot to notify the learner.</div>
@@ -646,7 +658,7 @@ const FB = {
 const ADMINS = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
 const DOMAIN = 'sourcefuse.com';
 const FACE_GRACE_MS = 3000;
-const HUB_URL = 'https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html?view=courses';
+const HUB_URL = 'https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html';
 
 const fbApp = initializeApp(FB);
 const auth  = getAuth(fbApp);
@@ -656,7 +668,7 @@ const db    = getFirestore(fbApp);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ hd: DOMAIN });
 
-let me = null, myRole = null;
+let me = null, meEmail = null, myRole = null;
 let exams = [], selExamForConsent = null;
 let faceStream = null, faceGraceTimer = null, faceAwayStart = null;
 let sessionDocId = null;
@@ -698,17 +710,18 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // Valid user — set up session
-  me = {...user, email: user.email.toLowerCase()};
+  // Valid user — set up session (keep Firebase User object intact)
+  me = user;
+  meEmail = user.email.toLowerCase();
   $('auth-screen').style.display = 'none';
   $('app').style.display         = 'block';
   $('user-name').textContent     = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
 
-  if (ADMINS.includes(user.email)) {
+  if (ADMINS.includes(meEmail)) {
     myRole = 'admin';
   } else {
-    const snap = await getDoc(doc(db, 'users', user.email));
+    const snap = await getDoc(doc(db, 'users', meEmail));
     myRole = snap.exists() ? (snap.data().role || 'student') : 'student';
   }
 
@@ -1151,7 +1164,7 @@ window.switchAdminTab = tab => {
   });
   if (tab === 'courses')     loadAdminCourses();
   if (tab === 'cprogress')   loadCourseProgress();
-  if (tab === 'monitor')     { loadBookedSlots(); }
+  if (tab === 'monitor')     { loadBookedSlots(); startFlagListener(); }
   if (tab === 'reports')     loadReports();
   if (tab === 'nominations') populateNomExamSelect();
 };
@@ -1606,6 +1619,91 @@ window.switchMonitorTab = function(tab) {
   if (tab === 'active') loadProctorSessions();
 };
 
+// ══ FLAGGED SLOT LISTENER ══
+let _flagListener = null;
+
+function startFlagListener() {
+  if (_flagListener) return; // already running
+  try {
+    const q = query(collection(db, 'examSlots'), where('flagged', '==', true));
+    _flagListener = onSnapshot(q, async snap => {
+      const flagged = [];
+      snap.forEach(d => flagged.push({id: d.id, ...d.data()}));
+      await renderFlagAlerts(flagged);
+    });
+  } catch(e) { console.warn('flag listener:', e); }
+}
+
+async function renderFlagAlerts(flaggedSlots) {
+  const container = $('flag-alerts-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Filter: only show flags where proctor hasn't acted yet
+  const active = flaggedSlots.filter(s =>
+    s.flagged === true && s.admitted !== true && !s.rejectedAt
+  );
+  const actioned = flaggedSlots.filter(s =>
+    s.flagged === true && (s.admitted === true || s.rejectedAt)
+  );
+
+  // Actioned flags (show briefly as resolved)
+  for (const slot of actioned) {
+    const div = document.createElement('div');
+    div.className = 'flag-actioned';
+    div.innerHTML = '&#10003; <strong>' + esc(slot.learnerName||slot.learnerEmail||'Learner') + '</strong> &mdash; Delay flag actioned by proctor';
+    container.appendChild(div);
+  }
+
+  // Active flashing flags
+  for (const slot of active) {
+    const flaggedAt = slot.flaggedAt?.toDate ? slot.flaggedAt.toDate() : null;
+    const timeStr   = flaggedAt ? flaggedAt.toLocaleTimeString() : 'Unknown time';
+    const examLabel = slot.examId ? ('Exam: ' + slot.examId) : 'Exam';
+
+    const div = document.createElement('div');
+    div.className = 'flag-alert';
+    div.innerHTML = `
+      <div class="flag-alert-icon">&#128680;</div>
+      <div class="flag-alert-body">
+        <div class="flag-alert-title">FLAGGED FOR ACTION — ${esc(slot.learnerName||slot.learnerEmail||'Learner')}</div>
+        <div class="flag-alert-sub">${esc(slot.learnerEmail||'')} &middot; ${esc(examLabel)} &middot; Flagged at ${timeStr}</div>
+        <div class="flag-alert-sub" style="margin-top:2px;">Scheduled: ${esc(slot.requestedDate||'')} ${esc(slot.requestedTime||'')} (${esc(slot.requestedTimezone||'')})</div>
+        <div class="flag-alert-actions">
+          <button class="admit-btn" style="padding:8px 16px;font-size:12px;"
+            onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
+            &#10003; Admit Now
+          </button>
+          <button class="reject-btn-slot" style="padding:8px 16px;font-size:12px;"
+            onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
+            &#10007; Deny
+          </button>
+          <button class="override-btn" style="padding:8px 14px;font-size:12px;"
+            onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">
+            &#9889; Override
+          </button>
+          <button style="padding:8px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;"
+            onclick="clearFlag('${slot.id}')">
+            Clear Flag
+          </button>
+        </div>
+      </div>`;
+    container.appendChild(div);
+  }
+}
+
+window.clearFlag = async function(slotId) {
+  if (!confirm('Clear this flag without taking action?')) return;
+  try {
+    await setDoc(doc(db, 'examSlots', slotId), {
+      flagged:        false,
+      flagClearedBy:  me.email,
+      flagClearedAt:  serverTimestamp()
+    }, {merge: true});
+    toast('Flag cleared.', 'success');
+  } catch(e) { toast('Error clearing flag.', 'error'); }
+};
+
 // ══ BOOKED SLOTS — learners awaiting proctor confirmation ══
 async function loadBookedSlots() {
   const container = $('booked-slots-list');
@@ -1803,7 +1901,8 @@ window.admitLearner = async function(slotId, learnerEmail) {
       admitted:   true,
       admittedBy: me.email,
       admittedAt: serverTimestamp(),
-      status:     'inProgress'
+      status:     'inProgress',
+      flagged:    false  // Clear flag on proctor action
     }, {merge: true});
 
     await addDoc(collection(db,'notifications',learnerEmail,'items'), {
@@ -1829,7 +1928,8 @@ window.rejectLearner = async function(slotId, learnerEmail) {
       admitted:    false,
       rejectedBy:  me.email,
       rejectedAt:  serverTimestamp(),
-      status:      'rejected'
+      status:      'rejected',
+      flagged:     false  // Clear flag on proctor action
     }, {merge: true});
 
     await addDoc(collection(db,'notifications',learnerEmail,'items'), {
