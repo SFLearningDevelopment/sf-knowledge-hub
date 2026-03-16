@@ -1489,19 +1489,276 @@ window.exitPreview = function() {
   $('admin-choice-screen').style.display = 'flex';
 };
 
-window.previewAsReviewer = function() {
+window.previewAsReviewer = async function() {
+  // Show reviewer picker
+  $('reviewer-picker').style.display        = 'block';
+  $('reviewer-picker-loading').style.display = 'block';
+  $('reviewer-picker-list').style.display    = 'none';
+  $('reviewer-picker-empty').style.display   = 'none';
+
+  try {
+    // Fetch all users with role === 'reviewer'
+    const uSnap = await getDocs(collection(db, 'users'));
+    const reviewers = [];
+    uSnap.forEach(d => {
+      if (d.data().role === 'reviewer') {
+        reviewers.push({email: d.id, ...d.data()});
+      }
+    });
+
+    $('reviewer-picker-loading').style.display = 'none';
+
+    if (!reviewers.length) {
+      $('reviewer-picker-empty').style.display = 'block';
+      return;
+    }
+
+    // For each reviewer, fetch their assigned course
+    const list = $('reviewer-picker-list');
+    list.innerHTML = '';
+    list.style.display = 'flex';
+
+    for (const r of reviewers) {
+      let courseTitle = r.assignedCourseId || 'No course assigned';
+      if (r.assignedCourseId) {
+        try {
+          const cSnap = await getDoc(doc(db, 'courses', r.assignedCourseId));
+          if (cSnap.exists()) courseTitle = cSnap.data().title || r.assignedCourseId;
+        } catch {}
+      }
+
+      // Check review status
+      let reviewStatus = 'Not started';
+      let reviewColor  = 'var(--muted)';
+      if (r.assignedCourseId) {
+        try {
+          const revSnap = await getDoc(doc(db, 'courses', r.assignedCourseId, 'review', 'data'));
+          if (revSnap.exists()) {
+            const rev = revSnap.data();
+            if (rev.reviewCompleted && rev.goLive) {
+              reviewStatus = 'Completed'; reviewColor = '#34d399';
+            } else if (rev.reviewCompleted || rev.overallNotes) {
+              reviewStatus = 'In Progress'; reviewColor = '#fbbf24';
+            }
+          }
+        } catch {}
+      }
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .2s;';
+      card.onmouseover  = () => { card.style.background='rgba(139,92,246,.08)'; card.style.borderColor='rgba(139,92,246,.3)'; };
+      card.onmouseleave = () => { card.style.background='var(--card)'; card.style.borderColor='var(--border)'; };
+
+      const initials = (r.name||r.email||'?').charAt(0).toUpperCase();
+      card.innerHTML = `
+        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;">${initials}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">${esc(r.name||r.email)}</div>
+          <div style="font-size:12px;color:var(--muted);">${esc(r.email)}</div>
+          <div style="font-size:12px;margin-top:4px;">
+            <span style="color:var(--muted);">Assigned:</span>
+            <span style="color:var(--text);font-weight:600;"> ${esc(courseTitle)}</span>
+            <span style="margin-left:10px;font-weight:600;color:${reviewColor};">${esc(reviewStatus)}</span>
+          </div>
+        </div>
+        <div style="font-size:18px;color:#a78bfa;">&rarr;</div>`;
+
+      card.onclick = () => launchReviewerPreview(r, courseTitle);
+      list.appendChild(card);
+    }
+  } catch(e) {
+    console.error('previewAsReviewer:', e);
+    $('reviewer-picker-loading').style.display = 'none';
+    $('reviewer-picker-empty').style.display   = 'block';
+  }
+};
+
+function launchReviewerPreview(reviewer, courseTitle) {
+  $('reviewer-picker').style.display = 'none';
   $('admin-choice-screen').style.display = 'none';
   $('app').style.display = 'block';
   showChips();
   hide('admin-view'); hide('student-view'); hide('examresults-view');
   show('reviewer-view');
-  loadReviewerQueue();
+
+  // Show preview banner
+  showPreviewBanner('Reviewer', {name: reviewer.name||reviewer.email, email: reviewer.email});
+
+  // Load reviewer queue filtered to this reviewer's assigned course
+  loadReviewerQueueForPreview(reviewer);
+}
+
+async function loadReviewerQueueForPreview(reviewer) {
+  const container = $('review-queue-list');
+  container.innerHTML = '<div class="inline-loading"><div class="spinner"></div>Loading...</div>';
+  try {
+    // Show only the course assigned to this reviewer
+    const courseId = reviewer.assignedCourseId;
+    if (!courseId) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">This reviewer has no assigned course.</div>';
+      return;
+    }
+    const cSnap = await getDoc(doc(db, 'courses', courseId));
+    if (!cSnap.exists() || cSnap.data().status !== 'review') {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">No course pending review for this reviewer. Course may not be in Review status yet.</div>';
+      return;
+    }
+    const c = {id: cSnap.id, ...cSnap.data()};
+    container.innerHTML = '';
+
+    // Fetch existing review data
+    let existingReview = null;
+    try {
+      const revSnap = await getDoc(doc(db, 'courses', courseId, 'review', 'data'));
+      if (revSnap.exists()) existingReview = revSnap.data();
+    } catch {}
+
+    const item = document.createElement('div');
+    item.className = 'review-queue-item';
+    const reviewerNote = existingReview
+      ? `<div style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted);">
+          <strong style="color:#a78bfa;">Reviewer notes:</strong> ${esc(existingReview.overallNotes||'None yet')}
+          &nbsp;&middot;&nbsp; Review Completed: ${existingReview.reviewCompleted?'&#10003;':'&#10007;'}
+          &nbsp;&middot;&nbsp; Go Live consent: ${existingReview.goLive?'&#10003;':'&#10007;'}
+         </div>`
+      : '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">No review submitted yet.</div>';
+
+    item.innerHTML = `
+      <div class="rq-title">${esc(c.title||'Untitled')}</div>
+      <div class="rq-meta">${esc(c.category||'')} &middot; ${esc(c.level||'')} &middot; Status: <strong>${esc(c.status||'')}</strong></div>
+      ${c.url ? `<a href="${esc(c.url)}" target="_blank" style="font-size:13px;color:var(--accent);display:block;margin-bottom:12px;">${esc(c.url)}</a>` : ''}
+      ${reviewerNote}
+      <div style="font-size:12px;color:#fbbf24;padding:8px 12px;background:rgba(245,158,11,.06);border-radius:8px;border:1px solid rgba(245,158,11,.2);">
+        &#128065; Admin preview mode &mdash; actions are disabled
+      </div>`;
+    container.appendChild(item);
+  } catch(e) {
+    console.error('loadReviewerQueueForPreview:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>';
+  }
+}
+
+window.previewAsProctor = async function() {
+  // Show proctor picker
+  $('proctor-picker').style.display        = 'block';
+  $('proctor-picker-loading').style.display = 'block';
+  $('proctor-picker-list').style.display    = 'none';
+  $('proctor-picker-empty').style.display   = 'none';
+
+  try {
+    // Fetch all users with role === 'proctor'
+    const uSnap = await getDocs(collection(db, 'users'));
+    const proctors = [];
+    uSnap.forEach(d => {
+      if (d.data().role === 'proctor') {
+        proctors.push({email: d.id, ...d.data()});
+      }
+    });
+
+    $('proctor-picker-loading').style.display = 'none';
+
+    if (!proctors.length) {
+      $('proctor-picker-empty').style.display = 'block';
+      $('proctor-picker-empty').textContent   = 'No proctors found in the system.';
+      return;
+    }
+
+    // For each proctor, fetch their active exam slots
+    const list = $('proctor-picker-list');
+    list.innerHTML = '';
+    list.style.display = 'flex';
+
+    for (const p of proctors) {
+      // Fetch slots assigned to or confirmed by this proctor
+      let activeSlots = [];
+      try {
+        const sSnap = await getDocs(query(
+          collection(db, 'examSlots'),
+          where('assignedProctor', '==', p.email)
+        ));
+        sSnap.forEach(d => {
+          const s = {id: d.id, ...d.data()};
+          if (['confirmed','awaitingAdmit','inProgress'].includes(s.status)) {
+            activeSlots.push(s);
+          }
+        });
+      } catch {}
+
+      const slotCount = activeSlots.length;
+      const slotColor = slotCount > 0 ? '#34d399' : 'var(--muted)';
+      const slotLabel = slotCount > 0
+        ? slotCount + ' active candidate' + (slotCount > 1 ? 's' : '')
+        : 'No active candidates';
+
+      // Show awaiting admit count
+      const awaitingCount = activeSlots.filter(s => s.status === 'awaitingAdmit').length;
+      const flaggedCount  = activeSlots.filter(s => s.flagged).length;
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;cursor:pointer;transition:all .2s;';
+      card.onmouseover  = () => { card.style.background='rgba(16,185,129,.06)'; card.style.borderColor='rgba(16,185,129,.3)'; };
+      card.onmouseleave = () => { card.style.background='var(--card)'; card.style.borderColor='var(--border)'; };
+
+      const initials = (p.name||p.email||'?').charAt(0).toUpperCase();
+      const flagBadge = flaggedCount > 0
+        ? `<span style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);">&#128680; ${flaggedCount} flagged</span>`
+        : '';
+      const awaitBadge = awaitingCount > 0
+        ? `<span style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);">&#127909; ${awaitingCount} awaiting admit</span>`
+        : '';
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#059669,#34d399);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;">${initials}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:700;">${esc(p.name||p.email)}</div>
+            <div style="font-size:12px;color:var(--muted);">${esc(p.email)}</div>
+            <div style="font-size:12px;margin-top:4px;font-weight:600;color:${slotColor};">
+              ${esc(slotLabel)}${awaitBadge}${flagBadge}
+            </div>
+          </div>
+          <div style="font-size:18px;color:#34d399;">&rarr;</div>
+        </div>
+        ${slotCount > 0 ? buildProctorSlotSummary(activeSlots) : ''}`;
+
+      card.onclick = () => launchProctorPreview(p, activeSlots);
+      list.appendChild(card);
+    }
+
+    // If no proctors have active slots, show info
+    const hasAny = proctors.some(p => true); // proctors exist
+    if (!hasAny) $('proctor-picker-empty').style.display = 'block';
+
+  } catch(e) {
+    console.error('previewAsProctor:', e);
+    $('proctor-picker-loading').style.display = 'none';
+    $('proctor-picker-empty').style.display   = 'block';
+  }
 };
 
-window.previewAsProctor = function() {
-  $('admin-choice-screen').style.display = 'none';
-  window.open('sf-certs-hub.html?preview=proctor', '_blank');
-};
+function buildProctorSlotSummary(slots) {
+  if (!slots.length) return '';
+  let html = '<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:6px;">';
+  slots.forEach(s => {
+    const statusColor = s.status==='awaitingAdmit' ? '#60a5fa' : s.status==='inProgress' ? '#34d399' : '#fbbf24';
+    const flagHtml = s.flagged ? ' <span style="color:#f87171;font-weight:700;">&#128680; FLAGGED</span>' : '';
+    html += `<div style="font-size:12px;display:flex;align-items:center;gap:10px;">
+      <span style="color:${statusColor};font-weight:700;">${esc(s.status||'')}</span>
+      <span style="color:var(--text);">${esc(s.learnerName||s.learnerEmail||'')}</span>
+      <span style="color:var(--muted);">${esc(s.requestedDate||'')} ${esc(s.requestedTime||'')}</span>
+      ${flagHtml}
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function launchProctorPreview(proctor, slots) {
+  $('proctor-picker').style.display = 'none';
+  // Open sf-certs-hub in a new tab with this proctor's view
+  // Pass proctor email as query param so sf-certs-hub can filter to their slots
+  window.open('sf-certs-hub.html?previewProctor=' + encodeURIComponent(proctor.email), '_blank');
+}
 
 // ══ EXAM SCHEDULING — WEBCAM SELFIE ══
 
@@ -1907,5 +2164,37 @@ document.addEventListener('click', e => {
   }
 });
 </script>
+<!-- REVIEWER PICKER OVERLAY -->
+<div id="reviewer-picker" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:680px;margin:60px auto;padding:0 20px 60px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">Preview as Reviewer</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px;">Select a reviewer to preview their assigned course review queue.</p>
+      </div>
+      <button onclick="$('reviewer-picker').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&#10005;</button>
+    </div>
+    <div id="reviewer-picker-loading" style="text-align:center;color:var(--muted);padding:40px;font-size:14px;">Loading reviewers&hellip;</div>
+    <div id="reviewer-picker-list" style="display:none;flex-direction:column;gap:10px;"></div>
+    <div id="reviewer-picker-empty" style="display:none;text-align:center;color:var(--muted);padding:40px;font-size:14px;">No reviewers found.</div>
+  </div>
+</div>
+
+<!-- PROCTOR PICKER OVERLAY -->
+<div id="proctor-picker" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:680px;margin:60px auto;padding:0 20px 60px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">Preview as Proctor</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px;">Select a proctor to preview their assigned candidates and exam slots.</p>
+      </div>
+      <button onclick="$('proctor-picker').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&#10005;</button>
+    </div>
+    <div id="proctor-picker-loading" style="text-align:center;color:var(--muted);padding:40px;font-size:14px;">Loading proctors&hellip;</div>
+    <div id="proctor-picker-list" style="display:none;flex-direction:column;gap:10px;"></div>
+    <div id="proctor-picker-empty" style="display:none;text-align:center;color:var(--muted);padding:40px;font-size:14px;">No proctors with active assignments found.</div>
+  </div>
+</div>
+
 </body>
 </html>
