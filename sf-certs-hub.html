@@ -331,6 +331,27 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .audit-filter-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
 .audit-filter-row select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;}
 .audit-filter-row select:focus{border-color:var(--accent);}
+/* Reschedule request cards */
+.resched-req-card{background:var(--card);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:20px;margin-bottom:16px;display:flex;align-items:flex-start;gap:16px;}
+.resched-req-info{flex:1;}
+.resched-req-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+.resched-req-meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.6;}
+.resched-req-actions{display:flex;gap:8px;margin-top:12px;}
+.btn-approve{padding:8px 18px;border-radius:8px;border:none;background:var(--success);color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-reject-req{padding:8px 18px;border-radius:8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#f87171;font-size:13px;font-weight:700;cursor:pointer;}
+/* Deny modal */
+#deny-modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
+.deny-modal-card{background:var(--card);border:1px solid rgba(239,68,68,.3);border-radius:16px;padding:32px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;}
+.deny-modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#f87171;margin-bottom:4px;}
+.deny-modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+.deny-modal-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:block;}
+.deny-modal-textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);resize:vertical;min-height:90px;outline:none;font-family:'Syne',sans-serif;margin-bottom:4px;}
+.deny-modal-textarea:focus{border-color:#f87171;}
+.deny-modal-attach{display:flex;align-items:center;gap:10px;margin-top:14px;margin-bottom:20px;}
+.deny-attach-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;}
+.deny-attach-btn:hover{border-color:var(--accent);color:var(--accent);}
+.deny-attach-preview{font-size:12px;color:#34d399;}
+.deny-modal-btns{display:flex;gap:12px;justify-content:flex-end;}
 </style></head>
 <body>
 
@@ -480,6 +501,13 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           <thead><tr><th>Exam</th><th>Course Link</th><th>Pass</th><th>Attempts</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="exam-table-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">Loading…</td></tr></tbody>
         </table>
+
+        <!-- RESCHEDULE REQUESTS -->
+        <div style="margin-top:40px;">
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px;">📋 Reschedule Requests</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners requesting to reschedule after a proctor denial. Approve to create a new confirmed slot; reject to decline.</div>
+          <div id="resched-requests-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Loading…</div></div>
+        </div>
       </div>
     </div>
 
@@ -610,6 +638,28 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <div id="toast"></div>
+
+<!-- DENY MODAL -->
+<div id="deny-modal">
+  <div class="deny-modal-card">
+    <div class="deny-modal-title">❌ Deny Admission</div>
+    <div class="deny-modal-sub" id="deny-modal-sub">Learner: —</div>
+    <label class="deny-modal-label">Reason for Denial <span style="color:#f87171;">*</span></label>
+    <textarea class="deny-modal-textarea" id="deny-reason-input" placeholder="Explain why you are denying this learner. This will be shared with the learner and recorded in Reports."></textarea>
+    <div id="deny-reason-error" style="display:none;font-size:12px;color:#f87171;margin-bottom:8px;">Please enter a reason before confirming.</div>
+    <div class="deny-modal-attach">
+      <label class="deny-attach-btn" for="deny-attach-input">
+        📎 Attach Screenshot (optional)
+        <input type="file" id="deny-attach-input" accept="image/*" style="display:none;" onchange="onDenyAttachChange(this)">
+      </label>
+      <span class="deny-attach-preview" id="deny-attach-preview"></span>
+    </div>
+    <div class="deny-modal-btns">
+      <button class="btn-cancel" onclick="closeDenyModal()">Cancel</button>
+      <button class="btn-del" onclick="confirmDeny()">Confirm Deny</button>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
@@ -1126,23 +1176,32 @@ async function loadProctorAssignedSlots() {
       }
     } catch(e) { console.warn('proctor candidate lookup:', e); }
 
-    if (!slots.length) {
+    // Filter out denied+inProgress slots — they are resolved, not active
+    const activeSlots = slots.filter(s => !(s.status === 'inProgress' && s.denied === true));
+
+    if (!activeSlots.length) {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No slots assigned to you yet.<br><span style="font-size:12px;">Ask your L&D administrator to assign you to a learner.</span></div>';
       return;
     }
     container.innerHTML = '';
-    slots.sort((a,b) => {
+    activeSlots.sort((a,b) => {
       const order = {bookedByLearner:0, confirmed:1, awaitingAdmit:2, inProgress:3, completed:4, rejected:5};
       return (order[a.status]||0) - (order[b.status]||0);
     });
     if (window._proctorSlotListeners) window._proctorSlotListeners.forEach(unsub => unsub());
     window._proctorSlotListeners = [];
-    for (const slot of slots) {
+    for (const slot of activeSlots) {
       container.appendChild(buildProctorSlotCard(slot));
       if (slot.status === 'confirmed' || slot.status === 'bookedByLearner' || slot.status === 'awaitingAdmit') {
         const unsub = onSnapshot(doc(db, 'examSlots', slot.id), slotSnap => {
           if (!slotSnap.exists()) return;
           const updated = {id: slotSnap.id, ...slotSnap.data()};
+          // If slot becomes denied, remove it from proctor view immediately
+          if (updated.status === 'inProgress' && updated.denied === true) {
+            const existing = document.getElementById('p-slot-' + slot.id);
+            if (existing) existing.remove();
+            return;
+          }
           const existing = document.getElementById('p-slot-' + slot.id);
           if (existing) existing.replaceWith(buildProctorSlotCard(updated));
         });
@@ -1194,7 +1253,7 @@ function buildProctorSlotCard(slot) {
     } else {
       actions = `<div style="display:flex;gap:10px;margin-top:12px;">
         <button class="admit-btn" style="flex:1;padding:10px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit</button>
-        <button class="reject-btn-slot" style="flex:1;padding:10px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny</button>
+        <button class="reject-btn-slot" style="flex:1;padding:10px;" onclick="openDenyModal('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||slot.learnerEmail||'')}')">❌ Deny</button>
       </div>`;
     }
   } else if (slot.status === 'confirmed') {
@@ -1355,6 +1414,7 @@ let editingExamId = null;
 
 async function initAdmin() {
   await loadAdminExams();
+  await loadRescheduleRequests();
   $('add-exam-btn').addEventListener('click', () => openExamForm());
   $('cancel-exam-btn').addEventListener('click', () => $('exam-form-wrap').classList.remove('open'));
   $('save-exam-btn').addEventListener('click', saveExam);
@@ -1379,6 +1439,7 @@ window.switchAdminTab = tab => {
     if (btn)  btn.className  = 'admin-tab' + (tab===t ? ' active' : '');
     if (pane) pane.className = 'admin-tab-content' + (tab===t ? ' active' : '');
   });
+  if (tab === 'exams')       { loadAdminExams(); loadRescheduleRequests(); }
   if (tab === 'monitor')     { loadBookedSlots(); startFlagListener(); }
   if (tab === 'reports')     loadReports();
   if (tab === 'nominations') populateNomExamSelect();
@@ -1646,7 +1707,7 @@ async function renderFlagAlerts(flaggedSlots) {
       <div class="flag-alert-sub" style="margin-top:2px;">Scheduled: ${esc(slot.requestedDate||'')} ${esc(slot.requestedTime||'')} (${esc(slot.requestedTimezone||'')})</div>
       <div class="flag-alert-actions">
         <button class="admit-btn" style="padding:8px 16px;font-size:12px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">&#10003; Admit Now</button>
-        <button class="reject-btn-slot" style="padding:8px 16px;font-size:12px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">&#10007; Deny</button>
+        <button class="reject-btn-slot" style="padding:8px 16px;font-size:12px;" onclick="openDenyModal('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||slot.learnerEmail||'')}')">&#10007; Deny</button>
         <button class="override-btn" style="padding:8px 14px;font-size:12px;" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">&#9889; Override</button>
         <button style="padding:8px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;" onclick="clearFlag('${slot.id}')">Clear Flag</button>
       </div>
@@ -1781,7 +1842,7 @@ function buildBookedSlotCard(slot, mode) {
       </div>
       <div class="slot-actions">
         <button class="admit-btn" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit to Exam</button>
-        <button class="reject-btn-slot" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny Access</button>
+        <button class="reject-btn-slot" onclick="openDenyModal('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||slot.learnerEmail||'')}')">❌ Deny</button>
         <button class="override-btn" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">⚡ Admin Override</button>
       </div>`;
     } else {
@@ -1830,44 +1891,201 @@ window.admitLearner = async function(slotId, learnerEmail) {
   } catch(e) { console.error('admitLearner:',e); toast('Error admitting learner.','error'); }
 };
 
-window.rejectLearner = async function(slotId, learnerEmail) {
-  if (!confirm('Deny this learner? One attempt will be returned to them.')) return;
+// ── DENY MODAL ──
+let _denySlotId = null, _denyLearnerEmail = null, _denyAttachBase64 = null;
+
+window.openDenyModal = function(slotId, learnerEmail, learnerName) {
+  _denySlotId = slotId; _denyLearnerEmail = learnerEmail; _denyAttachBase64 = null;
+  $('deny-reason-input').value = '';
+  $('deny-reason-error').style.display = 'none';
+  $('deny-attach-preview').textContent = '';
+  $('deny-attach-input').value = '';
+  $('deny-modal-sub').textContent = 'Learner: ' + learnerName + ' · ' + learnerEmail;
+  $('deny-modal').style.display = 'flex';
+};
+
+window.closeDenyModal = function() {
+  $('deny-modal').style.display = 'none';
+  _denySlotId = null; _denyLearnerEmail = null; _denyAttachBase64 = null;
+};
+
+window.onDenyAttachChange = function(input) {
+  const file = input.files[0];
+  if (!file) { _denyAttachBase64 = null; $('deny-attach-preview').textContent = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => { _denyAttachBase64 = e.target.result; $('deny-attach-preview').textContent = '✅ ' + file.name; };
+  reader.readAsDataURL(file);
+};
+
+window.confirmDeny = async function() {
+  const reason = $('deny-reason-input').value.trim();
+  if (!reason) { $('deny-reason-error').style.display = 'block'; return; }
+  $('deny-reason-error').style.display = 'none';
+  const slotId = _denySlotId, learnerEmail = _denyLearnerEmail, attachment = _denyAttachBase64;
+  closeDenyModal();
   try {
-    const slotSnap=await getDoc(doc(db,'examSlots',slotId));
+    const slotSnap = await getDoc(doc(db,'examSlots',slotId));
     if (!slotSnap.exists()) { toast('Slot not found.','error'); return; }
-    const slotData=slotSnap.data(), currentCount=slotData.rescheduleCount||0, examId=slotData.examId||null;
+    const slotData = slotSnap.data(), currentCount = slotData.rescheduleCount||0, examId = slotData.examId||null;
 
-    await setDoc(doc(db,'examSlots',slotId),{admitted:false,denied:true,deniedBy:meEmail,deniedAt:serverTimestamp(),status:'inProgress',flagged:false,rescheduleCount:currentCount+1},{merge:true});
+    await setDoc(doc(db,'examSlots',slotId), {
+      admitted: false, denied: true,
+      deniedBy: meEmail, deniedAt: serverTimestamp(),
+      denialReason: reason,
+      denialAttachment: attachment || null,
+      status: 'inProgress', flagged: false,
+      rescheduleCount: currentCount + 1
+    }, {merge: true});
 
-    // Decrement attempt count — look up learner uid
+    // Decrement attempt count
     if (examId) {
       try {
-        let learnerUid=null;
-        // Users collection may be keyed by email directly
-        const directSnap=await getDoc(doc(db,'users',learnerEmail));
-        if (directSnap.exists()) {
-          learnerUid=directSnap.id;
-        } else {
-          // Fallback: scan users for matching email field
-          const userSnap=await getDocs(collection(db,'users'));
-          userSnap.forEach(d=>{ if ((d.data().email||'').toLowerCase()===learnerEmail.toLowerCase()) learnerUid=d.id; });
-        }
+        let learnerUid = null;
+        const directSnap = await getDoc(doc(db,'users',learnerEmail));
+        if (directSnap.exists()) { learnerUid = directSnap.id; }
+        else { const uSnap=await getDocs(collection(db,'users')); uSnap.forEach(d=>{if((d.data().email||'').toLowerCase()===learnerEmail.toLowerCase())learnerUid=d.id;}); }
         if (learnerUid) {
-          const resRef=doc(db,'examResults',learnerUid);
-          const resSnap=await getDoc(resRef);
+          const resRef = doc(db,'examResults',learnerUid);
+          const resSnap = await getDoc(resRef);
           if (resSnap.exists()&&resSnap.data()[examId]) {
-            const cur=resSnap.data()[examId].attemptCount||0;
+            const cur = resSnap.data()[examId].attemptCount||0;
             await setDoc(resRef,{[examId]:{attemptCount:Math.max(0,cur-1),lastDeniedAt:serverTimestamp()}},{merge:true});
           }
         }
-      } catch(e) { console.warn('rejectLearner attempt decrement:',e); }
+      } catch(e) { console.warn('deny attempt decrement:',e); }
     }
 
-    await addDoc(collection(db,'notifications',learnerEmail,'items'),{message:'Your proctor requires additional verification. Please reschedule your exam. One attempt has been returned.',type:'denied',read:false,createdAt:serverTimestamp()});
-    await auditEntry('rejectLearner',{targetEmail:learnerEmail,slotId,examId:examId||undefined,metadata:'Denied by '+meEmail+'. Reschedule #'+(currentCount+1)});
-    toast('Learner denied. Attempt returned.','error');
+    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
+      message: 'Your proctor denied your exam session. Reason: ' + reason + '. You may request a reschedule from your exam card.',
+      type: 'denied', read: false, createdAt: serverTimestamp()
+    });
+    await auditEntry('denyLearner', {targetEmail:learnerEmail, slotId, examId:examId||undefined, metadata:'Denied by '+meEmail+'. Reason: '+reason.slice(0,100)});
+    toast('Learner denied. Reason recorded.', 'error');
     if (typeof loadAwaitingAdmit==='function') loadAwaitingAdmit();
-  } catch(e) { console.error('rejectLearner:',e); toast('Error denying learner.','error'); }
+    if (typeof loadProctorAssignedSlots==='function') loadProctorAssignedSlots();
+  } catch(e) { console.error('confirmDeny:',e); toast('Error denying learner.','error'); }
+};
+
+// ── RESCHEDULE REQUESTS ──
+async function loadRescheduleRequests() {
+  const container = $('resched-requests-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Loading…</div>';
+  try {
+    const snap = await getDocs(query(collection(db,'rescheduleRequests'), where('status','==','pending')));
+    const requests = [];
+    snap.forEach(d => requests.push({id: d.id, ...d.data()}));
+    if (!requests.length) { container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">No pending reschedule requests.</div>'; return; }
+    requests.sort((a,b) => (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
+    container.innerHTML = '';
+    for (const req of requests) {
+      let examTitle = req.examTitle || req.examId || '—';
+      if (!req.examTitle && req.examId) { try { const es=await getDoc(doc(db,'exams',req.examId)); if(es.exists()) examTitle=es.data().title||req.examId; } catch{} }
+      const createdAt = req.createdAt?.seconds ? new Date(req.createdAt.seconds*1000).toLocaleString() : '—';
+      const card = document.createElement('div');
+      card.className = 'resched-req-card';
+      card.id = 'resched-req-' + req.id;
+      card.innerHTML = `<div style="font-size:28px;flex-shrink:0;">📅</div>
+        <div class="resched-req-info">
+          <div class="resched-req-name">${esc(req.learnerName||req.learnerEmail)}</div>
+          <div class="resched-req-meta">
+            ${esc(req.learnerEmail)} &nbsp;·&nbsp; ${esc(examTitle)}<br>
+            Requested slot: <strong>${esc(req.requestedDate||'')} ${esc(req.requestedTime||'')} (${esc(req.requestedTimezone||'')})</strong><br>
+            Submitted: ${createdAt}
+          </div>
+          <div class="resched-req-actions">
+            <button class="btn-approve" onclick="approveRescheduleRequest('${req.id}')">✅ Approve</button>
+            <button class="btn-reject-req" onclick="rejectRescheduleRequest('${req.id}')">❌ Reject</button>
+          </div>
+        </div>`;
+      container.appendChild(card);
+    }
+  } catch(e) { console.error('loadRescheduleRequests:',e); container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Error loading requests.</div>'; }
+}
+
+window.approveRescheduleRequest = async function(reqId) {
+  if (!confirm('Approve this reschedule? A new confirmed slot will be created and both learner and proctor will be notified.')) return;
+  try {
+    const reqSnap = await getDoc(doc(db,'rescheduleRequests',reqId));
+    if (!reqSnap.exists()) { toast('Request not found.','error'); return; }
+    const req = reqSnap.data();
+    let utcDateTime = null;
+    try { utcDateTime = new Date(req.requestedDate + 'T' + req.requestedTime + ':00').toISOString(); } catch{}
+    const tz = req.requestedTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Create new confirmed slot — skip re-confirmation, proctor already assigned
+    const newSlotRef = await addDoc(collection(db,'examSlots'), {
+      examId: req.examId||null,
+      learnerEmail: req.learnerEmail,
+      learnerName: req.learnerName||req.learnerEmail,
+      learnerSelfie: req.learnerSelfie||null,
+      learnerPhotoConsent: req.learnerPhotoConsent||false,
+      requestedDate: req.requestedDate,
+      requestedTime: req.requestedTime,
+      requestedTimezone: tz,
+      utcDateTime,
+      status: 'confirmed',
+      bookedAt: serverTimestamp(),
+      assignedProctor: req.assignedProctor||null,
+      confirmedBy: meEmail, confirmedAt: serverTimestamp(),
+      admitted: false, denied: false, flagged: false,
+      snapshots: [],
+      rescheduleCount: req.rescheduleCount||0,
+      rescheduledViaRequest: true
+    });
+
+    await addDoc(collection(db,'rescheduleHistory'), {
+      originalSlotId: req.originalSlotId||null,
+      examId: req.examId||null,
+      learnerEmail: req.learnerEmail,
+      learnerName: req.learnerName||req.learnerEmail,
+      assignedProctor: req.assignedProctor||null,
+      originalDate: req.originalDate||null,
+      originalTime: req.originalTime||null,
+      newDate: req.requestedDate,
+      newTime: req.requestedTime,
+      rescheduleCount: req.rescheduleCount||1,
+      rescheduledAt: serverTimestamp(),
+      rescheduledBy: req.learnerEmail,
+      approvedBy: meEmail, approvedAt: serverTimestamp()
+    });
+
+    await setDoc(doc(db,'rescheduleRequests',reqId), {status:'approved', reviewedBy:meEmail, reviewedAt:serverTimestamp(), newSlotId:newSlotRef.id}, {merge:true});
+
+    await addDoc(collection(db,'notifications',req.learnerEmail,'items'), {
+      message: 'Your reschedule request has been approved! Exam confirmed for ' + req.requestedDate + ' at ' + req.requestedTime + '. You may begin setup at the scheduled time.',
+      type: 'reschedule_approved', read: false, createdAt: serverTimestamp()
+    });
+    if (req.assignedProctor) {
+      await addDoc(collection(db,'notifications',req.assignedProctor,'items'), {
+        message: 'Reschedule approved for ' + (req.learnerName||req.learnerEmail) + '. New exam time: ' + req.requestedDate + ' at ' + req.requestedTime + '.',
+        type: 'reschedule_approved', read: false, createdAt: serverTimestamp()
+      });
+    }
+
+    await auditEntry('approveReschedule', {targetEmail:req.learnerEmail, examId:req.examId||undefined, metadata:'Approved by '+meEmail+' for '+req.requestedDate+' '+req.requestedTime});
+    const card = document.getElementById('resched-req-'+reqId);
+    if (card) card.remove();
+    toast('Reschedule approved! Learner and proctor notified.','success');
+  } catch(e) { console.error('approveRescheduleRequest:',e); toast('Error approving request.','error'); }
+};
+
+window.rejectRescheduleRequest = async function(reqId) {
+  if (!confirm('Reject this reschedule request? The learner will be notified.')) return;
+  try {
+    const reqSnap = await getDoc(doc(db,'rescheduleRequests',reqId));
+    if (!reqSnap.exists()) { toast('Request not found.','error'); return; }
+    const req = reqSnap.data();
+    await setDoc(doc(db,'rescheduleRequests',reqId), {status:'rejected', reviewedBy:meEmail, reviewedAt:serverTimestamp()}, {merge:true});
+    await addDoc(collection(db,'notifications',req.learnerEmail,'items'), {
+      message: 'Your reschedule request for ' + req.requestedDate + ' at ' + req.requestedTime + ' was not approved. Please contact your L&D administrator for assistance.',
+      type: 'reschedule_rejected', read: false, createdAt: serverTimestamp()
+    });
+    await auditEntry('rejectReschedule', {targetEmail:req.learnerEmail, examId:req.examId||undefined, metadata:'Rejected by '+meEmail});
+    const card = document.getElementById('resched-req-'+reqId);
+    if (card) card.remove();
+    toast('Reschedule request rejected. Learner notified.','error');
+  } catch(e) { console.error('rejectRescheduleRequest:',e); toast('Error rejecting request.','error'); }
 };
 
 window.adminOverrideAdmit = async function(slotId, learnerEmail) {
@@ -1906,23 +2124,37 @@ async function loadReports() {
   const sessions=[]; snap.forEach(d=>sessions.push({id:d.id,...d.data()}));
   const completed=sessions.filter(s=>s.status!=='active');
   if (!completed.length) { $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">No completed sessions yet.</div>'; return; }
+
+  // Fetch denial data from examSlots to show in Exam Sessions
+  const slotDenials = {};
+  try {
+    const deniedSnap = await getDocs(query(collection(db,'examSlots'), where('denied','==',true)));
+    deniedSnap.forEach(d => { if(d.data().denialReason) slotDenials[d.data().learnerEmail] = d.data(); });
+  } catch(e) { console.warn('slot denial fetch:', e); }
+
   $('report-list').innerHTML=completed.map(s=>{
     const flags=s.flags||[];
-    const at=s.startedAt?(s.startedAt.toDate?s.startedAt.toDate().toLocaleString():new Date(s.startedAt).toLocaleString()):'—';
+    const at=s.startedAt?(s.startedAt.toDate?s.startedAt.toDate().toLocaleString():new Date(s.startedAt).toLocaleString()):'\u2014';
+    const denial = slotDenials[s.candidateEmail];
+    const denialHtml = denial ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px;font-size:12px;">
+      <strong style="color:#f87171;">Denial Reason:</strong> <span style="color:var(--muted);">${esc(denial.denialReason||'\u2014')}</span>
+      ${denial.denialAttachment?`<br><a href="${denial.denialAttachment}" target="_blank" style="color:var(--accent);font-size:11px;margin-top:4px;display:inline-block;">\ud83d\udcce View attachment</a>`:''}
+      <span style="color:var(--muted);font-size:11px;margin-left:8px;">by: ${esc(denial.deniedBy||'\u2014')}</span>
+    </div>` : '';
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div><strong>${esc(s.candidateEmail||'—')}</strong> <span style="color:var(--muted);font-size:12px;">· ${esc(s.examId||'—')}</span></div>
+        <div><strong>${esc(s.candidateEmail||'\u2014')}</strong> <span style="color:var(--muted);font-size:12px;">\u00b7 ${esc(s.examId||'\u2014')}</span></div>
         <span style="font-size:12px;color:var(--muted)">${at}</span>
       </div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:${flags.length?'10px':'0'}">
-        Status: <span style="color:${s.status==='denied_consent'?'var(--danger)':'var(--muted)'}">${esc(s.status||'—')}</span>
-        · Flags: <strong style="color:${flags.length>0?'var(--danger)':'var(--success)'}">${flags.length}</strong>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:${(flags.length||denial)?'10px':'0'}">
+        Status: <span style="color:${s.status==='denied_consent'?'var(--danger)':'var(--muted)'}">${esc(s.status||'\u2014')}</span>
+        \u00b7 Flags: <strong style="color:${flags.length>0?'var(--danger)':'var(--success)'}">${flags.length}</strong>
       </div>
-      ${flags.length?`<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>`<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">⚠ ${esc(f.type)} · ${new Date(f.at).toLocaleTimeString()}</div>`).join('')}</div>`:''}
+      ${flags.length?`<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>`<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">\u26a0 ${esc(f.type)} \u00b7 ${new Date(f.at).toLocaleTimeString()}</div>`).join('')}</div>`:''}
+      ${denialHtml}
     </div>`;
   }).join('');
 }
-
 async function loadTestResults() {
   const container=$('test-results-list');
   if (!container) return;
@@ -1933,8 +2165,13 @@ async function loadTestResults() {
     if (!exs.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">No exams found.</div>'; return; }
     const examResultsSnap=await getDocs(collection(db,'examResults'));
     const resultsByExam={}; exs.forEach(e=>resultsByExam[e.id]=[]);
-    const usersSnap=await getDocs(collection(db,'users'));
-    const userMap={}; usersSnap.forEach(d=>{ const u=d.data(); if(u.email) userMap[d.id]={name:u.name||u.displayName||'',email:u.email}; });
+    // Fix: build uid→{name,email} from examSessions (has candidateUid/Email/Name)
+    // users collection is keyed by email not uid, so userMap[uid] never matched
+    const sessionsSnap=await getDocs(collection(db,'examSessions'));
+    const userMap={}; sessionsSnap.forEach(d=>{
+      const sd=d.data();
+      if(sd.candidateUid&&sd.candidateEmail) userMap[sd.candidateUid]={name:sd.candidateName||sd.candidateEmail,email:sd.candidateEmail};
+    });
     examResultsSnap.forEach(d=>{
       const uid=d.id, data=d.data(), user=userMap[uid]||{name:'',email:uid};
       Object.entries(data).forEach(([examId,res])=>{
