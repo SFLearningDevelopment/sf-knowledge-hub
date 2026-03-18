@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603120909 -->
+  <!-- Cache busting v202603181400 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -171,8 +171,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .proctor-empty h3{font-family:'Syne',sans-serif;color:var(--text);margin-bottom:6px;}
 .refresh-btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;transition:all .2s;}
 .refresh-btn:hover{color:var(--text);border-color:var(--accent);}
-
-/* ── Proctor "waiting" state when no session assigned yet ── */
 .proctor-standby{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:48px 32px;text-align:center;max-width:480px;margin:60px auto 0;}
 .proctor-standby-icon{font-size:48px;margin-bottom:16px;}
 .proctor-standby h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:10px;}
@@ -318,46 +316,30 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .preview-readonly-banner{
   background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(245,158,11,.08));
   border-bottom:2px solid rgba(245,158,11,.4);
-  color:#fbbf24;
-  font-size:13px;
-  font-weight:700;
-  padding:8px 20px;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  letter-spacing:.01em;
-  position:sticky;
-  top:0;
-  z-index:200;
+  color:#fbbf24;font-size:13px;font-weight:700;padding:8px 20px;
+  display:flex;align-items:center;gap:8px;letter-spacing:.01em;
+  position:sticky;top:0;z-index:200;
 }
 .preview-readonly-wrap{position:relative;pointer-events:none;user-select:none;}
 .preview-readonly-wrap *{pointer-events:none!important;cursor:not-allowed!important;}
-.preview-readonly-wrap button,.preview-readonly-wrap a,.preview-readonly-wrap input,.preview-readonly-wrap select,.preview-readonly-wrap textarea{
-  opacity:.55!important;
-  pointer-events:none!important;
-}
-/* Sub-tabs always clickable in preview — navigation only, no data changes */
-.preview-readonly-wrap .p-slot-tab,.preview-readonly-wrap .p-slot-tab *,.preview-readonly-wrap .p-slot-tabs,.p-slot-tabs button{
-  pointer-events:all!important;
-  cursor:pointer!important;
-  opacity:1!important;
-}
-
-/* Proctor sub-tabs: always full brightness and clickable */
+.preview-readonly-wrap button,.preview-readonly-wrap a,.preview-readonly-wrap input,.preview-readonly-wrap select,.preview-readonly-wrap textarea{opacity:.55!important;pointer-events:none!important;}
+.preview-readonly-wrap .p-slot-tab,.preview-readonly-wrap .p-slot-tab *,.preview-readonly-wrap .p-slot-tabs,.p-slot-tabs button{pointer-events:all!important;cursor:pointer!important;opacity:1!important;}
 .p-slot-tabs{pointer-events:all!important;}
 .p-slot-tab{pointer-events:all!important;cursor:pointer!important;}
 
+/* ══ AUDIT LOG ══ */
+.audit-filter-row{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;}
+.audit-filter-row select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;}
+.audit-filter-row select:focus{border-color:var(--accent);}
 </style></head>
 <body>
 
-<!-- LOADING SPLASH — shown while Firebase resolves auth state -->
 <div id="loading-splash">
   <div class="splash-badge">🎓</div>
   <div class="splash-spinner"></div>
   <div class="splash-text">Loading Certifications Hub…</div>
 </div>
 
-<!-- AUTH SCREEN — only shown when no session exists -->
 <div id="auth-screen">
   <div class="auth-card" id="signin-box">
     <div class="auth-logo">
@@ -382,7 +364,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   </div>
 </div>
 
-<!-- CAMERA CONSENT SCREEN -->
 <div id="camera-screen">
   <div class="consent-card">
     <div class="consent-icon">📷</div>
@@ -391,9 +372,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       The exam <strong id="exam-name-for-consent"></strong> requires camera monitoring for integrity.<br><br>
       A proctor will be able to view your session. Face-away events will be logged and flagged automatically.
     </div>
-    <div class="consent-warning">
-      ⚠️ <strong>Denying camera access will consume one exam attempt</strong> and the session will not start.
-    </div>
+    <div class="consent-warning">⚠️ <strong>Denying camera access will consume one exam attempt</strong> and the session will not start.</div>
     <div class="consent-btns">
       <button class="btn-consent-allow" id="consent-allow-btn">✓ Allow Camera &amp; Start Exam</button>
       <button class="btn-consent-deny" id="consent-deny-btn">✗ Deny — Use One Attempt</button>
@@ -401,7 +380,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
   <nav>
     <div class="nav-brand">
@@ -412,7 +390,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       </div>
     </div>
     <div class="nav-right">
-      <!-- Hidden for proctors; shown for students/admins -->
       <a href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html" class="nav-link" id="admin-dashboard-link">🏠 Admin Dashboard</a>
       <div id="user-chip">
         <img id="user-avatar" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
@@ -422,7 +399,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     </div>
   </nav>
 
-  <!-- STUDENT — EXAM LISTING -->
+  <!-- STUDENT VIEW -->
   <div id="student-view">
     <div class="cert-main">
       <div class="cert-hero">
@@ -435,23 +412,18 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
     </div>
   </div>
 
-  <!-- PROCTOR VIEW — ONLY assigned candidate session, nothing else -->
+  <!-- PROCTOR VIEW -->
   <div id="proctor-view">
     <div class="proctor-main">
-      <!-- Proctor sub-tabs -->
       <div class="p-slot-tabs">
         <button class="p-slot-tab active" id="ptab-slots" onclick="switchProctorTab('slots')">📋 My Assigned Slots</button>
         <button class="p-slot-tab" id="ptab-live" onclick="switchProctorTab('live')">🎯 Live Session</button>
       </div>
-
-      <!-- My Assigned Slots -->
       <div id="ptab-content-slots">
         <div class="proctor-section-title">Your Assigned Exam Slots</div>
-        <div class="proctor-section-sub">Learners assigned to you by the admin. Confirm a slot to notify the learner of their scheduled time.</div>
+        <div class="proctor-section-sub">Learners assigned to you by the admin. Confirm a slot to notify the learner.</div>
         <div id="proctor-slots-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading your slots…</div></div>
       </div>
-
-      <!-- Live Session -->
       <div id="ptab-content-live" style="display:none;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:12px;">
           <div>
@@ -477,10 +449,10 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <button class="admin-tab"        id="atab-nominations"  onclick="switchAdminTab('nominations')">Nominations</button>
       <button class="admin-tab"        id="atab-monitor"      onclick="switchAdminTab('monitor')">Live Monitor</button>
       <button class="admin-tab"        id="atab-reports"      onclick="switchAdminTab('reports')">Reports</button>
+      <!-- AUDIT LOG TAB — shown only for JV via JS -->
+      <button class="admin-tab"        id="atab-auditlog"     onclick="switchAdminTab('auditlog')" style="display:none;">🔍 Audit Log</button>
     </div>
 
-    <!-- COURSES TAB -->
-    
     <!-- EXAMS TAB -->
     <div class="admin-tab-content active" id="atc-exams">
       <div class="atc-inner">
@@ -516,38 +488,24 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="atc-inner">
         <div class="nom-section">
           <div class="nom-section-title">Nominations</div>
-
-          <!-- Step 1: Category selector -->
           <div style="margin-bottom:20px;">
             <label class="fg" style="margin-bottom:8px;display:block;"><span style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Step 1 — Select Category</span></label>
             <div style="display:flex;gap:14px;">
               <button id="nom-cat-course" onclick="nomSetCategory('course')" style="flex:1;padding:20px 16px;border-radius:12px;border:1px solid rgba(59,130,246,.25);background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(59,130,246,.03));color:var(--text);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:14px;">
                 <span style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📚</span>
-                <div>
-                  <div style="font-size:15px;font-weight:700;">Courses</div>
-                  <div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;">Nominate for course access</div>
-                </div>
+                <div><div style="font-size:15px;font-weight:700;">Courses</div><div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;">Nominate for course access</div></div>
               </button>
               <button id="nom-cat-exam" onclick="nomSetCategory('exam')" style="flex:1;padding:20px 16px;border-radius:12px;border:1px solid rgba(245,158,11,.25);background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.03));color:var(--text);font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:14px;">
                 <span style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🎓</span>
-                <div>
-                  <div style="font-size:15px;font-weight:700;">Exams</div>
-                  <div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;">Nominate for certification exam</div>
-                </div>
+                <div><div style="font-size:15px;font-weight:700;">Exams</div><div style="font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;">Nominate for certification exam</div></div>
               </button>
             </div>
           </div>
-
-          <!-- Step 2: Item selector (hidden until category chosen) -->
           <div id="nom-step2" style="display:none;">
             <div class="fg" style="margin-bottom:14px;">
               <label id="nom-select-label" style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;display:block;">Step 2 — Select Item</label>
-              <select class="nom-select" id="nom-item-select" onchange="onNomItemChange()">
-                <option value="">— Select —</option>
-              </select>
+              <select class="nom-select" id="nom-item-select" onchange="onNomItemChange()"><option value="">— Select —</option></select>
             </div>
-
-            <!-- Nominations list + add -->
             <div id="nom-area" style="display:none;">
               <div class="nom-add-row">
                 <input type="email" id="nom-email-input" placeholder="employee@sourcefuse.com">
@@ -562,7 +520,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
               <div id="nom-list-container"><div class="nom-empty">Loading…</div></div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -577,30 +534,20 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           </div>
           <button class="refresh-btn" id="admin-refresh-btn" onclick="loadProctorSessions()">⟳ Refresh</button>
         </div>
-
-        <!-- Sub-tabs -->
         <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0;">
           <button class="s-tab active" id="mtab-slots" onclick="switchMonitorTab('slots')" style="font-size:13px;padding:8px 16px;">📋 Booked Slots</button>
           <button class="s-tab" id="mtab-admit" onclick="switchMonitorTab('admit')" style="font-size:13px;padding:8px 16px;">🎥 Awaiting Admit</button>
           <button class="s-tab" id="mtab-active" onclick="switchMonitorTab('active')" style="font-size:13px;padding:8px 16px;">📡 Active Sessions</button>
         </div>
-
-        <!-- FLAGGED ALERTS (shown in all sub-tabs) -->
         <div id="flag-alerts-container" style="margin-bottom:8px;"></div>
-
-        <!-- Booked Slots -->
         <div id="mtab-content-slots">
           <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners who have requested an exam slot. Confirm a slot to notify the learner.</div>
           <div id="booked-slots-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div></div>
         </div>
-
-        <!-- Awaiting Admit -->
         <div id="mtab-content-admit" style="display:none;">
           <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners who have submitted identity snapshots and are waiting to be admitted.</div>
           <div id="awaiting-admit-list"><div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div></div>
         </div>
-
-        <!-- Active Sessions -->
         <div id="mtab-content-active" style="display:none;">
           <div class="proctor-stats" style="margin-bottom:20px;">
             <div class="stat-card"><div class="stat-label">Active Sessions</div><div class="stat-val green" id="a-stat-active">—</div></div>
@@ -616,28 +563,47 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <div class="atc-inner">
         <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:6px;">Reports</div>
         <div style="color:var(--muted);font-size:13px;margin-bottom:28px;">Test results, exam session logs, and course review submissions.</div>
-
-        <!-- Test Results -->
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;">📊 Test Results</div>
         <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Consolidated results per exam — scores, pass/fail, and attempt history for all candidates.</div>
         <div id="test-results-list" style="margin-bottom:40px;"><div style="color:var(--muted);text-align:center;padding:30px 0;">Loading…</div></div>
-
-        <!-- Course Reviews Report -->
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;">📋 Course Reviews</div>
         <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Review submissions by reviewers across all courses.</div>
         <div id="course-reviews-list" style="margin-bottom:40px;"><div style="color:var(--muted);text-align:center;padding:30px 0;">Loading…</div></div>
-
-        <!-- Exam Session Reports -->
         <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;">🎓 Exam Sessions</div>
         <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Completed session logs with proctoring flags.</div>
         <div id="report-list"><div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading…</div></div>
-
-      <!-- Reschedule History Section -->
-      <div style="margin-top:36px;">
-        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;">&#128197; Reschedule History</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">All rescheduled exam slots — original slot is deleted and replaced with the new one.</div>
-        <div id="resched-history-list"><div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading…</div></div>
+        <div style="margin-top:36px;">
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;">📅 Reschedule History</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">All rescheduled exam slots — original slot is deleted and replaced with the new one.</div>
+          <div id="resched-history-list"><div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading…</div></div>
+        </div>
       </div>
+    </div>
+
+    <!-- AUDIT LOG TAB (JV only) -->
+    <div class="admin-tab-content" id="atc-auditlog">
+      <div class="atc-inner">
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:6px;">🔍 Audit Log</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:24px;">All user actions across roles. Visible only to you.</div>
+        <div class="audit-filter-row">
+          <select id="audit-filter-role" onchange="loadAuditLog()">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="proctor">Proctor</option>
+            <option value="student">Student</option>
+          </select>
+          <select id="audit-filter-action" onchange="loadAuditLog()">
+            <option value="">All Actions</option>
+            <option value="admitLearner">Admit Learner</option>
+            <option value="rejectLearner">Reject Learner</option>
+            <option value="adminOverrideAdmit">Admin Override</option>
+            <option value="confirmSlot">Confirm Slot</option>
+            <option value="addNomination">Add Nomination</option>
+            <option value="removeNomination">Remove Nomination</option>
+          </select>
+          <button class="refresh-btn" onclick="loadAuditLog()">⟳ Refresh</button>
+        </div>
+        <div id="audit-log-list"><div style="color:var(--muted);text-align:center;padding:40px 0;">Loading…</div></div>
       </div>
     </div>
   </div>
@@ -669,12 +635,11 @@ const fbApp = initializeApp(FB);
 const auth  = getAuth(fbApp);
 const db    = getFirestore(fbApp);
 
-// Google provider with domain hint
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ hd: DOMAIN });
 
 let me = null, meEmail = null, myRole = null;
-let _previewProctorEmail = null; // set when admin previews a specific proctor
+let _previewProctorEmail = null;
 let exams = [], selExamForConsent = null;
 let faceStream = null, faceGraceTimer = null, faceAwayStart = null;
 let sessionDocId = null;
@@ -682,9 +647,91 @@ let proctorRefreshTimer = null;
 let adminTab = 'exams';
 
 /* ══════════════════════════════════════
+   AUDIT LOG HELPER
+═══════════════════════════════════════ */
+async function auditEntry(action, details = {}) {
+  try {
+    await addDoc(collection(db, 'auditLog'), {
+      action,
+      actorEmail: meEmail,
+      actorRole:  myRole,
+      timestamp:  serverTimestamp(),
+      ...details
+    });
+  } catch(e) {
+    // Silent — never block main action
+    console.warn('auditLog write failed:', e);
+  }
+}
+
+async function loadAuditLog() {
+  const container = $('audit-log-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;">Loading…</div>';
+  try {
+    const snap = await getDocs(collection(db, 'auditLog'));
+    let entries = [];
+    snap.forEach(d => entries.push({id: d.id, ...d.data()}));
+
+    const roleFilter   = $('audit-filter-role')?.value   || '';
+    const actionFilter = $('audit-filter-action')?.value || '';
+    if (roleFilter)   entries = entries.filter(e => e.actorRole === roleFilter);
+    if (actionFilter) entries = entries.filter(e => e.action    === actionFilter);
+    entries.sort((a, b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+
+    if (!entries.length) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;">No audit entries found.</div>';
+      return;
+    }
+
+    const roleColor   = {admin:'#fbbf24', proctor:'#34d399', student:'#60a5fa'};
+    const actionColor = {
+      admitLearner:'#34d399', rejectLearner:'#f87171', adminOverrideAdmit:'#f59e0b',
+      confirmSlot:'#60a5fa', addNomination:'#a78bfa', removeNomination:'#f87171'
+    };
+
+    container.innerHTML = `<div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Time</th>
+            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Actor</th>
+            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Role</th>
+            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Action</th>
+            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Target / Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(e => {
+            const ts  = e.timestamp?.seconds ? new Date(e.timestamp.seconds*1000).toLocaleString() : '—';
+            const ac  = actionColor[e.action] || 'var(--muted)';
+            const rc  = roleColor[e.actorRole] || 'var(--muted)';
+            const det = [
+              e.targetEmail ? 'Learner: '+esc(e.targetEmail) : '',
+              e.slotId      ? 'Slot: '+esc(e.slotId)         : '',
+              e.examId      ? 'Exam: '+esc(e.examId)         : '',
+              e.metadata    ? esc(e.metadata)                : ''
+            ].filter(Boolean).join(' · ');
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:10px 14px;color:var(--muted);white-space:nowrap;font-size:12px;">${ts}</td>
+              <td style="padding:10px 14px;font-size:12px;">${esc(e.actorEmail||'—')}</td>
+              <td style="padding:10px 14px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:${rc}22;color:${rc};border:1px solid ${rc}44;">${esc(e.actorRole||'—')}</span></td>
+              <td style="padding:10px 14px;"><span style="font-size:12px;font-weight:700;color:${ac};">${esc(e.action||'—')}</span></td>
+              <td style="padding:10px 14px;font-size:12px;color:var(--muted);">${det||'—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  } catch(e) {
+    console.error('loadAuditLog:', e);
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;">Error loading audit log.</div>';
+  }
+}
+
+/* ══════════════════════════════════════
    AUTH
 ═══════════════════════════════════════ */
-// Hard timeout: if onAuthStateChanged hasn't fired in 5s, show auth screen
 const authTimeout = setTimeout(() => {
   if (!$('loading-splash').classList.contains('hidden')) {
     $('loading-splash').classList.add('hidden');
@@ -699,7 +746,6 @@ onAuthStateChanged(auth, async user => {
   $('loading-splash').classList.add('hidden');
 
   if (!user) {
-    // No session — show sign-in
     $('auth-screen').style.display = 'flex';
     $('signin-box').style.display  = 'flex';
     $('denied-box').style.display  = 'none';
@@ -707,7 +753,6 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // Wrong domain — sign out and show denied
   if (user.email.split('@')[1] !== DOMAIN) {
     await signOut(auth);
     $('auth-screen').style.display = 'flex';
@@ -716,7 +761,6 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // Valid user — set up session (keep Firebase User object intact)
   me = user;
   meEmail = user.email.toLowerCase();
   $('auth-screen').style.display = 'none';
@@ -731,26 +775,19 @@ onAuthStateChanged(auth, async user => {
     myRole = snap.exists() ? (snap.data().role || 'student') : 'student';
   }
 
-  // Show chips
   $('chip-admin').style.display   = myRole === 'admin'   ? 'inline-flex' : 'none';
   $('chip-proctor').style.display = myRole === 'proctor' ? 'inline-flex' : 'none';
-
-  // Hub link: visible for students and admins; HIDDEN for proctors
-  // Proctors should stay focused on their proctoring task only
   $('admin-dashboard-link').style.display = myRole === 'admin' ? 'inline-flex' : 'none';
 
   route();
 });
 
 $('google-btn').addEventListener('click', async () => {
-  const btn   = $('google-btn');
-  const errEl = $('auth-error');
+  const btn = $('google-btn'), errEl = $('auth-error');
   errEl.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
+  btn.disabled = true; btn.textContent = 'Signing in…';
   try {
     await signInWithPopup(auth, googleProvider);
-    // onAuthStateChanged handles the rest
   } catch(e) {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
       errEl.textContent = 'Sign-in canceled. Please try again.';
@@ -766,14 +803,7 @@ $('google-btn').addEventListener('click', async () => {
 });
 
 $('switch-btn').addEventListener('click', () => signOut(auth));
-
-$('signout-btn').addEventListener('click', () => {
-  cleanup();
-  signOut(auth);
-  $('app').style.display = 'none';
-  // Redirect to hub instead of showing choice screen (no choice screen in this file)
-  window.location.href = HUB_URL;
-});
+$('signout-btn').addEventListener('click', () => { cleanup(); signOut(auth); $('app').style.display='none'; window.location.href=HUB_URL; });
 
 /* ══════════════════════════════════════
    ROUTING
@@ -783,19 +813,16 @@ function route() {
   $('proctor-view').style.display = 'none';
   $('admin-view').style.display   = 'none';
 
-  // Admin preview mode — force a specific role view for testing
-  const urlParams    = new URLSearchParams(window.location.search);
-  const preview      = urlParams.get('preview');
-  const prevProctor  = urlParams.get('previewProctor');
+  const urlParams   = new URLSearchParams(window.location.search);
+  const preview     = urlParams.get('preview');
+  const prevProctor = urlParams.get('previewProctor');
 
   if (myRole === 'admin' && prevProctor) {
-    // Admin previewing a specific proctor's exact view
     _previewProctorEmail = decodeURIComponent(prevProctor);
     history.replaceState({}, '', window.location.pathname);
-    // Show proctor-view exactly as the proctor sees it
     $('proctor-view').style.display = 'block';
     showHubPreviewBanner('Proctor — ' + _previewProctorEmail);
-    initProctor(); // loadProctorSession will use _previewProctorEmail
+    initProctor();
     return;
   }
 
@@ -809,7 +836,7 @@ function route() {
     }
   }
 
-  if      (myRole === 'admin')   { $('admin-view').style.display   = 'block'; initAdmin().then(() => {
+  if      (myRole === 'admin')   { $('admin-view').style.display = 'block'; initAdmin().then(() => {
     const urlTab = urlParams.get('tab');
     if (urlTab) { switchAdminTab(urlTab); history.replaceState({}, '', window.location.pathname); }
   }); }
@@ -818,7 +845,6 @@ function route() {
 }
 
 function showHubPreviewBanner(label) {
-  // Floating pill banner (existing)
   let banner = document.getElementById('hub-preview-banner');
   if (!banner) {
     banner = document.createElement('div');
@@ -828,33 +854,19 @@ function showHubPreviewBanner(label) {
   }
   banner.innerHTML = '&#129514; ' + label + ' Preview &nbsp;&middot;&nbsp; <button onclick="if(window.opener&&window.opener.backToAdminConsole)window.opener.backToAdminConsole();window.close();" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:50px;cursor:pointer;font-size:12px;font-weight:600;">Close Tab</button>';
   banner.style.display = 'flex';
-
-  // Sticky read-only top banner
   document.querySelectorAll('.preview-readonly-banner').forEach(el => el.remove());
   const readBanner = document.createElement('div');
   readBanner.className = 'preview-readonly-banner';
   readBanner.innerHTML = '&#128065; Preview Mode &mdash; Read Only &nbsp;&bull;&nbsp; ' + label + ' &nbsp;&bull;&nbsp; No actions will be saved.';
   document.body.insertBefore(readBanner, document.body.firstChild);
-
-  // Apply pointer-blocking wrapper to every view that's visible
   applyHubPreviewReadOnly();
 }
 
 function applyHubPreviewReadOnly() {
-  // Remove existing wrappers first
   document.querySelectorAll('.preview-readonly-wrap').forEach(el => {
     while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
     el.remove();
   });
-  // Wrap all interactive content areas
-  const targets = [
-    document.querySelector('#proctor-view .proctor-main'),
-    document.querySelector('#admin-view .atc-inner'),
-    document.querySelector('#student-view .s-main'),
-  ].filter(Boolean);
-
-  // Since in hub preview we show the proctor-view or admin Live Monitor,
-  // wrap everything inside #admin-view and #proctor-view
   ['proctor-view', 'admin-view', 'student-view'].forEach(id => {
     const view = document.getElementById(id);
     if (!view || view.style.display === 'none') return;
@@ -896,14 +908,11 @@ async function buildExamCard(exam) {
     const s = await getDoc(doc(db, 'exams', exam.id, 'nominations', me.email));
     nominated = s.exists() && s.data().nominated !== false;
   } catch{}
-
-  // Check examEligible override on the nomination doc
   let examEligible = false;
   try {
     const nomDoc = await getDoc(doc(db, 'exams', exam.id, 'nominations', me.email));
     examEligible = nomDoc.exists() && nomDoc.data().examEligible === true;
   } catch{}
-
   let courseComplete = true;
   if (exam.linkedCourseId && !examEligible) {
     try {
@@ -911,7 +920,6 @@ async function buildExamCard(exam) {
       courseComplete = s.exists() && s.data()[`course_${exam.linkedCourseId}`] === true;
     } catch{}
   }
-
   let attemptCount = 0, bestScore = null;
   const maxAttempts = exam.maxAttempts || 3;
   try {
@@ -922,19 +930,16 @@ async function buildExamCard(exam) {
       bestScore = (bs !== undefined && bs !== null) ? bs : null;
     }
   } catch{}
-
   const attemptsLeft = Math.max(0, maxAttempts - attemptCount);
   const canTake = nominated && (courseComplete || examEligible) && attemptsLeft > 0;
   const ac = exam.accentColor || '#f59e0b';
   const dots = Array.from({length: maxAttempts}, (_,i) =>
     `<div class="a-dot ${i < attemptCount ? 'used' : 'avail'}"></div>`).join('');
-
   const notices = [];
   if (!nominated) notices.push(`<div class="notice-box notice-not-nom">You are not nominated for this exam. Contact your manager.</div>`);
   else if (!courseComplete && exam.linkedCourseId && !examEligible) notices.push(`<div class="notice-box notice-course-lock">⚠️ Complete the linked course before attempting this exam.</div>`);
   else if (examEligible && !courseComplete) notices.push(`<div class="notice-box" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fbbf24;border-radius:8px;padding:8px 12px;font-size:13px;">⚡ Course override enabled — you can take this exam directly.</div>`);
   else if (attemptsLeft === 0) notices.push(`<div class="notice-box notice-no-attempts">All ${maxAttempts} attempts used for this exam.</div>`);
-
   const card = document.createElement('div');
   card.className = 'exam-card';
   card.innerHTML = `
@@ -959,11 +964,8 @@ async function buildExamCard(exam) {
         <div class="attempts-dots">${dots}</div>
       </div>
       ${notices.join('')}
-      ${canTake
-        ? `<button class="exam-btn btn-take">Start Exam →</button>`
-        : `<button class="exam-btn btn-disabled" disabled>🔒 Unavailable</button>`}
+      ${canTake ? `<button class="exam-btn btn-take">Start Exam →</button>` : `<button class="exam-btn btn-disabled" disabled>🔒 Unavailable</button>`}
     </div>`;
-
   if (canTake) card.querySelector('.btn-take').addEventListener('click', () => startConsentFlow(exam));
   return card;
 }
@@ -974,10 +976,9 @@ async function buildExamCard(exam) {
 function startConsentFlow(exam) {
   selExamForConsent = exam;
   $('exam-name-for-consent').textContent = exam.title;
-  $('app').style.display       = 'none';
+  $('app').style.display = 'none';
   $('camera-screen').style.display = 'flex';
 }
-
 $('consent-allow-btn').addEventListener('click', async () => {
   try {
     faceStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
@@ -987,11 +988,8 @@ $('consent-allow-btn').addEventListener('click', async () => {
     startFaceMonitoring();
     if (selExamForConsent.url) window.location.href = selExamForConsent.url;
     else toast('Exam started — camera active.', 'success');
-  } catch(err) {
-    toast('Camera access denied by browser. Please enable camera permissions.', 'error');
-  }
+  } catch(err) { toast('Camera access denied by browser. Please enable camera permissions.', 'error'); }
 });
-
 $('consent-deny-btn').addEventListener('click', async () => {
   if (!selExamForConsent) return;
   await logDeniedConsent(selExamForConsent.id);
@@ -1000,7 +998,6 @@ $('consent-deny-btn').addEventListener('click', async () => {
   await loadExams();
   toast('Camera denied — one attempt consumed.', 'error');
 });
-
 async function createSessionDoc(examId) {
   const ref = await addDoc(collection(db, 'examSessions'), {
     candidateEmail: me.email, candidateName: me.displayName||me.email,
@@ -1009,16 +1006,13 @@ async function createSessionDoc(examId) {
   });
   sessionDocId = ref.id;
 }
-
 async function logDeniedConsent(examId) {
   const ref  = doc(db, 'examResults', me.uid);
   const snap = await getDoc(ref);
   const existing = snap.exists() ? snap.data() : {};
   const examData = existing[examId] || {attemptCount:0, bestScore:null, attempts:[]};
   examData.attemptCount = (examData.attemptCount || 0) + 1;
-  examData.attempts = [...(examData.attempts||[]), {
-    at: new Date().toISOString(), score: null, passed: false, cameraConsentDenied: true
-  }];
+  examData.attempts = [...(examData.attempts||[]), {at: new Date().toISOString(), score: null, passed: false, cameraConsentDenied: true}];
   existing[examId] = examData;
   await setDoc(ref, existing);
   await addDoc(collection(db, 'examSessions'), {
@@ -1042,7 +1036,6 @@ async function startFaceMonitoring() {
     monitorFace(video);
   } catch(e) { console.warn('Face monitoring unavailable:', e); }
 }
-
 function monitorFace(video) {
   const check = async () => {
     if (!faceStream) return;
@@ -1051,10 +1044,7 @@ function monitorFace(video) {
       if (!det) {
         if (!faceAwayStart) {
           faceAwayStart = Date.now();
-          faceGraceTimer = setTimeout(async () => {
-            await logFaceEvent('face_away');
-            faceAwayStart = null;
-          }, FACE_GRACE_MS);
+          faceGraceTimer = setTimeout(async () => { await logFaceEvent('face_away'); faceAwayStart = null; }, FACE_GRACE_MS);
         }
       } else {
         if (faceGraceTimer) { clearTimeout(faceGraceTimer); faceGraceTimer = null; }
@@ -1065,7 +1055,6 @@ function monitorFace(video) {
   };
   check();
 }
-
 async function logFaceEvent(type) {
   if (!sessionDocId) return;
   try {
@@ -1076,7 +1065,6 @@ async function logFaceEvent(type) {
     await setDoc(ref, {flags, lastFlagAt: serverTimestamp()}, {merge:true});
   } catch(e) { console.warn('flag log failed', e); }
 }
-
 function cleanup() {
   if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
   if (faceGraceTimer) { clearTimeout(faceGraceTimer); faceGraceTimer = null; }
@@ -1084,12 +1072,9 @@ function cleanup() {
 }
 
 /* ══════════════════════════════════════
-   PROCTOR — ASSIGNED CANDIDATE ONLY
-   Proctors see ONLY their assigned candidate's live session.
-   No exams list, no course data, no admin panel.
+   PROCTOR
 ═══════════════════════════════════════ */
 async function initProctor() {
-  // Load slots first (default tab)
   await loadProctorAssignedSlots();
   await loadProctorSession();
   proctorRefreshTimer = setInterval(() => {
@@ -1115,43 +1100,25 @@ async function loadProctorAssignedSlots() {
   const container = $('proctor-slots-list');
   if (!container) return;
   container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading your slots…</div>';
-
   const proctorEmail = _previewProctorEmail || meEmail;
   if (!proctorEmail) return;
-
   try {
-    // Fetch all examSlots where assignedProctor === this proctor
-    const snap = await getDocs(query(
-      collection(db, 'examSlots'),
-      where('assignedProctor', '==', proctorEmail)
-    ));
-
+    const snap = await getDocs(query(collection(db, 'examSlots'), where('assignedProctor', '==', proctorEmail)));
     const slots = [];
     snap.forEach(d => slots.push({id: d.id, ...d.data()}));
-
-    // Also include slots where status is bookedByLearner but no proctor yet
-    // (admin assigned this proctor via nomination doc, slot may not have assignedProctor set yet)
-    // Check nomination docs for this proctor's assigned candidate
     try {
       const userSnap = await getDoc(doc(db, 'users', proctorEmail));
       if (userSnap.exists()) {
         const assignedCandidate = userSnap.data().assignedCandidate;
         const assignedExamId    = userSnap.data().assignedExamId;
         if (assignedCandidate && assignedExamId) {
-          // Fetch slots for this candidate+exam that aren't already in results
           const existingIds = new Set(slots.map(s => s.id));
-          const candSnap = await getDocs(query(
-            collection(db, 'examSlots'),
-            where('learnerEmail', '==', assignedCandidate),
-            where('examId', '==', assignedExamId)
-          ));
+          const candSnap = await getDocs(query(collection(db, 'examSlots'), where('learnerEmail', '==', assignedCandidate), where('examId', '==', assignedExamId)));
           candSnap.forEach(d => {
             if (!existingIds.has(d.id)) {
               slots.push({id: d.id, ...d.data()});
-              // Also update the slot with assignedProctor if missing
               if (!d.data().assignedProctor) {
-                setDoc(doc(db, 'examSlots', d.id), {assignedProctor: proctorEmail}, {merge: true})
-                  .catch(() => {});
+                setDoc(doc(db, 'examSlots', d.id), {assignedProctor: proctorEmail}, {merge: true}).catch(() => {});
               }
             }
           });
@@ -1163,33 +1130,21 @@ async function loadProctorAssignedSlots() {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No slots assigned to you yet.<br><span style="font-size:12px;">Ask your L&D administrator to assign you to a learner.</span></div>';
       return;
     }
-
     container.innerHTML = '';
-    // Sort: pending first, then by date
     slots.sort((a,b) => {
       const order = {bookedByLearner:0, confirmed:1, awaitingAdmit:2, inProgress:3, completed:4, rejected:5};
       return (order[a.status]||0) - (order[b.status]||0);
     });
-
-    // Track active listeners so we can clear them on refresh
-    if (window._proctorSlotListeners) {
-      window._proctorSlotListeners.forEach(unsub => unsub());
-    }
+    if (window._proctorSlotListeners) window._proctorSlotListeners.forEach(unsub => unsub());
     window._proctorSlotListeners = [];
-
     for (const slot of slots) {
       container.appendChild(buildProctorSlotCard(slot));
-
-      // For confirmed slots — listen in real-time for snapshots arriving
-      if (slot.status === 'confirmed' || slot.status === 'bookedByLearner') {
+      if (slot.status === 'confirmed' || slot.status === 'bookedByLearner' || slot.status === 'awaitingAdmit') {
         const unsub = onSnapshot(doc(db, 'examSlots', slot.id), slotSnap => {
           if (!slotSnap.exists()) return;
           const updated = {id: slotSnap.id, ...slotSnap.data()};
           const existing = document.getElementById('p-slot-' + slot.id);
-          if (existing) {
-            const newCard = buildProctorSlotCard(updated);
-            existing.replaceWith(newCard);
-          }
+          if (existing) existing.replaceWith(buildProctorSlotCard(updated));
         });
         window._proctorSlotListeners.push(unsub);
       }
@@ -1204,17 +1159,13 @@ function buildProctorSlotCard(slot) {
   const card = document.createElement('div');
   card.className = 'p-slot-card';
   card.id = 'p-slot-' + slot.id;
-
   const initials = (slot.learnerName||slot.learnerEmail||'?').charAt(0).toUpperCase();
   const photoHtml = slot.learnerSelfie
     ? `<img src="${slot.learnerSelfie}" class="p-slot-selfie" onerror="this.style.display=&apos;none&apos;">`
     : `<div class="p-slot-initials">${initials}</div>`;
-
   const timeStr = slot.requestedDate && slot.requestedTime
     ? `${slot.requestedDate} ${slot.requestedTime} (${slot.requestedTimezone||''})`
     : 'Time not specified';
-
-  // Status tag
   const statusMap = {
     bookedByLearner: {label:'Awaiting Your Confirmation', color:'#fbbf24', bg:'rgba(245,158,11,.1)'},
     confirmed:       {label:'Confirmed', color:'#34d399', bg:'rgba(16,185,129,.1)'},
@@ -1225,54 +1176,74 @@ function buildProctorSlotCard(slot) {
   };
   const st = statusMap[slot.status] || {label:slot.status||'Unknown', color:'var(--muted)', bg:'var(--surface)'};
   const statusTag = `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:${st.bg};color:${st.color};border:1px solid ${st.color}33;">${st.label}</span>`;
-
-  // Check reschedule info
   const rescheduleCount = slot.rescheduleCount || 0;
   const rescheduleNote = rescheduleCount > 0
-    ? `<div style="font-size:12px;color:#fbbf24;margin-top:6px;">&#128197; Rescheduled ${rescheduleCount}x — New time: <strong>${timeStr}</strong></div>`
+    ? `<div style="font-size:12px;color:#fbbf24;margin-top:6px;">📅 Rescheduled ${rescheduleCount}x — New time: <strong>${timeStr}</strong></div>`
     : '';
 
-  // Action buttons based on status
+  // Actions
   let actions = '';
   if (slot.status === 'bookedByLearner') {
-    actions = `<button class="p-slot-confirm-btn" onclick="proctorConfirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">
-      ✅ Confirm This Slot
-    </button>`;
+    actions = `<button class="p-slot-confirm-btn" onclick="proctorConfirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">✅ Confirm This Slot</button>`;
   } else if (slot.status === 'awaitingAdmit') {
-    actions = `<div style="display:flex;gap:10px;margin-top:12px;">
-      <button class="admit-btn" style="flex:1;padding:10px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit</button>
-      <button class="reject-btn-slot" style="flex:1;padding:10px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny</button>
-    </div>`;
+    if (slot.admitted === true) {
+      // Already admitted — show resolved state so proctor can't double-act
+      actions = `<div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">
+        ✅ Learner already admitted
+      </div>`;
+    } else {
+      actions = `<div style="display:flex;gap:10px;margin-top:12px;">
+        <button class="admit-btn" style="flex:1;padding:10px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit</button>
+        <button class="reject-btn-slot" style="flex:1;padding:10px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny</button>
+      </div>`;
+    }
   } else if (slot.status === 'confirmed') {
-    // Check if we're within 10 minutes of the exam
     const _slotMs = slot.requestedDate && slot.requestedTime
       ? new Date(slot.requestedDate + 'T' + slot.requestedTime + ':00').getTime() : null;
     const _minsTo = _slotMs ? Math.floor((_slotMs - Date.now()) / 60000) : 999;
     if (_minsTo <= 10) {
       actions = `<div style="font-size:13px;color:#60a5fa;margin-top:10px;padding:10px 14px;background:rgba(59,130,246,.06);border-radius:8px;border:1px solid rgba(59,130,246,.2);">
-        &#9203; Learner can now begin setup. Waiting for them to start their camera and send snapshots&hellip;
+        ⏳ Learner can now begin setup. Waiting for them to start their camera and send snapshots…
         <div style="margin-top:6px;font-size:12px;color:var(--muted);">This card will update automatically when snapshots arrive.</div>
       </div>`;
     } else {
-      const _dateStr = slot.requestedDate || '';
-      const _timeStr = slot.requestedTime || '';
       actions = `<div style="font-size:13px;color:#34d399;margin-top:10px;padding:8px 12px;background:rgba(16,185,129,.06);border-radius:8px;border:1px solid rgba(16,185,129,.2);">
-        &#10003; Slot confirmed. Exam scheduled for ${_dateStr} ${_timeStr}.<br>
+        ✓ Slot confirmed. Exam scheduled for ${slot.requestedDate||''} ${slot.requestedTime||''}.<br>
         <span style="font-size:12px;color:var(--muted);">Setup window opens 10 minutes before exam time.</span>
       </div>`;
     }
   }
 
-  // Snapshots for awaitingAdmit
+  // Scheduling selfie + live snapshots side by side for awaitingAdmit
   let snapshotsHtml = '';
-  if (slot.status === 'awaitingAdmit' && slot.snapshots && slot.snapshots.length > 0) {
-    snapshotsHtml = '<div style="margin-bottom:12px;"><div class="slot-selfie-label" style="margin-bottom:8px;">Live Snapshots</div><div class="slot-snapshots">';
-    slot.snapshots.forEach(snap => {
-      const score = snap.matchScore;
-      const color = score == null ? 'var(--border)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
-      snapshotsHtml += `<div class="snap-item"><img src="${snap.image}" class="snap-img" style="border-color:${color};" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${color};">${score != null ? score+'%' : '&mdash;'}</div></div>`;
-    });
-    snapshotsHtml += '</div></div>';
+  if (slot.status === 'awaitingAdmit') {
+    // Scheduling selfie — identity reference
+    if (slot.learnerSelfie) {
+      snapshotsHtml += `<div style="margin-bottom:16px;">
+        <div class="slot-selfie-label" style="margin-bottom:8px;">📸 Scheduling Selfie <span style="font-weight:400;color:var(--muted);">(Identity Reference)</span></div>
+        <img src="${slot.learnerSelfie}" style="width:100px;height:75px;border-radius:8px;object-fit:cover;border:2px solid var(--accent);" onerror="this.style.display=&apos;none&apos;">
+      </div>`;
+    }
+    // Live snapshots
+    if (slot.snapshots && slot.snapshots.length > 0) {
+      snapshotsHtml += '<div style="margin-bottom:12px;"><div class="slot-selfie-label" style="margin-bottom:8px;">🎥 Live Snapshots <span style="font-weight:400;color:var(--muted);">(taken at exam time)</span></div><div class="slot-snapshots">';
+      slot.snapshots.forEach(snap => {
+        const score = snap.matchScore;
+        const color = score == null ? 'var(--border)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
+        snapshotsHtml += `<div class="snap-item"><img src="${snap.image}" class="snap-img" style="border-color:${color};" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${color};">${score != null ? score+'%' : '&mdash;'}</div></div>`;
+      });
+      snapshotsHtml += '</div></div>';
+      // Average score
+      const scores = slot.snapshots.map(s => s.matchScore).filter(s => s != null);
+      if (scores.length > 0) {
+        const avg = Math.round(scores.reduce((a,b) => a+b,0) / scores.length);
+        const avgColor = avg >= 70 ? '#34d399' : avg >= 50 ? '#f59e0b' : '#f87171';
+        snapshotsHtml += `<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;color:var(--muted);">Average Face Match Score</span>
+          <span style="font-size:16px;font-weight:800;color:${avgColor};">${avg}%</span>
+        </div>`;
+      }
+    }
   }
 
   card.innerHTML = `
@@ -1283,36 +1254,29 @@ function buildProctorSlotCard(slot) {
         <div class="p-slot-email">${esc(slot.learnerEmail||'')}</div>
         <div style="margin-top:6px;">${statusTag}</div>
       </div>
-      <div class="p-slot-time">&#128197; ${esc(timeStr)}</div>
+      <div class="p-slot-time">📅 ${esc(timeStr)}</div>
     </div>
     <div class="p-slot-body">
       ${rescheduleNote}
       ${snapshotsHtml}
       ${actions}
     </div>`;
-
   return card;
 }
 
-// Proctor-specific confirm slot (same logic as admin confirmSlot but from proctor view)
 window.proctorConfirmSlot = async function(slotId, learnerEmail, learnerName, timeStr) {
   if (!confirm('Confirm exam slot for ' + learnerName + ' at ' + timeStr + '?')) return;
   const proctorEmail = _previewProctorEmail || meEmail;
   try {
     await setDoc(doc(db,'examSlots',slotId), {
-      status:          'confirmed',
-      confirmedBy:     proctorEmail,
-      confirmedAt:     serverTimestamp(),
-      assignedProctor: proctorEmail
+      status: 'confirmed', confirmedBy: proctorEmail,
+      confirmedAt: serverTimestamp(), assignedProctor: proctorEmail
     }, {merge: true});
-
     await addDoc(collection(db,'notifications',learnerEmail,'items'), {
-      message:   'Your exam slot for ' + timeStr + ' has been confirmed by your proctor. You can begin your session at the scheduled time.',
-      type:      'slot_confirmed',
-      read:      false,
-      createdAt: serverTimestamp()
+      message: 'Your exam slot for ' + timeStr + ' has been confirmed by your proctor. You can begin your session at the scheduled time.',
+      type: 'slot_confirmed', read: false, createdAt: serverTimestamp()
     });
-
+    await auditEntry('confirmSlot', {targetEmail: learnerEmail, slotId, metadata: 'Proctor confirmed slot for ' + timeStr});
     toast('Slot confirmed! Learner has been notified.', 'success');
     await loadProctorAssignedSlots();
   } catch(e) {
@@ -1324,77 +1288,41 @@ window.proctorConfirmSlot = async function(slotId, learnerEmail, learnerName, ti
 async function loadProctorSession() {
   const container = $('live-sessions');
   container.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading session…</div>';
-
-  // Get this proctor's assigned candidate from Firestore
-  // In preview mode, use _previewProctorEmail instead of me.email
   const proctorLookupEmail = _previewProctorEmail || me.email;
   const mySnap   = await getDoc(doc(db, 'users', proctorLookupEmail));
   const assigned = mySnap.exists() ? mySnap.data().assignedCandidate : null;
-
   if (!assigned) {
-    // No candidate assigned yet — show standby screen
     $('proctor-candidate-label').textContent = 'No candidate assigned yet.';
-    $('stat-active').textContent   = '—';
-    $('stat-flags').textContent    = '—';
-    $('stat-progress').textContent = '—';
-    container.innerHTML = `
-      <div class="proctor-standby">
-        <div class="proctor-standby-icon">⏳</div>
-        <h2>Standing By</h2>
-        <p>You have not been assigned an exam candidate yet.<br>
-           Please wait for your L&amp;D administrator to assign you a candidate before the exam starts.</p>
-      </div>`;
+    $('stat-active').textContent = '—'; $('stat-flags').textContent = '—'; $('stat-progress').textContent = '—';
+    container.innerHTML = `<div class="proctor-standby"><div class="proctor-standby-icon">⏳</div><h2>Standing By</h2><p>You have not been assigned an exam candidate yet.<br>Please wait for your L&amp;D administrator to assign you a candidate before the exam starts.</p></div>`;
     return;
   }
-
   $('proctor-candidate-label').textContent = `Monitoring: ${assigned}`;
-
-  // Fetch only the active session for this candidate
-  const snap = await getDocs(query(
-    collection(db, 'examSessions'),
-    where('candidateEmail', '==', assigned),
-    where('status', '==', 'active')
-  ));
-
+  const snap = await getDocs(query(collection(db, 'examSessions'), where('candidateEmail', '==', assigned), where('status', '==', 'active')));
   const sessions = [];
   snap.forEach(d => sessions.push({id: d.id, ...d.data()}));
-
-  // Update stats
   const totalFlags = sessions.reduce((a, s) => a + (s.flags||[]).length, 0);
-  const avgProg    = sessions.length
-    ? Math.round(sessions.reduce((a,s) => a + (s.questionProgress||0), 0) / sessions.length)
-    : 0;
-
+  const avgProg    = sessions.length ? Math.round(sessions.reduce((a,s) => a+(s.questionProgress||0), 0) / sessions.length) : 0;
   $('stat-active').textContent   = sessions.length > 0 ? 'Active' : 'Waiting';
   $('stat-flags').textContent    = totalFlags;
   $('stat-progress').textContent = sessions.length ? `${avgProg}%` : '—';
-
   container.innerHTML = '';
   if (!sessions.length) {
-    container.innerHTML = `
-      <div class="proctor-standby">
-        <div class="proctor-standby-icon">👁</div>
-        <h2>Waiting for Candidate</h2>
-        <p><strong>${esc(assigned)}</strong> has not started their exam yet.<br>
-           This page will auto-refresh every 30 seconds.</p>
-      </div>`;
+    container.innerHTML = `<div class="proctor-standby"><div class="proctor-standby-icon">👁</div><h2>Waiting for Candidate</h2><p><strong>${esc(assigned)}</strong> has not started their exam yet.<br>This page will auto-refresh every 30 seconds.</p></div>`;
     return;
   }
-
   for (const s of sessions) container.appendChild(buildSessionCard(s));
 }
 
 function buildSessionCard(s) {
-  const flags      = s.flags || [];
-  const hasAlert   = flags.length > 0;
-  const initials   = (s.candidateName||s.candidateEmail||'?').charAt(0).toUpperCase();
-  const startTs    = s.startedAt ? (s.startedAt.toDate ? s.startedAt.toDate() : new Date(s.startedAt)) : null;
+  const flags = s.flags || [];
+  const hasAlert = flags.length > 0;
+  const initials = (s.candidateName||s.candidateEmail||'?').charAt(0).toUpperCase();
+  const startTs = s.startedAt ? (s.startedAt.toDate ? s.startedAt.toDate() : new Date(s.startedAt)) : null;
   const elapsedMins = startTs ? Math.floor((Date.now() - startTs) / 60000) : 0;
-  const prog       = s.questionProgress || 0;
-  const total      = s.totalQuestions   || 0;
-  const progPct    = total > 0 ? Math.round(prog / total * 100) : 0;
+  const prog = s.questionProgress || 0, total = s.totalQuestions || 0;
+  const progPct = total > 0 ? Math.round(prog / total * 100) : 0;
   const recentFlags = flags.slice(-4).reverse();
-
   const card = document.createElement('div');
   card.className = 'session-card' + (hasAlert ? ' alert' : '');
   card.innerHTML = `
@@ -1412,11 +1340,9 @@ function buildSessionCard(s) {
         <span class="session-timer ${elapsedMins>40?'urgent':''}">${elapsedMins}m elapsed</span>
       </div>
       <div class="progress-bar-wrap"><div class="progress-bar" style="width:${progPct}%"></div></div>
-      ${flags.length
-        ? `<div class="session-flags">${recentFlags.map(f =>
-            `<div class="flag-item">⚠ ${esc(f.type==='face_away'?'Face not detected':'Event')}<span class="flag-time">${new Date(f.at).toLocaleTimeString()}</span></div>`
-          ).join('')}</div>`
-        : `<div class="no-flags">✓ No flags — session clean</div>`}
+      ${flags.length ? `<div class="session-flags">${recentFlags.map(f =>
+        `<div class="flag-item">⚠ ${esc(f.type==='face_away'?'Face not detected':'Event')}<span class="flag-time">${new Date(f.at).toLocaleTimeString()}</span></div>`
+      ).join('')}</div>` : `<div class="no-flags">✓ No flags — session clean</div>`}
       <div class="session-attempts" style="margin-top:8px">Total flags: <strong>${flags.length}</strong></div>
     </div>`;
   return card;
@@ -1432,18 +1358,23 @@ async function initAdmin() {
   $('add-exam-btn').addEventListener('click', () => openExamForm());
   $('cancel-exam-btn').addEventListener('click', () => $('exam-form-wrap').classList.remove('open'));
   $('save-exam-btn').addEventListener('click', saveExam);
-  // nominations wired via inline onchange and onclick handlers
   $('nom-add-btn').addEventListener('click', addNomination);
   $('admin-refresh-btn').addEventListener('click', () => loadProctorSessions());
 
   proctorRefreshTimer = setInterval(() => {
     if (adminTab === 'monitor') loadProctorSessions();
   }, 30000);
+
+  // Show audit log tab only for JV
+  if (meEmail === 'jv.ravichandran@sourcefuse.com') {
+    const auditTab = $('atab-auditlog');
+    if (auditTab) auditTab.style.display = 'inline-flex';
+  }
 }
 
 window.switchAdminTab = tab => {
   adminTab = tab;
-  ['exams','nominations','monitor','reports'].forEach(t => {
+  ['exams','nominations','monitor','reports','auditlog'].forEach(t => {
     const btn = $(`atab-${t}`); const pane = $(`atc-${t}`);
     if (btn)  btn.className  = 'admin-tab' + (tab===t ? ' active' : '');
     if (pane) pane.className = 'admin-tab-content' + (tab===t ? ' active' : '');
@@ -1451,117 +1382,7 @@ window.switchAdminTab = tab => {
   if (tab === 'monitor')     { loadBookedSlots(); startFlagListener(); }
   if (tab === 'reports')     loadReports();
   if (tab === 'nominations') populateNomExamSelect();
-};
-
-async function loadAdminCourses() {
-  const grid    = $('admin-course-grid');
-  const loading = $('admin-course-loading');
-  if (!grid) return;
-  grid.innerHTML = '';
-  if (loading) loading.style.display = 'flex';
-  try {
-    const snap = await getDocs(collection(db, 'courses'));
-    const courses = [];
-    snap.forEach(d => courses.push({id: d.id, ...d.data()}));
-    courses.sort((a,b) => (a.order||0) - (b.order||0));
-    if (loading) loading.style.display = 'none';
-    if (!courses.length) {
-      grid.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:60px 0;grid-column:1/-1;">No courses found.</div>';
-      return;
-    }
-    for (const c of courses) {
-      let reviewData = null;
-      try {
-        const revSnap = await getDoc(doc(db, 'courses', c.id, 'review', 'data'));
-        if (revSnap.exists()) reviewData = revSnap.data();
-      } catch {}
-      const reviewCompleted = reviewData?.reviewCompleted || false;
-      const goLive          = reviewData?.goLive          || false;
-      const reviewerName    = reviewData?.reviewerName    || '—';
-      const ac = c.accentColor || '#3b82f6';
-      const statusDot = c.status==='live' ? '🟢' : c.status==='review' ? '🟡' : '⚫';
-      const revBadge = (flag, label) => flag
-        ? `<span style="font-size:10px;padding:2px 8px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);font-weight:600;">✓ ${label}</span>`
-        : `<span style="font-size:10px;padding:2px 8px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);font-weight:600;">✗ ${label}</span>`;
-      const card = document.createElement('div');
-      card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,box-shadow .2s,border-color .2s;';
-      card.innerHTML = `
-        <div style="height:8px;background:linear-gradient(90deg,${esc(ac)},${esc(lighten(ac))})"></div>
-        <div style="padding:20px;flex:1;display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:${esc(ac)};background:${esc(ac)}22;padding:3px 10px;border-radius:50px;">${esc(c.category||'Course')}</span>
-            <span style="font-size:11px;color:var(--muted);">${statusDot} ${esc(c.status||'draft')}</span>
-          </div>
-          <div style="font-size:26px;">${esc(c.icon||'📘')}</div>
-          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">${esc(c.title)}</div>
-          <div style="color:var(--muted);font-size:13px;line-height:1.5;flex:1;">${esc(c.description||'')}</div>
-          <div style="padding:10px 12px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;">Review Status</div>
-            ${reviewData
-              ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-                  ${revBadge(reviewCompleted,'Review Completed')}
-                  ${revBadge(goLive,'Go Live')}
-                </div>
-                <div style="font-size:11px;color:var(--muted);">Reviewer: ${esc(reviewerName)}</div>`
-              : `<div style="font-size:12px;color:var(--muted);font-style:italic;">No review submitted yet.</div>`
-            }
-          </div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;">
-            ${c.duration ? `<span style="font-size:12px;color:var(--muted);">⏱ ${esc(c.duration)}</span>` : ''}
-            ${c.level    ? `<span style="font-size:12px;color:var(--muted);">📶 ${esc(c.level)}</span>`    : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding-top:12px;border-top:1px solid var(--border);">
-            <label style="font-size:12px;color:var(--muted);flex-shrink:0;">Status:</label>
-            <select data-course-id="${esc(c.id)}" data-review-completed="${reviewCompleted}" data-golive="${goLive}" data-current="${esc(c.status||'draft')}"
-              style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;font-size:12px;outline:none;cursor:pointer;"
-              onchange="adminUpdateCourseStatus(this)">
-              <option value="draft"  ${c.status==='draft'  ?'selected':''}>⚫ Draft</option>
-              <option value="review" ${c.status==='review' ?'selected':''}>🟡 In Review</option>
-              <option value="live"   ${c.status==='live'   ?'selected':''}>🟢 Live</option>
-            </select>
-            ${c.url ? `<button onclick="window.open('${esc(c.url)}','_blank')" style="font-size:11px;padding:5px 10px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);color:#60a5fa;border-radius:6px;cursor:pointer;white-space:nowrap;">Open →</button>` : ''}
-          </div>
-        </div>`;
-      card.addEventListener('mouseenter', () => { card.style.transform='translateY(-3px)'; card.style.boxShadow='0 12px 32px rgba(0,0,0,.4)'; card.style.borderColor=ac; });
-      card.addEventListener('mouseleave', () => { card.style.transform=''; card.style.boxShadow=''; card.style.borderColor=''; });
-      grid.appendChild(card);
-    }
-  } catch(err) {
-    if (loading) loading.style.display = 'none';
-    grid.innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:60px 0;grid-column:1/-1;">Error loading courses.</div>';
-    console.error('loadAdminCourses:', err);
-  }
-}
-
-window.adminUpdateCourseStatus = async function(selectEl) {
-  const courseId        = selectEl.dataset.courseId;
-  const newStatus       = selectEl.value;
-  const reviewCompleted = selectEl.dataset.reviewCompleted === 'true';
-  const goLive          = selectEl.dataset.golive === 'true';
-  const prev            = selectEl.dataset.current;
-  if (newStatus === 'live') {
-    if (!reviewCompleted && !goLive) {
-      toast('Cannot go Live — review is not complete and reviewer has not given Go Live consent.', 'error');
-      selectEl.value = prev; return;
-    }
-    if (!reviewCompleted) {
-      toast('Cannot go Live — course review has not been marked complete by the reviewer.', 'error');
-      selectEl.value = prev; return;
-    }
-    if (!goLive) {
-      toast('Cannot go Live — reviewer has not given Go Live consent.', 'error');
-      selectEl.value = prev; return;
-    }
-  }
-  try {
-    await setDoc(doc(db,'courses',courseId), {status:newStatus, updatedAt:serverTimestamp()}, {merge:true});
-    selectEl.dataset.current = newStatus;
-    toast(`Course status updated to ${newStatus}.`, 'success');
-  } catch(err) {
-    toast('Error updating status.','error');
-    selectEl.value = prev;
-    console.error(err);
-  }
+  if (tab === 'auditlog')    loadAuditLog();
 };
 
 async function loadAdminExams() {
@@ -1579,9 +1400,7 @@ function renderExamTable() {
   }
   for (const e of exams) {
     const tr = document.createElement('tr');
-    const statusBadge = e.status==='live'
-      ? '<span style="color:#34d399">● Live</span>'
-      : '<span style="color:var(--muted)">⚫ Draft</span>';
+    const statusBadge = e.status==='live' ? '<span style="color:#34d399">● Live</span>' : '<span style="color:var(--muted)">⚫ Draft</span>';
     tr.innerHTML = `
       <td><strong>${esc(e.icon||'🎓')} ${esc(e.title)}</strong><br><span style="font-size:11px;color:var(--muted)">${esc(e.category||'')}</span></td>
       <td style="font-size:12px;color:var(--muted)">${esc(e.linkedCourseId||'—')}</td>
@@ -1617,17 +1436,11 @@ function openExamForm(exam=null) {
 
 async function saveExam() {
   const data = {
-    title:        $('ef-title').value.trim()||'Untitled',
-    category:     $('ef-category').value.trim(),
-    description:  $('ef-desc').value.trim(),
-    url:          $('ef-url').value.trim(),
-    linkedCourseId: $('ef-courseid').value.trim(),
-    duration:     parseInt($('ef-duration').value)||45,
-    passmark:     parseInt($('ef-pass').value)||70,
-    maxAttempts:  parseInt($('ef-attempts').value)||3,
-    icon:         $('ef-icon').value.trim()||'🎓',
-    status:       $('ef-status').value,
-    updatedAt:    serverTimestamp()
+    title: $('ef-title').value.trim()||'Untitled', category: $('ef-category').value.trim(),
+    description: $('ef-desc').value.trim(), url: $('ef-url').value.trim(),
+    linkedCourseId: $('ef-courseid').value.trim(), duration: parseInt($('ef-duration').value)||45,
+    passmark: parseInt($('ef-pass').value)||70, maxAttempts: parseInt($('ef-attempts').value)||3,
+    icon: $('ef-icon').value.trim()||'🎓', status: $('ef-status').value, updatedAt: serverTimestamp()
   };
   const btn = $('save-exam-btn'); btn.disabled=true; btn.textContent='Saving…';
   try {
@@ -1642,10 +1455,7 @@ async function saveExam() {
     $('exam-form-wrap').classList.remove('open');
     renderExamTable(); toast('Exam saved!','success');
   } catch(err) {
-    console.error('saveExam error:', err);
-    const msg = err?.code === 'permission-denied'
-      ? 'Permission denied — check Firestore rules allow admin writes to the exams collection.'
-      : (err?.message || 'Unknown error');
+    const msg = err?.code === 'permission-denied' ? 'Permission denied — check Firestore rules.' : (err?.message || 'Unknown error');
     toast('Error saving: ' + msg, 'error');
   }
   btn.disabled=false; btn.textContent='Save Exam';
@@ -1667,87 +1477,57 @@ function confirmDelExam(id, title) {
 }
 
 /* ══════════════════════════════════════
-   NOMINATIONS — TWO-STEP FLOW
+   NOMINATIONS
 ═══════════════════════════════════════ */
-let nomCategory = null; // 'course' | 'exam'
+let nomCategory = null;
 
 async function populateNomExamSelect() {
-  // Reset to initial state each time tab is opened
-  nomCategory = null;
-  nomResetCategoryButtons();
-  $('nom-step2').style.display  = 'none';
-  $('nom-area').style.display   = 'none';
+  nomCategory = null; nomResetCategoryButtons();
+  $('nom-step2').style.display = 'none';
+  $('nom-area').style.display  = 'none';
   $('nom-list-container').innerHTML = '';
 }
 
 function nomResetCategoryButtons() {
-  $('nom-cat-course').style.borderColor  = 'rgba(59,130,246,.25)';
-  $('nom-cat-course').style.background   = 'linear-gradient(135deg,rgba(59,130,246,.08),rgba(59,130,246,.03))';
-  $('nom-cat-course').style.boxShadow    = 'none';
-  $('nom-cat-exam').style.borderColor    = 'rgba(245,158,11,.25)';
-  $('nom-cat-exam').style.background     = 'linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.03))';
-  $('nom-cat-exam').style.boxShadow      = 'none';
+  $('nom-cat-course').style.borderColor='rgba(59,130,246,.25)'; $('nom-cat-course').style.background='linear-gradient(135deg,rgba(59,130,246,.08),rgba(59,130,246,.03))'; $('nom-cat-course').style.boxShadow='none';
+  $('nom-cat-exam').style.borderColor='rgba(245,158,11,.25)'; $('nom-cat-exam').style.background='linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.03))'; $('nom-cat-exam').style.boxShadow='none';
 }
 
 window.nomSetCategory = async cat => {
-  nomCategory = cat;
-  nomResetCategoryButtons();
-
+  nomCategory = cat; nomResetCategoryButtons();
   if (cat === 'course') {
-    $('nom-cat-course').style.borderColor = '#3b82f6';
-    $('nom-cat-course').style.background  = 'linear-gradient(135deg,rgba(59,130,246,.22),rgba(59,130,246,.08))';
-    $('nom-cat-course').style.boxShadow   = '0 0 0 3px rgba(59,130,246,.15)';
+    $('nom-cat-course').style.borderColor='#3b82f6'; $('nom-cat-course').style.background='linear-gradient(135deg,rgba(59,130,246,.22),rgba(59,130,246,.08))'; $('nom-cat-course').style.boxShadow='0 0 0 3px rgba(59,130,246,.15)';
   } else {
-    $('nom-cat-exam').style.borderColor   = 'var(--gold)';
-    $('nom-cat-exam').style.background    = 'linear-gradient(135deg,rgba(245,158,11,.22),rgba(245,158,11,.08))';
-    $('nom-cat-exam').style.boxShadow     = '0 0 0 3px rgba(245,158,11,.15)';
+    $('nom-cat-exam').style.borderColor='var(--gold)'; $('nom-cat-exam').style.background='linear-gradient(135deg,rgba(245,158,11,.22),rgba(245,158,11,.08))'; $('nom-cat-exam').style.boxShadow='0 0 0 3px rgba(245,158,11,.15)';
   }
-
-  $('nom-select-label').textContent = cat === 'course'
-    ? 'Step 2 — Select Course' : 'Step 2 — Select Exam';
-
+  $('nom-select-label').textContent = cat === 'course' ? 'Step 2 — Select Course' : 'Step 2 — Select Exam';
   const sel = $('nom-item-select');
   sel.innerHTML = '<option value="">— Loading… —</option>';
   $('nom-step2').style.display = 'block';
-  $('nom-area').style.display  = 'none';  // hidden until item selected
+  $('nom-area').style.display  = 'none';
   $('nom-list-container').innerHTML = '';
-
   if (cat === 'course') {
     const snap = await getDocs(collection(db, 'courses'));
     sel.innerHTML = '<option value="">— Select a course —</option>';
-    snap.forEach(d => {
-      const o = document.createElement('option');
-      o.value = d.id;
-      o.textContent = d.data().title || d.id;
-      sel.appendChild(o);
-    });
+    snap.forEach(d => { const o = document.createElement('option'); o.value=d.id; o.textContent=d.data().title||d.id; sel.appendChild(o); });
   } else {
     if (!exams.length) await loadAdminExams();
     sel.innerHTML = '<option value="">— Select an exam —</option>';
-    exams.forEach(e => {
-      const o = document.createElement('option');
-      o.value = e.id;
-      o.textContent = e.title;
-      sel.appendChild(o);
-    });
+    exams.forEach(e => { const o = document.createElement('option'); o.value=e.id; o.textContent=e.title; sel.appendChild(o); });
   }
-
-  // Do NOT auto-select — wait for user to choose from dropdown
 };
 
 window.onNomItemChange = async function() {
   const id = $('nom-item-select').value;
-  if (!id) { $('nom-area').style.display = 'none'; return; }
+  if (!id) { $('nom-area').style.display='none'; return; }
   $('nom-area').style.display = 'block';
-  // Show override checkbox only for exam nominations
   const overrideRow = $('nom-exam-override-row');
   if (overrideRow) {
     overrideRow.style.display = nomCategory === 'exam' ? 'flex' : 'none';
-    const cb = $('nom-override-check');
-    if (cb) cb.checked = false; // reset on each selection
+    const cb = $('nom-override-check'); if (cb) cb.checked = false;
   }
   await loadNominations(id);
-}
+};
 
 async function loadNominations(itemId) {
   $('nom-list-container').innerHTML = '<div class="nom-empty">Loading…</div>';
@@ -1758,66 +1538,23 @@ async function loadNominations(itemId) {
   const snap = await getDocs(collPath);
   const noms = [];
   snap.forEach(d => noms.push({email: d.id, ...d.data()}));
-  if (!noms.length) {
-    $('nom-list-container').innerHTML = '<div class="nom-empty">No users nominated.</div>';
-    return;
-  }
-
-  // Header hint for exam nominations
+  if (!noms.length) { $('nom-list-container').innerHTML='<div class="nom-empty">No users nominated.</div>'; return; }
   const header = isExam
-    ? `<div style="font-size:11px;color:var(--muted);padding:0 0 10px;line-height:1.5;">
-        <strong style="color:var(--text);">Course Override</strong> — toggle to allow a nominee to take the exam without completing the linked course.
-       </div>`
+    ? `<div style="font-size:11px;color:var(--muted);padding:0 0 10px;line-height:1.5;"><strong style="color:var(--text);">Course Override</strong> — toggle to allow a nominee to take the exam without completing the linked course.</div>`
     : '';
-
-  const list = document.createElement('div');
-  list.className = 'nom-list';
+  const list = document.createElement('div'); list.className = 'nom-list';
   for (const n of noms) {
     const eligible = n.examEligible === true;
-    const it = document.createElement('div');
-    it.className = 'nom-item';
-    it.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;';
-
-    // Email label
-    const emailSpan = document.createElement('span');
-    emailSpan.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;';
-    emailSpan.textContent = n.email;
-    it.appendChild(emailSpan);
-
-    // Override toggle — only for exam nominations
+    const it = document.createElement('div'); it.className='nom-item'; it.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;';
+    const emailSpan = document.createElement('span'); emailSpan.style.cssText='flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;'; emailSpan.textContent=n.email; it.appendChild(emailSpan);
     if (isExam) {
-      const lbl = document.createElement('label');
-      lbl.title = 'Allow exam without course completion';
-      lbl.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;';
-
-      const track = document.createElement('div');
-      track.className = 'override-toggle' + (eligible ? ' on' : '');
-      track.dataset.email = n.email;
-      track.dataset.item  = itemId;
-      track.style.cssText = 'width:34px;height:18px;border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;background:' + (eligible ? 'var(--accent)' : 'var(--border)');
-      track.addEventListener('click', function(){ toggleExamEligible(this); });
-
-      const thumb = document.createElement('div');
-      thumb.style.cssText = 'position:absolute;top:2px;left:' + (eligible ? '16px' : '2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;';
-      track.appendChild(thumb);
-
-      const toggleLabel = document.createElement('span');
-      toggleLabel.style.cssText = 'font-size:11px;white-space:nowrap;font-weight:' + (eligible ? '600' : '400') + ';color:' + (eligible ? 'var(--accent)' : 'var(--muted)');
-      toggleLabel.textContent = eligible ? 'Override ON' : 'Override OFF';
-
-      lbl.appendChild(track);
-      lbl.appendChild(toggleLabel);
-      it.appendChild(lbl);
+      const lbl = document.createElement('label'); lbl.title='Allow exam without course completion'; lbl.style.cssText='display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;';
+      const track = document.createElement('div'); track.className='override-toggle'+(eligible?' on':''); track.dataset.email=n.email; track.dataset.item=itemId; track.style.cssText='width:34px;height:18px;border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;background:'+(eligible?'var(--accent)':'var(--border)'); track.addEventListener('click',function(){toggleExamEligible(this);});
+      const thumb = document.createElement('div'); thumb.style.cssText='position:absolute;top:2px;left:'+(eligible?'16px':'2px')+';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s;'; track.appendChild(thumb);
+      const toggleLabel = document.createElement('span'); toggleLabel.style.cssText='font-size:11px;white-space:nowrap;font-weight:'+(eligible?'600':'400')+';color:'+(eligible?'var(--accent)':'var(--muted)'); toggleLabel.textContent=eligible?'Override ON':'Override OFF';
+      lbl.appendChild(track); lbl.appendChild(toggleLabel); it.appendChild(lbl);
     }
-
-    // Remove button
-    const remBtn = document.createElement('button');
-    remBtn.className = 'nom-rem';
-    remBtn.style.cssText = 'flex-shrink:0;';
-    remBtn.textContent = '×';
-    remBtn.addEventListener('click', () => removeNomination(itemId, n.email));
-    it.appendChild(remBtn);
-
+    const remBtn = document.createElement('button'); remBtn.className='nom-rem'; remBtn.style.cssText='flex-shrink:0;'; remBtn.textContent='×'; remBtn.addEventListener('click', () => removeNomination(itemId, n.email)); it.appendChild(remBtn);
     list.appendChild(it);
   }
   $('nom-list-container').innerHTML = header;
@@ -1825,153 +1562,95 @@ async function loadNominations(itemId) {
 }
 
 window.toggleExamEligible = async function(toggleEl) {
-  const email    = toggleEl.dataset.email;
-  const itemId   = toggleEl.dataset.item;
-  const isOn     = toggleEl.classList.contains('on');
-  const newValue = !isOn;
-
+  const email=toggleEl.dataset.email, itemId=toggleEl.dataset.item, isOn=toggleEl.classList.contains('on'), newValue=!isOn;
   try {
-    const ref = doc(db, 'exams', itemId, 'nominations', email);
-    // When turning override ON, also ensure nominated:true so exam appears for the student
-    const payload = newValue
-      ? {nominated: true, examEligible: true, nominatedAt: serverTimestamp(), nominatedBy: me.email}
-      : {examEligible: false};
-    await setDoc(ref, payload, {merge: true});
-
-    // Update toggle UI immediately
-    toggleEl.classList.toggle('on', newValue);
-    toggleEl.style.background = newValue ? 'var(--accent)' : 'var(--border)';
-    toggleEl.querySelector('div').style.left = newValue ? '16px' : '2px';
-    const label = toggleEl.parentElement.querySelector('span');
-    label.textContent = newValue ? 'Override ON' : 'Override OFF';
-    label.style.color = newValue ? 'var(--accent)' : 'var(--muted)';
-    label.style.fontWeight = newValue ? '600' : '400';
-
-    toast(`${email}: course override ${newValue ? 'enabled' : 'disabled'}`, 'success');
-  } catch(err) {
-    toast('Error updating eligibility', 'error');
-    console.error(err);
-  }
+    const ref = doc(db,'exams',itemId,'nominations',email);
+    const payload = newValue ? {nominated:true, examEligible:true, nominatedAt:serverTimestamp(), nominatedBy:me.email} : {examEligible:false};
+    await setDoc(ref, payload, {merge:true});
+    toggleEl.classList.toggle('on',newValue); toggleEl.style.background=newValue?'var(--accent)':'var(--border)'; toggleEl.querySelector('div').style.left=newValue?'16px':'2px';
+    const label=toggleEl.parentElement.querySelector('span'); label.textContent=newValue?'Override ON':'Override OFF'; label.style.color=newValue?'var(--accent)':'var(--muted)'; label.style.fontWeight=newValue?'600':'400';
+    toast(`${email}: course override ${newValue?'enabled':'disabled'}`, 'success');
+  } catch(err) { toast('Error updating eligibility','error'); console.error(err); }
 };
 
 async function addNomination() {
-  const itemId   = $('nom-item-select').value;
-  const email    = $('nom-email-input').value.trim().toLowerCase();
-  if (!itemId || !email) { toast('Select an item and enter an email.', 'error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Invalid email.', 'error'); return; }
-
-  const isExam        = nomCategory === 'exam';
-  const overrideCheck = $('nom-override-check');
-  const grantOverride = isExam && overrideCheck && overrideCheck.checked;
-
-  const payload = {nominated: true, nominatedAt: serverTimestamp(), nominatedBy: me.email};
-  if (grantOverride) payload.examEligible = true;
-
-  const collPath = nomCategory === 'course'
-    ? doc(db, 'courses', itemId, 'nominations', email)
-    : doc(db, 'exams',   itemId, 'nominations', email);
+  const itemId=  $('nom-item-select').value;
+  const email=   $('nom-email-input').value.trim().toLowerCase();
+  if (!itemId || !email) { toast('Select an item and enter an email.','error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Invalid email.','error'); return; }
+  const isExam=nomCategory==='exam', overrideCheck=$('nom-override-check'), grantOverride=isExam&&overrideCheck&&overrideCheck.checked;
+  const payload={nominated:true, nominatedAt:serverTimestamp(), nominatedBy:me.email};
+  if (grantOverride) payload.examEligible=true;
+  const collPath=nomCategory==='course' ? doc(db,'courses',itemId,'nominations',email) : doc(db,'exams',itemId,'nominations',email);
   await setDoc(collPath, payload);
-
-  if (overrideCheck) overrideCheck.checked = false; // reset after nominating
-  $('nom-email-input').value = '';
+  if (overrideCheck) overrideCheck.checked=false;
+  $('nom-email-input').value='';
   await loadNominations(itemId);
-  toast(`${email} nominated${grantOverride ? ' with course override' : ''}!`, 'success');
+  await auditEntry('addNomination', {targetEmail: email, metadata: nomCategory+' nomination'+(grantOverride?' with course override':'')+' for '+itemId});
+  toast(`${email} nominated${grantOverride?' with course override':''}!`,'success');
 }
 
 async function removeNomination(itemId, email) {
-  const collPath = nomCategory === 'course'
-    ? doc(db, 'courses', itemId, 'nominations', email)
-    : doc(db, 'exams',   itemId, 'nominations', email);
+  const collPath=nomCategory==='course' ? doc(db,'courses',itemId,'nominations',email) : doc(db,'exams',itemId,'nominations',email);
   await deleteDoc(collPath);
   await loadNominations(itemId);
-  toast(`Removed ${email}.`, 'success');
+  await auditEntry('removeNomination', {targetEmail: email, metadata: nomCategory+' nomination removed for '+itemId});
+  toast(`Removed ${email}.`,'success');
 }
 
 /* ══════════════════════════════════════
-   ADMIN — LIVE MONITOR (all sessions)
+   ADMIN — LIVE MONITOR
 ═══════════════════════════════════════ */
-// ══ MONITOR TAB SWITCHING ══
 window.switchMonitorTab = function(tab) {
   ['slots','admit','active'].forEach(t => {
-    const btn = $('mtab-'+t);
-    const content = $('mtab-content-'+t);
-    if (btn) btn.className = 's-tab' + (t===tab?' active':'');
-    if (content) content.style.display = t===tab ? 'block' : 'none';
+    const btn=$('mtab-'+t), content=$('mtab-content-'+t);
+    if (btn) btn.className='s-tab'+(t===tab?' active':'');
+    if (content) content.style.display=t===tab?'block':'none';
   });
-  if (tab === 'slots')  loadBookedSlots();
-  if (tab === 'admit')  loadAwaitingAdmit();
-  if (tab === 'active') loadProctorSessions();
+  if (tab==='slots')  loadBookedSlots();
+  if (tab==='admit')  loadAwaitingAdmit();
+  if (tab==='active') loadProctorSessions();
 };
 
-// ══ FLAGGED SLOT LISTENER ══
 let _flagListener = null;
-
 function startFlagListener() {
-  if (_flagListener) return; // already running
+  if (_flagListener) return;
   try {
-    const q = query(collection(db, 'examSlots'), where('flagged', '==', true));
+    const q = query(collection(db,'examSlots'), where('flagged','==',true));
     _flagListener = onSnapshot(q, async snap => {
       const flagged = [];
-      snap.forEach(d => flagged.push({id: d.id, ...d.data()}));
+      snap.forEach(d => flagged.push({id:d.id,...d.data()}));
       await renderFlagAlerts(flagged);
     });
-  } catch(e) { console.warn('flag listener:', e); }
+  } catch(e) { console.warn('flag listener:',e); }
 }
 
 async function renderFlagAlerts(flaggedSlots) {
   const container = $('flag-alerts-container');
   if (!container) return;
   container.innerHTML = '';
-
-  // Filter: only show flags where proctor hasn't acted yet
-  const active = flaggedSlots.filter(s =>
-    s.flagged === true && s.admitted !== true && !s.rejectedAt
-  );
-  const actioned = flaggedSlots.filter(s =>
-    s.flagged === true && (s.admitted === true || s.rejectedAt)
-  );
-
-  // Actioned flags (show briefly as resolved)
+  const active   = flaggedSlots.filter(s => s.flagged===true && s.admitted!==true && !s.rejectedAt);
+  const actioned = flaggedSlots.filter(s => s.flagged===true && (s.admitted===true || s.rejectedAt));
   for (const slot of actioned) {
-    const div = document.createElement('div');
-    div.className = 'flag-actioned';
-    div.innerHTML = '&#10003; <strong>' + esc(slot.learnerName||slot.learnerEmail||'Learner') + '</strong> &mdash; Delay flag actioned by proctor';
+    const div=document.createElement('div'); div.className='flag-actioned';
+    div.innerHTML='&#10003; <strong>'+esc(slot.learnerName||slot.learnerEmail||'Learner')+'</strong> &mdash; Delay flag actioned by proctor';
     container.appendChild(div);
   }
-
-  // Active flashing flags
   for (const slot of active) {
-    const flaggedAt = slot.flaggedAt?.toDate ? slot.flaggedAt.toDate() : null;
-    const timeStr   = flaggedAt ? flaggedAt.toLocaleTimeString() : 'Unknown time';
-    const examLabel = slot.examId ? ('Exam: ' + slot.examId) : 'Exam';
-
-    const div = document.createElement('div');
-    div.className = 'flag-alert';
-    div.innerHTML = `
-      <div class="flag-alert-icon">&#128680;</div>
-      <div class="flag-alert-body">
-        <div class="flag-alert-title">FLAGGED FOR ACTION — ${esc(slot.learnerName||slot.learnerEmail||'Learner')}</div>
-        <div class="flag-alert-sub">${esc(slot.learnerEmail||'')} &middot; ${esc(examLabel)} &middot; Flagged at ${timeStr}</div>
-        <div class="flag-alert-sub" style="margin-top:2px;">Scheduled: ${esc(slot.requestedDate||'')} ${esc(slot.requestedTime||'')} (${esc(slot.requestedTimezone||'')})</div>
-        <div class="flag-alert-actions">
-          <button class="admit-btn" style="padding:8px 16px;font-size:12px;"
-            onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
-            &#10003; Admit Now
-          </button>
-          <button class="reject-btn-slot" style="padding:8px 16px;font-size:12px;"
-            onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
-            &#10007; Deny
-          </button>
-          <button class="override-btn" style="padding:8px 14px;font-size:12px;"
-            onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">
-            &#9889; Override
-          </button>
-          <button style="padding:8px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;"
-            onclick="clearFlag('${slot.id}')">
-            Clear Flag
-          </button>
-        </div>
-      </div>`;
+    const flaggedAt=slot.flaggedAt?.toDate?slot.flaggedAt.toDate():null, timeStr=flaggedAt?flaggedAt.toLocaleTimeString():'Unknown time';
+    const examLabel=slot.examId?('Exam: '+slot.examId):'Exam';
+    const div=document.createElement('div'); div.className='flag-alert';
+    div.innerHTML=`<div class="flag-alert-icon">&#128680;</div><div class="flag-alert-body">
+      <div class="flag-alert-title">FLAGGED FOR ACTION — ${esc(slot.learnerName||slot.learnerEmail||'Learner')}</div>
+      <div class="flag-alert-sub">${esc(slot.learnerEmail||'')} &middot; ${esc(examLabel)} &middot; Flagged at ${timeStr}</div>
+      <div class="flag-alert-sub" style="margin-top:2px;">Scheduled: ${esc(slot.requestedDate||'')} ${esc(slot.requestedTime||'')} (${esc(slot.requestedTimezone||'')})</div>
+      <div class="flag-alert-actions">
+        <button class="admit-btn" style="padding:8px 16px;font-size:12px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">&#10003; Admit Now</button>
+        <button class="reject-btn-slot" style="padding:8px 16px;font-size:12px;" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">&#10007; Deny</button>
+        <button class="override-btn" style="padding:8px 14px;font-size:12px;" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">&#9889; Override</button>
+        <button style="padding:8px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;" onclick="clearFlag('${slot.id}')">Clear Flag</button>
+      </div>
+    </div>`;
     container.appendChild(div);
   }
 }
@@ -1979,171 +1658,140 @@ async function renderFlagAlerts(flaggedSlots) {
 window.clearFlag = async function(slotId) {
   if (!confirm('Clear this flag without taking action?')) return;
   try {
-    await setDoc(doc(db, 'examSlots', slotId), {
-      flagged:        false,
-      flagClearedBy:  me.email,
-      flagClearedAt:  serverTimestamp()
-    }, {merge: true});
-    toast('Flag cleared.', 'success');
-  } catch(e) { toast('Error clearing flag.', 'error'); }
+    await setDoc(doc(db,'examSlots',slotId), {flagged:false, flagClearedBy:me.email, flagClearedAt:serverTimestamp()},{merge:true});
+    toast('Flag cleared.','success');
+  } catch(e) { toast('Error clearing flag.','error'); }
 };
 
-// ══ BOOKED SLOTS — learners awaiting proctor confirmation ══
 async function loadBookedSlots() {
-  const container = $('booked-slots-list');
+  const container=$('booked-slots-list');
   if (!container) return;
-  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
+  container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
   try {
-    // If previewing a specific proctor, filter to their slots only
-    const bookedQuery = _previewProctorEmail
-      ? query(collection(db,'examSlots'), where('assignedProctor','==',_previewProctorEmail))
-      : query(collection(db,'examSlots'), where('status','==','bookedByLearner'));
-    const snap = await getDocs(bookedQuery);
-    const slots = [];
-    snap.forEach(d => slots.push({id:d.id,...d.data()}));
-    if (!slots.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No pending slot requests.</div>';
-      return;
-    }
-    container.innerHTML = '';
-    // Sort by bookedAt
-    slots.sort((a,b) => (a.bookedAt?.seconds||0) - (b.bookedAt?.seconds||0));
-    for (const slot of slots) container.appendChild(buildBookedSlotCard(slot, 'booked'));
-  } catch(e) {
-    console.error('loadBookedSlots:', e);
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading slots.</div>';
-  }
+    const bookedQuery=_previewProctorEmail
+      ? query(collection(db,'examSlots'),where('assignedProctor','==',_previewProctorEmail))
+      : query(collection(db,'examSlots'),where('status','==','bookedByLearner'));
+    const snap=await getDocs(bookedQuery);
+    const slots=[]; snap.forEach(d=>slots.push({id:d.id,...d.data()}));
+    if (!slots.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No pending slot requests.</div>'; return; }
+    container.innerHTML='';
+    slots.sort((a,b)=>(a.bookedAt?.seconds||0)-(b.bookedAt?.seconds||0));
+    for (const slot of slots) container.appendChild(buildBookedSlotCard(slot,'booked'));
+  } catch(e) { console.error('loadBookedSlots:',e); container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading slots.</div>'; }
 }
 
-// ══ AWAITING ADMIT — snapshots submitted, proctor to admit/reject ══
 async function loadAwaitingAdmit() {
-  const container = $('awaiting-admit-list');
+  const container=$('awaiting-admit-list');
   if (!container) return;
-  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
+  container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Loading...</div>';
   try {
-    // If previewing a specific proctor, filter to their slots only
-    const admitQuery = _previewProctorEmail
-      ? query(collection(db,'examSlots'), where('assignedProctor','==',_previewProctorEmail))
-      : query(collection(db,'examSlots'), where('status','==','awaitingAdmit'));
-    const snap = await getDocs(admitQuery);
-    const slots = [];
-    snap.forEach(d => slots.push({id:d.id,...d.data()}));
-    if (!slots.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No learners waiting to be admitted.</div>';
-      return;
-    }
-    container.innerHTML = '';
-    slots.sort((a,b) => (a.snapshotsTakenAt||'') < (b.snapshotsTakenAt||'') ? -1 : 1);
-    const now = Date.now();
+    const admitQuery=_previewProctorEmail
+      ? query(collection(db,'examSlots'),where('assignedProctor','==',_previewProctorEmail))
+      : query(collection(db,'examSlots'),where('status','==','awaitingAdmit'));
+    const snap=await getDocs(admitQuery);
+    const slots=[]; snap.forEach(d=>slots.push({id:d.id,...d.data()}));
+    if (!slots.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No learners waiting to be admitted.</div>'; return; }
+    container.innerHTML='';
+    slots.sort((a,b)=>(a.snapshotsTakenAt||'')<(b.snapshotsTakenAt||'')?-1:1);
+    const now=Date.now();
     for (const slot of slots) {
-      // Check if waiting more than 5 minutes since snapshots taken
-      const snapTime = slot.snapshotsTakenAt ? new Date(slot.snapshotsTakenAt).getTime() : null;
-      const waitMins = snapTime ? Math.floor((now - snapTime) / 60000) : null;
-      slot._waitMins = waitMins;
-      container.appendChild(buildBookedSlotCard(slot, 'admit'));
+      const snapTime=slot.snapshotsTakenAt?new Date(slot.snapshotsTakenAt).getTime():null;
+      slot._waitMins=snapTime?Math.floor((now-snapTime)/60000):null;
+      container.appendChild(buildBookedSlotCard(slot,'admit'));
     }
-  } catch(e) {
-    console.error('loadAwaitingAdmit:', e);
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>';
-  }
+  } catch(e) { console.error('loadAwaitingAdmit:',e); container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>'; }
 }
 
 function buildBookedSlotCard(slot, mode) {
-  const card = document.createElement('div');
-  card.className = 'slot-card';
-  card.id = 'slot-card-' + slot.id;
-
-  // Header — learner info
-  const initials = (slot.learnerName||slot.learnerEmail||'?').charAt(0).toUpperCase();
-  const photoHtml = slot.learnerSelfie
+  const card=document.createElement('div'); card.className='slot-card'; card.id='slot-card-'+slot.id;
+  const initials=(slot.learnerName||slot.learnerEmail||'?').charAt(0).toUpperCase();
+  const photoHtml=slot.learnerSelfie
     ? `<img src="${slot.learnerSelfie}" class="slot-learner-photo" onerror="this.style.display=&apos;none&apos;">`
     : `<div class="slot-learner-initials">${initials}</div>`;
-
-  const timeStr = slot.requestedDate && slot.requestedTime
-    ? slot.requestedDate + ' ' + slot.requestedTime + ' (' + (slot.requestedTimezone||'UTC') + ')'
+  const timeStr=slot.requestedDate&&slot.requestedTime
+    ? slot.requestedDate+' '+slot.requestedTime+' ('+(slot.requestedTimezone||'UTC')+')'
     : 'Time not specified';
-
-  const statusTag = mode === 'booked'
+  const statusTag=mode==='booked'
     ? '<span class="slot-status-tag sst-booked">Awaiting Confirmation</span>'
     : '<span class="slot-status-tag sst-awaiting waiting-pulse">🎥 Waiting for Admit</span>';
 
-  let bodyHtml = '';
+  let bodyHtml='';
 
-  // Selfie section — only show in admit mode (privacy: only confirmed proctor sees selfie)
-  if (mode === 'admit' && slot.learnerSelfie) {
-    bodyHtml += `
-      <div class="slot-selfie-wrap">
-        <div class="slot-selfie-label">Identity Selfie (taken at scheduling)</div>
-        <img src="${slot.learnerSelfie}" class="slot-selfie-img" onerror="this.style.display=&apos;none&apos;">
-      </div>`;
-  }
-
-  // Booked mode — show proctor assignment info
-  if (mode === 'booked') {
-    const proctorInfo = slot.assignedProctor || slot.confirmedBy || null;
-    bodyHtml += `<div style="font-size:13px;color:var(--muted);padding:4px 0;">
-      <span style="font-weight:600;color:var(--text);">Assigned Proctor:</span> 
-      ${proctorInfo ? `<span style="color:#34d399;">${esc(proctorInfo)}</span>` : '<span style="color:#f59e0b;">Not yet assigned</span>'}
+  // Scheduling selfie (admit mode only)
+  if (mode==='admit' && slot.learnerSelfie) {
+    bodyHtml+=`<div class="slot-selfie-wrap">
+      <div class="slot-selfie-label">📸 Scheduling Selfie <span style="font-weight:400;color:var(--muted);">(Identity Reference)</span></div>
+      <img src="${slot.learnerSelfie}" class="slot-selfie-img" onerror="this.style.display=&apos;none&apos;">
     </div>`;
   }
 
-  // Snapshots section (only in admit mode)
-  if (mode === 'admit' && slot.snapshots && slot.snapshots.length > 0) {
-    bodyHtml += '<div class="slot-selfie-label" style="margin-bottom:8px;">Live Snapshots (taken at exam time)</div>';
-    bodyHtml += '<div class="slot-snapshots">';
-    slot.snapshots.forEach((snap, i) => {
-      const score = snap.matchScore;
-      const scoreClass = score === null || score === undefined ? '' : score >= 70 ? 'match-hi' : score >= 50 ? 'match-mid' : 'match-lo';
-      const scoreColor = score === null || score === undefined ? 'var(--muted)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#f87171';
-      bodyHtml += `<div class="snap-item">
-        <img src="${snap.image}" class="snap-img ${scoreClass}" onerror="this.style.display=&apos;none&apos;">
-        <div class="snap-score" style="color:${scoreColor};">${score !== null && score !== undefined ? score+'%' : '&mdash;'}</div>
-      </div>`;
-    });
-    bodyHtml += '</div>';
+  if (mode==='booked') {
+    const proctorInfo=slot.assignedProctor||slot.confirmedBy||null;
+    bodyHtml+=`<div style="font-size:13px;color:var(--muted);padding:4px 0;">
+      <span style="font-weight:600;color:var(--text);">Assigned Proctor:</span>
+      ${proctorInfo?`<span style="color:#34d399;">${esc(proctorInfo)}</span>`:'<span style="color:#f59e0b;">Not yet assigned</span>'}
+    </div>`;
+  }
 
-    // Overall match score
-    const scores = (slot.snapshots||[]).map(s => s.matchScore).filter(s => s !== null && s !== undefined);
-    if (scores.length > 0) {
-      const avg = Math.round(scores.reduce((a,b) => a+b, 0) / scores.length);
-      const avgColor = avg >= 70 ? '#34d399' : avg >= 50 ? '#f59e0b' : '#f87171';
-      bodyHtml += `<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+  // Snapshots (admit mode)
+  if (mode==='admit' && slot.snapshots && slot.snapshots.length>0) {
+    bodyHtml+='<div class="slot-selfie-label" style="margin-bottom:8px;">🎥 Live Snapshots <span style="font-weight:400;color:var(--muted);">(taken at exam time)</span></div>';
+    bodyHtml+='<div class="slot-snapshots">';
+    slot.snapshots.forEach((snap,i) => {
+      const score=snap.matchScore;
+      const scoreClass=score==null?'':score>=70?'match-hi':score>=50?'match-mid':'match-lo';
+      const scoreColor=score==null||score===undefined?'var(--muted)':score>=70?'#34d399':score>=50?'#f59e0b':'#f87171';
+      bodyHtml+=`<div class="snap-item"><img src="${snap.image}" class="snap-img ${scoreClass}" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${scoreColor};">${score!==null&&score!==undefined?score+'%':'&mdash;'}</div></div>`;
+    });
+    bodyHtml+='</div>';
+    const scores=(slot.snapshots||[]).map(s=>s.matchScore).filter(s=>s!==null&&s!==undefined);
+    if (scores.length>0) {
+      const avg=Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+      const avgColor=avg>=70?'#34d399':avg>=50?'#f59e0b':'#f87171';
+      bodyHtml+=`<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
         <span style="font-size:13px;color:var(--muted);">Average Face Match Score</span>
         <span style="font-size:18px;font-weight:800;color:${avgColor};">${avg}%</span>
       </div>`;
     }
   }
 
-  // Actions — booked mode shows no button, admit mode shows admit/reject
-  if (mode === 'booked') {
-    // No action button — just informational display
-    bodyHtml += '';
-  } else if (mode === 'admit') {
-    // 5-minute warning
-    const waitMins = slot._waitMins;
-    if (waitMins !== null && waitMins >= 5) {
-      bodyHtml += `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#f87171;">
-        ⚠️ Waiting for <strong>${waitMins} minute${waitMins!==1?'s':''}</strong> — proctor has not responded. Admin override recommended.
+  // Actions
+  if (mode==='booked') {
+    // Booked mode — informational only, no action buttons
+  } else if (mode==='admit') {
+    const waitMins=slot._waitMins;
+    if (waitMins!==null&&waitMins>=5) {
+      bodyHtml+=`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#f87171;">
+        ⚠️ Waiting for <strong>${waitMins} minute${waitMins!==1?'s':''}</strong> — proctor has not responded.
       </div>`;
-    } else if (waitMins !== null) {
-      bodyHtml += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+    } else if (waitMins!==null) {
+      bodyHtml+=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
         ⏱ Waiting for ${waitMins} minute${waitMins!==1?'s':''} — proctor has ${5-waitMins} minute${(5-waitMins)!==1?'s':''} before override is suggested.
       </div>`;
     }
-    bodyHtml += `<div class="slot-actions">
-      <button class="admit-btn" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
-        ✅ Admit to Exam
-      </button>
-      <button class="reject-btn-slot" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">
-        ❌ Deny Access
-      </button>
-      <button class="override-btn" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">
-        ⚡ Admin Override
-      </button>
-    </div>`;
+
+    // ── KEY CHANGE: Admit/Deny/Override only shown when slot.flagged === true ──
+    if (slot.admitted===true) {
+      bodyHtml+=`<div style="padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">
+        ✅ Learner already admitted
+      </div>`;
+    } else if (slot.flagged===true) {
+      bodyHtml+=`<div style="padding:10px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:12px;color:#f87171;margin-bottom:12px;">
+        🚩 Learner has flagged a proctor delay. Proctor action is overdue.
+      </div>
+      <div class="slot-actions">
+        <button class="admit-btn" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit to Exam</button>
+        <button class="reject-btn-slot" onclick="rejectLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">❌ Deny Access</button>
+        <button class="override-btn" onclick="adminOverrideAdmit('${slot.id}','${esc(slot.learnerEmail||'')}')">⚡ Admin Override</button>
+      </div>`;
+    } else {
+      bodyHtml+=`<div style="padding:10px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;font-size:12px;color:#fbbf24;">
+        ⏳ Waiting for proctor to admit or deny. Admin action buttons will appear if the learner flags a delay.
+      </div>`;
+    }
   }
 
-  card.innerHTML = `
+  card.innerHTML=`
     <div class="slot-card-header">
       ${photoHtml}
       <div class="slot-learner-info">
@@ -2154,144 +1802,96 @@ function buildBookedSlotCard(slot, mode) {
       <span class="slot-time-badge">📅 ${esc(timeStr)}</span>
     </div>
     <div class="slot-card-body">${bodyHtml}</div>`;
-
   return card;
 }
 
-// ══ CONFIRM SLOT (proctor picks a learner's slot) ══
 window.confirmSlot = async function(slotId, learnerEmail, learnerName, timeStr) {
-  if (!confirm('Confirm exam slot for ' + learnerName + ' at ' + timeStr + '?')) return;
+  if (!confirm('Confirm exam slot for '+learnerName+' at '+timeStr+'?')) return;
   try {
-    await setDoc(doc(db,'examSlots',slotId), {
-      status:       'confirmed',
-      confirmedBy:  me.email,
-      confirmedAt:  serverTimestamp(),
-      assignedProctor: me.email
-    }, {merge: true});
-
-    // Notify learner
-    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
-      message:   'Your exam slot for ' + timeStr + ' has been confirmed by your proctor. You can now begin your session at the scheduled time.',
-      type:      'slot_confirmed',
-      read:      false,
-      createdAt: serverTimestamp()
-    });
-
-    toast('Slot confirmed! Learner notified.', 'success');
+    await setDoc(doc(db,'examSlots',slotId),{status:'confirmed',confirmedBy:me.email,confirmedAt:serverTimestamp(),assignedProctor:me.email},{merge:true});
+    await addDoc(collection(db,'notifications',learnerEmail,'items'),{message:'Your exam slot for '+timeStr+' has been confirmed by your proctor. You can now begin your session at the scheduled time.',type:'slot_confirmed',read:false,createdAt:serverTimestamp()});
+    await auditEntry('confirmSlot',{targetEmail:learnerEmail,slotId,metadata:'Admin confirmed slot for '+timeStr});
+    toast('Slot confirmed! Learner notified.','success');
     loadBookedSlots();
-  } catch(e) {
-    console.error('confirmSlot:', e);
-    toast('Error confirming slot.', 'error');
-  }
+  } catch(e) { console.error('confirmSlot:',e); toast('Error confirming slot.','error'); }
 };
 
-// ══ ADMIT LEARNER ══
+/* ══════════════════════════════════════
+   ADMIT / REJECT / OVERRIDE
+═══════════════════════════════════════ */
 window.admitLearner = async function(slotId, learnerEmail) {
   if (!confirm('Admit this learner to the exam?')) return;
   try {
-    await setDoc(doc(db,'examSlots',slotId), {
-      admitted:   true,
-      denied:     false,
-      admittedBy: meEmail,
-      admittedAt: serverTimestamp(),
-      status:     'inProgress',
-      flagged:    false
-    }, {merge: true});
-
-    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
-      message:   'You have been admitted to your exam by your proctor. Click "Begin Exam" to start. Good luck!',
-      type:      'admitted',
-      read:      false,
-      createdAt: serverTimestamp()
-    });
-
-    toast('Learner admitted! They can now begin their exam.', 'success');
-    // onSnapshot listeners on the proctor slot cards will auto-update the card
-    if (typeof loadAwaitingAdmit === 'function') loadAwaitingAdmit();
-  } catch(e) {
-    console.error('admitLearner:', e);
-    toast('Error admitting learner.', 'error');
-  }
+    await setDoc(doc(db,'examSlots',slotId),{admitted:true,denied:false,admittedBy:meEmail,admittedAt:serverTimestamp(),status:'inProgress',flagged:false},{merge:true});
+    await addDoc(collection(db,'notifications',learnerEmail,'items'),{message:'You have been admitted to your exam by your proctor. Click "Begin Exam" to start. Good luck!',type:'admitted',read:false,createdAt:serverTimestamp()});
+    await auditEntry('admitLearner',{targetEmail:learnerEmail,slotId,metadata:'Admitted by '+meEmail});
+    toast('Learner admitted! They can now begin their exam.','success');
+    if (typeof loadAwaitingAdmit==='function') loadAwaitingAdmit();
+  } catch(e) { console.error('admitLearner:',e); toast('Error admitting learner.','error'); }
 };
 
-// ══ REJECT LEARNER ══
 window.rejectLearner = async function(slotId, learnerEmail) {
-  if (!confirm('Deny this learner? They will see "Additional Verification Required" and one reschedule will be used.')) return;
+  if (!confirm('Deny this learner? One attempt will be returned to them.')) return;
   try {
-    // Read current rescheduleCount
-    const slotSnap = await getDoc(doc(db, 'examSlots', slotId));
-    const currentCount = slotSnap.exists() ? (slotSnap.data().rescheduleCount || 0) : 0;
+    const slotSnap=await getDoc(doc(db,'examSlots',slotId));
+    if (!slotSnap.exists()) { toast('Slot not found.','error'); return; }
+    const slotData=slotSnap.data(), currentCount=slotData.rescheduleCount||0, examId=slotData.examId||null;
 
-    await setDoc(doc(db,'examSlots',slotId), {
-      admitted:        false,
-      denied:          true,
-      deniedBy:        meEmail,
-      deniedAt:        serverTimestamp(),
-      status:          'inProgress',   // stays inProgress so card shows denied state
-      flagged:         false,
-      rescheduleCount: currentCount + 1  // consume one reschedule
-    }, {merge: true});
+    await setDoc(doc(db,'examSlots',slotId),{admitted:false,denied:true,deniedBy:meEmail,deniedAt:serverTimestamp(),status:'inProgress',flagged:false,rescheduleCount:currentCount+1},{merge:true});
 
-    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
-      message:   'Your proctor requires additional verification. Please reschedule your exam. One reschedule has been used.',
-      type:      'denied',
-      read:      false,
-      createdAt: serverTimestamp()
-    });
+    // Decrement attempt count — look up learner uid
+    if (examId) {
+      try {
+        let learnerUid=null;
+        // Users collection may be keyed by email directly
+        const directSnap=await getDoc(doc(db,'users',learnerEmail));
+        if (directSnap.exists()) {
+          learnerUid=directSnap.id;
+        } else {
+          // Fallback: scan users for matching email field
+          const userSnap=await getDocs(collection(db,'users'));
+          userSnap.forEach(d=>{ if ((d.data().email||'').toLowerCase()===learnerEmail.toLowerCase()) learnerUid=d.id; });
+        }
+        if (learnerUid) {
+          const resRef=doc(db,'examResults',learnerUid);
+          const resSnap=await getDoc(resRef);
+          if (resSnap.exists()&&resSnap.data()[examId]) {
+            const cur=resSnap.data()[examId].attemptCount||0;
+            await setDoc(resRef,{[examId]:{attemptCount:Math.max(0,cur-1),lastDeniedAt:serverTimestamp()}},{merge:true});
+          }
+        }
+      } catch(e) { console.warn('rejectLearner attempt decrement:',e); }
+    }
 
-    toast('Learner denied. They will be prompted to reschedule.', 'error');
-    if (typeof loadAwaitingAdmit === 'function') loadAwaitingAdmit();
-  } catch(e) {
-    console.error('rejectLearner:', e);
-    toast('Error denying learner.', 'error');
-  }
+    await addDoc(collection(db,'notifications',learnerEmail,'items'),{message:'Your proctor requires additional verification. Please reschedule your exam. One attempt has been returned.',type:'denied',read:false,createdAt:serverTimestamp()});
+    await auditEntry('rejectLearner',{targetEmail:learnerEmail,slotId,examId:examId||undefined,metadata:'Denied by '+meEmail+'. Reschedule #'+(currentCount+1)});
+    toast('Learner denied. Attempt returned.','error');
+    if (typeof loadAwaitingAdmit==='function') loadAwaitingAdmit();
+  } catch(e) { console.error('rejectLearner:',e); toast('Error denying learner.','error'); }
 };
 
-// ══ ADMIN OVERRIDE ADMIT ══
 window.adminOverrideAdmit = async function(slotId, learnerEmail) {
   if (!confirm('Override proctor and admit this learner directly? This action will be logged.')) return;
   try {
-    await setDoc(doc(db,'examSlots',slotId), {
-      admitted:      true,
-      admittedBy:    me.email,
-      admittedAt:    serverTimestamp(),
-      adminOverride: true,
-      overriddenBy:  me.email,
-      overriddenAt:  serverTimestamp(),
-      status:        'inProgress'
-    }, {merge: true});
-
-    await addDoc(collection(db,'notifications',learnerEmail,'items'), {
-      message:   'You have been admitted to your exam (admin override). Good luck!',
-      type:      'admitted',
-      read:      false,
-      createdAt: serverTimestamp()
-    });
-
-    toast('Admin override — learner admitted.', 'success');
+    await setDoc(doc(db,'examSlots',slotId),{admitted:true,admittedBy:me.email,admittedAt:serverTimestamp(),adminOverride:true,overriddenBy:me.email,overriddenAt:serverTimestamp(),status:'inProgress'},{merge:true});
+    await addDoc(collection(db,'notifications',learnerEmail,'items'),{message:'You have been admitted to your exam (admin override). Good luck!',type:'admitted',read:false,createdAt:serverTimestamp()});
+    await auditEntry('adminOverrideAdmit',{targetEmail:learnerEmail,slotId,metadata:'Admin override admit by '+me.email});
+    toast('Admin override — learner admitted.','success');
     loadAwaitingAdmit();
-  } catch(e) {
-    console.error('adminOverride:', e);
-    toast('Error with override.', 'error');
-  }
+  } catch(e) { console.error('adminOverride:',e); toast('Error with override.','error'); }
 };
 
-
 window.loadProctorSessions = async function() {
-  const container = $('admin-sessions');
+  const container=$('admin-sessions');
   if (!container) return;
   container.innerHTML='<div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading sessions…</div>';
   try {
-    const snap = await getDocs(query(collection(db,'examSessions'), where('status','==','active')));
-    const sessions = []; snap.forEach(d => sessions.push({id:d.id,...d.data()}));
-    const totalFlags = sessions.reduce((a,s) => a+(s.flags||[]).length, 0);
-    $('a-stat-active').textContent = sessions.length;
-    $('a-stat-flags').textContent  = totalFlags;
-    container.innerHTML = '';
-    if (!sessions.length) {
-      container.innerHTML='<div class="proctor-empty"><h3>No active sessions</h3><p>No candidates are currently in an exam.</p></div>';
-      return;
-    }
+    const snap=await getDocs(query(collection(db,'examSessions'),where('status','==','active')));
+    const sessions=[]; snap.forEach(d=>sessions.push({id:d.id,...d.data()}));
+    const totalFlags=sessions.reduce((a,s)=>a+(s.flags||[]).length,0);
+    $('a-stat-active').textContent=sessions.length; $('a-stat-flags').textContent=totalFlags;
+    container.innerHTML='';
+    if (!sessions.length) { container.innerHTML='<div class="proctor-empty"><h3>No active sessions</h3><p>No candidates are currently in an exam.</p></div>'; return; }
     for (const s of sessions) container.appendChild(buildSessionCard(s));
   } catch { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">Error loading sessions.</div>'; }
 };
@@ -2300,20 +1900,15 @@ window.loadProctorSessions = async function() {
    REPORTS
 ═══════════════════════════════════════ */
 async function loadReports() {
-  loadTestResults();       // load in parallel
-  loadCourseReviews();     // load in parallel
-  loadRescheduleHistory(); // load in parallel
+  loadTestResults(); loadCourseReviews(); loadRescheduleHistory();
   $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">Loading…</div>';
-  const snap = await getDocs(collection(db,'examSessions'));
+  const snap=await getDocs(collection(db,'examSessions'));
   const sessions=[]; snap.forEach(d=>sessions.push({id:d.id,...d.data()}));
-  const completed = sessions.filter(s=>s.status!=='active');
-  if (!completed.length) {
-    $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">No completed sessions yet.</div>';
-    return;
-  }
-  $('report-list').innerHTML = completed.map(s => {
-    const flags = s.flags||[];
-    const at    = s.startedAt ? (s.startedAt.toDate ? s.startedAt.toDate().toLocaleString() : new Date(s.startedAt).toLocaleString()) : '—';
+  const completed=sessions.filter(s=>s.status!=='active');
+  if (!completed.length) { $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">No completed sessions yet.</div>'; return; }
+  $('report-list').innerHTML=completed.map(s=>{
+    const flags=s.flags||[];
+    const at=s.startedAt?(s.startedAt.toDate?s.startedAt.toDate().toLocaleString():new Date(s.startedAt).toLocaleString()):'—';
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div><strong>${esc(s.candidateEmail||'—')}</strong> <span style="color:var(--muted);font-size:12px;">· ${esc(s.examId||'—')}</span></div>
@@ -2323,658 +1918,144 @@ async function loadReports() {
         Status: <span style="color:${s.status==='denied_consent'?'var(--danger)':'var(--muted)'}">${esc(s.status||'—')}</span>
         · Flags: <strong style="color:${flags.length>0?'var(--danger)':'var(--success)'}">${flags.length}</strong>
       </div>
-      ${flags.length ? `<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>
-        `<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">
-          ⚠ ${esc(f.type)} · ${new Date(f.at).toLocaleTimeString()}
-        </div>`).join('')}</div>` : ''}
+      ${flags.length?`<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>`<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">⚠ ${esc(f.type)} · ${new Date(f.at).toLocaleTimeString()}</div>`).join('')}</div>`:''}
     </div>`;
   }).join('');
 }
 
 async function loadTestResults() {
-  const container = $('test-results-list');
+  const container=$('test-results-list');
   if (!container) return;
-  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">Loading…</div>';
+  container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">Loading…</div>';
   try {
-    // 1. Fetch all exams
-    const examsSnap = await getDocs(collection(db, 'exams'));
-    const exams = [];
-    examsSnap.forEach(d => exams.push({id: d.id, ...d.data()}));
-    exams.sort((a,b) => (a.title||'').localeCompare(b.title||''));
-
-    if (!exams.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">No exams found.</div>';
-      return;
-    }
-
-    // 2. Fetch all examResults docs (uid-keyed, map of examId → result)
-    const examResultsSnap = await getDocs(collection(db, 'examResults'));
-    // Build: examId → [{uid, email, name, attemptCount, bestScore, bestPassed, attempts[]}]
-    const resultsByExam = {};
-    exams.forEach(e => resultsByExam[e.id] = []);
-
-    // Also fetch user display info (uid-keyed)
-    const usersSnap = await getDocs(collection(db, 'users'));
-    const userMap = {}; // uid → {name, email}
-    usersSnap.forEach(d => {
-      const u = d.data();
-      if (u.email) userMap[d.id] = {name: u.name||u.displayName||'', email: u.email};
-    });
-
-    examResultsSnap.forEach(d => {
-      const uid  = d.id;
-      const data = d.data();
-      const user = userMap[uid] || {name:'', email: uid};
-      // Each key in data is an examId
-      Object.entries(data).forEach(([examId, res]) => {
-        if (resultsByExam[examId] !== undefined) {
-          resultsByExam[examId].push({
-            uid,
-            email:        user.email,
-            name:         user.name,
-            attemptCount: res.attemptCount || 0,
-            bestScore:    res.bestScore    ?? null,
-            bestPassed:   res.bestPassed   ?? null,
-            attempts:     res.attempts     || []
-          });
-        }
+    const examsSnap=await getDocs(collection(db,'exams'));
+    const exs=[]; examsSnap.forEach(d=>exs.push({id:d.id,...d.data()})); exs.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+    if (!exs.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">No exams found.</div>'; return; }
+    const examResultsSnap=await getDocs(collection(db,'examResults'));
+    const resultsByExam={}; exs.forEach(e=>resultsByExam[e.id]=[]);
+    const usersSnap=await getDocs(collection(db,'users'));
+    const userMap={}; usersSnap.forEach(d=>{ const u=d.data(); if(u.email) userMap[d.id]={name:u.name||u.displayName||'',email:u.email}; });
+    examResultsSnap.forEach(d=>{
+      const uid=d.id, data=d.data(), user=userMap[uid]||{name:'',email:uid};
+      Object.entries(data).forEach(([examId,res])=>{
+        if (resultsByExam[examId]!==undefined) resultsByExam[examId].push({uid,email:user.email,name:user.name,attemptCount:res.attemptCount||0,bestScore:res.bestScore??null,bestPassed:res.bestPassed??null,attempts:res.attempts||[]});
       });
     });
-
-    // 3. Render one collapsible card per exam
-    container.innerHTML = '';
-    for (const exam of exams) {
-      const rows   = resultsByExam[exam.id] || [];
-      const passed = rows.filter(r => r.bestPassed === true).length;
-      const failed = rows.filter(r => r.bestPassed === false).length;
-      const taken  = rows.filter(r => r.attemptCount > 0).length;
-      const withScore = rows.filter(r => r.bestScore !== null);
-      const avg = withScore.length
-        ? Math.round(withScore.reduce((s,r) => s + r.bestScore, 0) / withScore.length)
-        : null;
-
-      const examCardId = 'tr-exam-' + exam.id;
-      const ac = exam.accentColor || '#3b82f6';
-
-      const card = document.createElement('div');
-      card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;';
-      card.innerHTML = `
-        <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none;"
-             onclick="trToggle('${examCardId}', this)">
-          <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;">
-            <div style="font-size:22px;flex-shrink:0;">${esc(exam.icon||'📝')}</div>
-            <div>
-              <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${esc(exam.title||exam.id)}</div>
-              <div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(exam.category||'')}${exam.level ? ' · '+esc(exam.level) : ''}</div>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);">${taken} Taken</span>
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);">🟢 ${passed} Passed</span>
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);">${failed} Failed</span>
-            ${avg !== null ? `<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(240,165,0,.1);color:#fbbf24;border:1px solid rgba(240,165,0,.2);">Avg ${avg}%</span>` : ''}
-            <span class="tr-chevron" style="font-size:14px;color:var(--muted);transition:transform .2s;">▾</span>
-          </div>
+    container.innerHTML='';
+    for (const exam of exs) {
+      const rows=resultsByExam[exam.id]||[], passed=rows.filter(r=>r.bestPassed===true).length, failed=rows.filter(r=>r.bestPassed===false).length, taken=rows.filter(r=>r.attemptCount>0).length;
+      const withScore=rows.filter(r=>r.bestScore!==null); const avg=withScore.length?Math.round(withScore.reduce((s,r)=>s+r.bestScore,0)/withScore.length):null;
+      const examCardId='tr-exam-'+exam.id;
+      const card=document.createElement('div'); card.style.cssText='background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;';
+      card.innerHTML=`<div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none;" onclick="trToggle('${examCardId}',this)">
+        <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;">
+          <div style="font-size:22px;flex-shrink:0;">${esc(exam.icon||'📝')}</div>
+          <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${esc(exam.title||exam.id)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(exam.category||'')}</div></div>
         </div>
-        <div id="${examCardId}" style="display:none;border-top:1px solid var(--border);">
-          ${rows.length === 0
-            ? `<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center;">No results recorded for this exam yet.</div>`
-            : `<div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                  <thead>
-                    <tr style="border-bottom:1px solid var(--border);">
-                      <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Candidate</th>
-                      <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Best Score</th>
-                      <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Result</th>
-                      <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Attempts</th>
-                      <th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Attempt History</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${rows.sort((a,b)=>(b.bestScore??-1)-(a.bestScore??-1)).map(r => {
-                      const scoreColor = r.bestPassed === true  ? 'color:#34d399;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);'
-                                       : r.bestPassed === false ? 'color:#f87171;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);'
-                                       : 'color:var(--muted);background:var(--surface);border:1px solid var(--border);';
-                      const attemptDots = Array.from({length: exam.maxAttempts||3}, (_,i) =>
-                        `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;background:${i < r.attemptCount ? (r.bestPassed ? '#34d399' : '#f87171') : 'var(--border)'};"></span>`
-                      ).join('');
-                      const historyHTML = r.attempts.length
-                        ? r.attempts.map((a,i) => {
-                            const at = a.at ? new Date(a.at).toLocaleDateString() : '—';
-                            const sc = a.score !== undefined ? a.score+'%' : '—';
-                            const passed = a.passed;
-                            return `<span style="font-size:10px;padding:2px 7px;border-radius:4px;margin-right:4px;
-                              background:${passed===true?'rgba(16,185,129,.08)':passed===false?'rgba(239,68,68,.08)':'var(--surface)'};
-                              border:1px solid ${passed===true?'rgba(16,185,129,.2)':passed===false?'rgba(239,68,68,.15)':'var(--border)'};
-                              color:${passed===true?'#34d399':passed===false?'#f87171':'var(--muted)'};">
-                              #${i+1} ${sc} · ${at}
-                            </span>`;
-                          }).join('')
-                        : '<span style="color:var(--muted);font-size:12px;">—</span>';
-                      return `<tr style="border-bottom:1px solid var(--border);">
-                        <td style="padding:12px 16px;">
-                          <div style="font-weight:600;font-size:13px;">${esc(r.name||r.email)}</div>
-                          ${r.name ? `<div style="font-size:11px;color:var(--muted);">${esc(r.email)}</div>` : ''}
-                        </td>
-                        <td style="padding:12px 16px;">
-                          ${r.bestScore !== null
-                            ? `<span style="font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px;${scoreColor}">${r.bestScore}%</span>`
-                            : '<span style="color:var(--muted);font-size:12px;">—</span>'}
-                        </td>
-                        <td style="padding:12px 16px;">
-                          ${r.bestPassed === true  ? '<span style="color:#34d399;font-weight:600;">🟢 Pass</span>'
-                          : r.bestPassed === false ? '<span style="color:#f87171;font-weight:600;">🔴 Fail</span>'
-                          : '<span style="color:var(--muted);">—</span>'}
-                        </td>
-                        <td style="padding:12px 16px;">
-                          <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="font-size:12px;color:var(--muted);">${r.attemptCount}/${exam.maxAttempts||3}</span>
-                            <div>${attemptDots}</div>
-                          </div>
-                        </td>
-                        <td style="padding:12px 16px;">${historyHTML}</td>
-                      </tr>`;
-                    }).join('')}
-                  </tbody>
-                </table>
-              </div>`
-          }
-        </div>`;
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);">${taken} Taken</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);">🟢 ${passed} Passed</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);">${failed} Failed</span>
+          ${avg!==null?`<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(240,165,0,.1);color:#fbbf24;border:1px solid rgba(240,165,0,.2);">Avg ${avg}%</span>`:''}
+          <span class="tr-chevron" style="font-size:14px;color:var(--muted);transition:transform .2s;">▾</span>
+        </div>
+      </div>
+      <div id="${examCardId}" style="display:none;border-top:1px solid var(--border);">
+        ${rows.length===0?`<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center;">No results recorded yet.</div>`:`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Candidate</th><th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Best Score</th><th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Result</th><th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Attempts</th></tr></thead><tbody>${rows.sort((a,b)=>(b.bestScore??-1)-(a.bestScore??-1)).map(r=>{const sc=r.bestPassed===true?'color:#34d399;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);':r.bestPassed===false?'color:#f87171;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);':'color:var(--muted);background:var(--surface);border:1px solid var(--border);';const dots=Array.from({length:exam.maxAttempts||3},(_,i)=>`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;background:${i<r.attemptCount?(r.bestPassed?'#34d399':'#f87171'):'var(--border)'};"></span>`).join('');return`<tr style="border-bottom:1px solid var(--border);"><td style="padding:12px 16px;"><div style="font-weight:600;font-size:13px;">${esc(r.name||r.email)}</div>${r.name?`<div style="font-size:11px;color:var(--muted);">${esc(r.email)}</div>`:''}</td><td style="padding:12px 16px;">${r.bestScore!==null?`<span style="font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px;${sc}">${r.bestScore}%</span>`:'<span style="color:var(--muted);font-size:12px;">—</span>'}</td><td style="padding:12px 16px;">${r.bestPassed===true?'<span style="color:#34d399;font-weight:600;">🟢 Pass</span>':r.bestPassed===false?'<span style="color:#f87171;font-weight:600;">🔴 Fail</span>':'<span style="color:var(--muted);">—</span>'}</td><td style="padding:12px 16px;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;color:var(--muted);">${r.attemptCount}/${exam.maxAttempts||3}</span><div>${dots}</div></div></td></tr>`;}).join('')}</tbody></table></div>`}
+      </div>`;
       container.appendChild(card);
     }
-  } catch(err) {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading test results.</div>';
-    console.error('loadTestResults:', err);
-  }
+  } catch(err) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading test results.</div>'; console.error('loadTestResults:',err); }
 }
 
 window.trToggle = function(id, header) {
-  const body     = $(id);
-  const chevron  = header.querySelector('.tr-chevron');
-  const isOpen   = body.style.display !== 'none';
-  body.style.display    = isOpen ? 'none'   : 'block';
-  chevron.style.transform = isOpen ? ''      : 'rotate(180deg)';
+  const body=$(id), chevron=header.querySelector('.tr-chevron'), isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block'; chevron.style.transform=isOpen?'':'rotate(180deg)';
 };
 
 async function loadCourseReviews() {
-  const container = $('course-reviews-list');
+  const container=$('course-reviews-list');
   if (!container) return;
-  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">Loading…</div>';
+  container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">Loading…</div>';
   try {
-    const coursesSnap = await getDocs(collection(db, 'courses'));
-    const rows = [];
+    const coursesSnap=await getDocs(collection(db,'courses'));
+    const rows=[];
     for (const d of coursesSnap.docs) {
-      const course = d.data();
-      const revSnap = await getDoc(doc(db, 'courses', d.id, 'review', 'data'));
+      const course=d.data();
+      const revSnap=await getDoc(doc(db,'courses',d.id,'review','data'));
       if (!revSnap.exists()) continue;
-      const rev = revSnap.data();
-      rows.push({ courseId: d.id, courseTitle: course.title || d.id, rev });
+      rows.push({courseId:d.id,courseTitle:course.title||d.id,rev:revSnap.data()});
     }
-    if (!rows.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">No course reviews submitted yet.</div>';
-      return;
-    }
-    rows.sort((a,b) => (b.rev.updatedAt?.seconds||0) - (a.rev.updatedAt?.seconds||0));
-
-    const flagBadge = (val, trueLabel, falseLabel) => val
-      ? `<span style="font-size:11px;padding:2px 9px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);font-weight:600;">✓ ${trueLabel}</span>`
-      : `<span style="font-size:11px;padding:2px 9px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);font-weight:600;">✗ ${falseLabel}</span>`;
-
-    container.innerHTML = `
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border);">
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Course</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Reviewer</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Email</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Last Updated</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Review Status</th>
-              <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Overall Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(({courseTitle, rev}) => {
-              const updatedAt = rev.updatedAt
-                ? new Date(rev.updatedAt.seconds*1000).toLocaleString() : '—';
-              return `<tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:12px 14px;font-weight:600;">${esc(courseTitle)}</td>
-                <td style="padding:12px 14px;">${esc(rev.reviewerName||'—')}</td>
-                <td style="padding:12px 14px;color:var(--muted);">${esc(rev.reviewedBy||'—')}</td>
-                <td style="padding:12px 14px;color:var(--muted);white-space:nowrap;">${updatedAt}</td>
-                <td style="padding:12px 14px;">
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    ${flagBadge(rev.reviewCompleted,'Complete','Incomplete')}
-                    ${flagBadge(rev.goLive,'Go Live','Not Approved')}
-                  </div>
-                </td>
-                <td style="padding:12px 14px;color:var(--muted);max-width:260px;">
-                  ${rev.overallNotes ? `<span title="${esc(rev.overallNotes)}">${esc(rev.overallNotes.slice(0,80))}${rev.overallNotes.length>80?'…':''}</span>` : '—'}
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>`;
-  } catch(err) {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading course reviews.</div>';
-    console.error('loadCourseReviews:', err);
-  }
+    if (!rows.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">No course reviews submitted yet.</div>'; return; }
+    rows.sort((a,b)=>(b.rev.updatedAt?.seconds||0)-(a.rev.updatedAt?.seconds||0));
+    const flagBadge=(val,tl,fl)=>val?`<span style="font-size:11px;padding:2px 9px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);font-weight:600;">✓ ${tl}</span>`:`<span style="font-size:11px;padding:2px 9px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);font-weight:600;">✗ ${fl}</span>`;
+    container.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="border-bottom:1px solid var(--border);">
+      <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Course</th>
+      <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Reviewer</th>
+      <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Last Updated</th>
+      <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">Review Status</th>
+    </tr></thead><tbody>${rows.map(({courseTitle,rev})=>{
+      const updatedAt=rev.updatedAt?new Date(rev.updatedAt.seconds*1000).toLocaleString():'—';
+      return`<tr style="border-bottom:1px solid var(--border);"><td style="padding:12px 14px;font-weight:600;">${esc(courseTitle)}</td><td style="padding:12px 14px;">${esc(rev.reviewerName||'—')}</td><td style="padding:12px 14px;color:var(--muted);white-space:nowrap;">${updatedAt}</td><td style="padding:12px 14px;"><div style="display:flex;gap:6px;flex-wrap:wrap;">${flagBadge(rev.reviewCompleted,'Complete','Incomplete')}${flagBadge(rev.goLive,'Go Live','Not Approved')}</div></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  } catch(err) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading course reviews.</div>'; console.error(err); }
 }
 
 async function loadRescheduleHistory() {
-  const container = document.getElementById('resched-history-list');
+  const container=document.getElementById('resched-history-list');
   if (!container) return;
   try {
-    const snap = await getDocs(collection(db, 'rescheduleHistory'));
-    const records = [];
-    snap.forEach(d => records.push({id: d.id, ...d.data()}));
-
-    if (!records.length) {
-      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">No reschedules yet.</div>';
-      return;
-    }
-
-    // Sort by most recent first
-    records.sort((a,b) => (b.rescheduledAt?.seconds||0) - (a.rescheduledAt?.seconds||0));
-
-    // Build summary stats
-    const total = records.length;
-    const byExam = {};
-    records.forEach(r => {
-      const key = r.examId || 'Unknown';
-      byExam[key] = (byExam[key] || 0) + 1;
-    });
-
-    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+    const snap=await getDocs(collection(db,'rescheduleHistory'));
+    const records=[]; snap.forEach(d=>records.push({id:d.id,...d.data()}));
+    if (!records.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">No reschedules yet.</div>'; return; }
+    records.sort((a,b)=>(b.rescheduledAt?.seconds||0)-(a.rescheduledAt?.seconds||0));
+    let html=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
-        <div style="font-size:24px;font-weight:800;color:var(--accent);">${total}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--accent);">${records.length}</div>
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Total Reschedules</div>
-      </div>
-    </div>`;
-
-    html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
-    html += `<thead><tr style="background:var(--surface2);">
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Learner</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Exam</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Proctor</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Original Slot</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Rescheduled To</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Count</th>
-      <th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Date</th>
-    </tr></thead><tbody>`;
-
+      </div></div>`;
+    html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:var(--surface2);"><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Learner</th><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Exam</th><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Original Slot</th><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Rescheduled To</th><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Count</th><th style="padding:10px 14px;text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;">Date</th></tr></thead><tbody>';
     for (const r of records) {
-      // Fetch exam title if we have examId
-      let examTitle = r.examId || '—';
-      if (r.examId) {
-        try {
-          const eSnap = await getDoc(doc(db, 'exams', r.examId));
-          if (eSnap.exists()) examTitle = eSnap.data().title || r.examId;
-        } catch {}
-      }
-      const reschDate = r.rescheduledAt?.seconds
-        ? new Date(r.rescheduledAt.seconds*1000).toLocaleDateString() : '—';
-      const countColor = r.rescheduleCount >= 2 ? '#f87171' : '#fbbf24';
-
-      html += `<tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:10px 14px;">
-          <div style="font-weight:600;">${esc(r.learnerName||r.learnerEmail||'—')}</div>
-          <div style="font-size:11px;color:var(--muted);">${esc(r.learnerEmail||'')}</div>
-        </td>
-        <td style="padding:10px 14px;color:var(--text);">${esc(examTitle)}</td>
-        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${esc(r.assignedProctor||'—')}</td>
-        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${esc((r.originalDate||''))} ${esc((r.originalTime||''))}</td>
-        <td style="padding:10px 14px;font-weight:600;color:#34d399;">${esc(r.newDate||'')} ${esc(r.newTime||'')}</td>
-        <td style="padding:10px 14px;"><span style="font-weight:700;color:${countColor};">${r.rescheduleCount||'—'}/2</span></td>
-        <td style="padding:10px 14px;color:var(--muted);font-size:12px;">${reschDate}</td>
-      </tr>`;
+      let examTitle=r.examId||'—';
+      if (r.examId) { try { const eSnap=await getDoc(doc(db,'exams',r.examId)); if(eSnap.exists()) examTitle=eSnap.data().title||r.examId; } catch {} }
+      const reschDate=r.rescheduledAt?.seconds?new Date(r.rescheduledAt.seconds*1000).toLocaleDateString():'—';
+      const countColor=r.rescheduleCount>=2?'#f87171':'#fbbf24';
+      html+=`<tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 14px;"><div style="font-weight:600;">${esc(r.learnerName||r.learnerEmail||'—')}</div><div style="font-size:11px;color:var(--muted);">${esc(r.learnerEmail||'')}</div></td><td style="padding:10px 14px;color:var(--text);">${esc(examTitle)}</td><td style="padding:10px 14px;color:var(--muted);font-size:12px;">${esc(r.originalDate||'')} ${esc(r.originalTime||'')}</td><td style="padding:10px 14px;font-weight:600;color:#34d399;">${esc(r.newDate||'')} ${esc(r.newTime||'')}</td><td style="padding:10px 14px;"><span style="font-weight:700;color:${countColor};">${r.rescheduleCount||'—'}/2</span></td><td style="padding:10px 14px;color:var(--muted);font-size:12px;">${reschDate}</td></tr>`;
     }
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-  } catch(e) {
-    console.error('loadRescheduleHistory:', e);
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Error loading reschedule history.</div>';
-  }
+    html+='</tbody></table></div>';
+    container.innerHTML=html;
+  } catch(e) { console.error('loadRescheduleHistory:',e); container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Error loading reschedule history.</div>'; }
 }
 
 /* ══════════════════════════════════════
    UTILS
 ═══════════════════════════════════════ */
-function $(id)  { return document.getElementById(id); }
+function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&#34;'); }
 function lighten(hex) {
   try {
-    let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-    r=Math.min(255,r+60); g=Math.min(255,g+60); b=Math.min(255,b+60);
+    let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+60);g=Math.min(255,g+60);b=Math.min(255,b+60);
     return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
   } catch { return hex; }
 }
 function loadScript(src) {
-  return new Promise((res,rej) => {
-    const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej;
-    document.head.appendChild(s);
-  });
+  return new Promise((res,rej) => { const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s); });
 }
 let toastTimer;
-function toast(msg, type='') {
-  const t=$('toast'); t.textContent=msg; t.className=type;
-  t.classList.add('show'); clearTimeout(toastTimer);
+function toast(msg,type='') {
+  const t=$('toast');t.textContent=msg;t.className=type;
+  t.classList.add('show');clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
 }
-/* ══════════════════════════════════════
-   COURSE PROGRESS TAB
-═══════════════════════════════════════ */
-const CP_MODULE_TOTALS = {m1:8, m2:10, m3:8, m4:6};
-const CP_TOTAL = 32;
-
-let _cpData       = [];
-let _cpFilter     = 'all';
-let _cpCourseId   = null;
-let _cpCourseLinkedResultsKey = null; // e.g. 'course_laNV0ecF4g8f1Zu5d2DQ'
-
-// Step 1 — called when tab opens: load Live courses that have nominees
-async function loadCourseProgress() {
-  $('cp-data-panel').style.display  = 'none';
-  $('cp-course-loading').style.display = 'block';
-  $('cp-course-cards').style.display  = 'none';
-  $('cp-course-cards').innerHTML = '';
-
-  try {
-    const coursesSnap = await getDocs(collection(db, 'courses'));
-    const liveCourses = [];
-    for (const d of coursesSnap.docs) {
-      const c = d.data();
-      if (c.status !== 'live') continue;
-      // Check if it has any nominees
-      const nomSnap = await getDocs(collection(db, 'courses', d.id, 'nominations'));
-      if (nomSnap.size > 0) liveCourses.push({id: d.id, ...c, nomineeCount: nomSnap.size});
-    }
-
-    $('cp-course-loading').style.display = 'none';
-
-    if (!liveCourses.length) {
-      $('cp-course-loading').style.display = 'block';
-      $('cp-course-loading').textContent = 'No live courses with nominees found.';
-      return;
-    }
-
-    $('cp-course-cards').style.display = 'flex';
-    for (const c of liveCourses) {
-      const btn = document.createElement('button');
-      btn.style.cssText = `padding:14px 20px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px;`;
-      btn.innerHTML = `<span style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:16px;">📊</span>
-        <div style="text-align:left"><div>${esc(c.title||c.id)}</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${c.nomineeCount} nominee${c.nomineeCount!==1?'s':''}</div></div>`;
-      btn.dataset.courseId = c.id;
-      btn.addEventListener('click', () => cpSelectCourse(c.id, c.title||c.id, btn));
-      $('cp-course-cards').appendChild(btn);
-    }
-  } catch(err) {
-    $('cp-course-loading').textContent = 'Error loading courses.';
-    console.error(err);
-  }
-}
-
-// Step 2 — called when admin clicks a course card
-async function cpSelectCourse(courseId, courseTitle, btn) {
-  // Highlight selected card
-  document.querySelectorAll('#cp-course-cards button').forEach(b => {
-    b.style.borderColor = 'var(--border)';
-    b.style.background  = 'var(--surface)';
-    b.style.boxShadow   = 'none';
-  });
-  btn.style.borderColor = '#3b82f6';
-  btn.style.background  = 'rgba(59,130,246,.12)';
-  btn.style.boxShadow   = '0 0 0 3px rgba(59,130,246,.15)';
-
-  _cpCourseId = courseId;
-  _cpData     = [];
-  $('cp-data-panel').style.display = 'block';
-  $('cp-loading').style.display    = 'flex';
-  $('cp-table').style.display      = 'none';
-  $('cp-empty').style.display      = 'none';
-
-  try {
-    // Fetch nominees for this course — these are the source of truth
-    const nomSnap = await getDocs(collection(db, 'courses', courseId, 'nominations'));
-    const nomineeEmails = [];
-    nomSnap.forEach(d => { if (d.data().nominated !== false) nomineeEmails.push(d.id); });
-
-    if (!nomineeEmails.length) {
-      $('cp-loading').style.display = 'none';
-      $('cp-empty').style.display   = 'block';
-      return;
-    }
-
-    // Fetch all users (uid-keyed) — build email→uid+profile map
-    const usersSnap    = await getDocs(collection(db, 'users'));
-    const progressSnap = await getDocs(collection(db, 'progress'));
-    const resultsSnap  = await getDocs(collection(db, 'results'));
-
-    const emailToUser  = {}; // email → {uid, name, photoURL, lastSeen}
-    usersSnap.forEach(d => {
-      const u = d.data();
-      if (u.email) emailToUser[u.email] = {uid: d.id, name: u.name||u.displayName||'', photoURL: u.photoURL||'', lastSeen: u.lastSeen};
-    });
-
-    const progressMap = {};
-    progressSnap.forEach(d => progressMap[d.id] = d.data());
-    const resultsMap  = {};
-    resultsSnap.forEach(d => resultsMap[d.id]  = d.data());
-
-    // Iterate nominee emails as source of truth — include everyone nominated
-    for (const email of nomineeEmails) {
-      const userInfo = emailToUser[email] || {uid: null, name: '', photoURL: '', lastSeen: null};
-      const uid  = userInfo.uid;
-      const prog = uid ? (progressMap[uid] || {}) : {};
-      const res  = uid ? (resultsMap[uid]  || null) : null;
-      let totalDone = 0;
-      const modProgress = {};
-      for (const [key, tot] of Object.entries(CP_MODULE_TOTALS)) {
-        const done = (prog[key] || []).length;
-        totalDone += done;
-        modProgress[key] = {done, total: tot, pct: Math.round((done/tot)*100)};
-      }
-      _cpData.push({
-        uid, name: userInfo.name || email.split('@')[0], email,
-        photoURL: userInfo.photoURL, lastSeen: userInfo.lastSeen,
-        totalDone, modProgress,
-        neverLoggedIn:   !uid,
-        bestScore:       res?.bestScore,
-        bestPassed:      res?.bestPassed,
-        attemptCount:    res?.attemptCount  || 0,
-        moduleBreakdown: res?.moduleBreakdown || null,
-        attempts:        res?.attempts       || []
-      });
-    }
-    _cpData.sort((a,b) => b.totalDone - a.totalDone);
-    $('cp-loading').style.display = 'none';
-    cpUpdateStats();
-    cpApplyFilters();
-  } catch(err) {
-    $('cp-loading').style.display = 'none';
-    toast('Error loading learner data', 'error');
-    console.error('cpSelectCourse:', err);
-  }
-}
-
-function cpUpdateStats() {
-  const total     = _cpData.length;
-  const passed    = _cpData.filter(u => u.bestPassed).length;
-  const withScore = _cpData.filter(u => u.bestScore !== undefined);
-  const avg       = withScore.length > 0
-    ? Math.round(withScore.reduce((s, u) => s + u.bestScore, 0) / withScore.length) : 0;
-  const completed = _cpData.filter(u => u.totalDone >= CP_TOTAL).length;
-  $('cp-stat-total').textContent     = total;
-  $('cp-stat-passed').textContent    = passed;
-  $('cp-stat-avg').textContent       = withScore.length > 0 ? avg + '%' : '—';
-  $('cp-stat-completed').textContent = completed;
-}
-
-window.cpSetFilter = f => {
-  _cpFilter = f;
-  ['all','passed','failed','notaken'].forEach(id => {
-    const btn = $(`cpf-${id}`);
-    if (id === f) {
-      btn.style.background   = 'var(--gold)';
-      btn.style.color        = '#1a1a1a';
-      btn.style.borderColor  = 'var(--gold)';
-    } else {
-      btn.style.background  = '';
-      btn.style.color       = '';
-      btn.style.borderColor = '';
-    }
-  });
-  cpApplyFilters();
-};
-
-window.cpApplyFilters = () => {
-  const search = ($('cp-search').value || '').toLowerCase();
-  const filtered = _cpData.filter(u => {
-    const matchSearch = !search ||
-      u.name.toLowerCase().includes(search) ||
-      u.email.toLowerCase().includes(search);
-    let matchFilter = true;
-    if      (_cpFilter === 'passed')  matchFilter = u.bestPassed === true;
-    else if (_cpFilter === 'failed')  matchFilter = u.bestPassed === false;
-    else if (_cpFilter === 'notaken') matchFilter = u.attemptCount === 0;
-    return matchSearch && matchFilter;
-  });
-  cpRenderTable(filtered);
-};
-
-function cpRenderTable(data) {
-  $('cp-loading').style.display = 'none';
-  const tbody = $('cp-tbody');
-  tbody.innerHTML = '';
-
-  if (!data.length) {
-    $('cp-table').style.display = 'none';
-    $('cp-empty').style.display = 'block';
-    return;
-  }
-  $('cp-table').style.display = 'table';
-  $('cp-empty').style.display = 'none';
-
-  const modNames = ['Fundamentals', 'Prometheus', 'Alerting', 'Plugins'];
-  const modKeys  = ['m1', 'm2', 'm3', 'm4'];
-
-  data.forEach((u, i) => {
-    const overallPct = Math.round((u.totalDone / CP_TOTAL) * 100);
-    const lastSeen   = u.neverLoggedIn
-      ? '<span style="color:var(--muted);font-style:italic;font-size:11px;">Never logged in</span>'
-      : u.lastSeen?.seconds
-      ? new Date(u.lastSeen.seconds * 1000).toLocaleDateString() : '—';
-    const scoreBadge = u.bestScore !== undefined
-      ? `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;white-space:nowrap;
-           background:${u.bestPassed ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)'};
-           color:${u.bestPassed ? 'var(--success)' : 'var(--danger)'};
-           border:1px solid ${u.bestPassed ? 'rgba(16,185,129,.3)' : 'rgba(239,68,68,.3)'};">
-           ${u.bestScore}% ${u.bestPassed ? '🟢 Pass' : '🔴 Fail'}</span>`
-      : `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:5px;background:var(--surface);color:var(--muted);border:1px solid var(--border);">Not Taken</span>`;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>
-        <div style="display:flex;align-items:center;gap:9px;">
-          ${u.photoURL ? `<img src="${esc(u.photoURL)}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);" onerror="this.style.display='none'" alt=""/>` : `<div style="width:28px;height:28px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;">${esc(u.name.charAt(0).toUpperCase())}</div>`}
-          <div><div style="font-weight:600;font-size:13px;">${esc(u.name)}</div><div style="font-size:11px;color:var(--muted);">${esc(u.email)}</div></div>
-        </div>
-      </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="background:var(--surface);border-radius:99px;height:5px;width:80px;overflow:hidden;display:inline-block;">
-            <div style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold),#d97706);width:${overallPct}%;"></div>
-          </div>
-          <span style="font-size:12px;color:var(--muted);">${u.totalDone}/${CP_TOTAL} (${overallPct}%)</span>
-        </div>
-      </td>
-      ${modKeys.map(k => `<td style="font-size:12px;color:${u.modProgress[k].pct>=100?'var(--success)':'var(--muted)'};">${u.modProgress[k].done}/${u.modProgress[k].total}</td>`).join('')}
-      <td>${scoreBadge}</td>
-      <td style="font-size:12px;color:var(--muted);">${u.attemptCount}/3</td>
-      <td style="font-size:12px;color:var(--muted);">${lastSeen}</td>
-      <td><button class="tbl-btn" id="cp-expand-${i}" onclick="cpToggleDrilldown(${i})">Details</button></td>`;
-    tbody.appendChild(tr);
-
-    // Drilldown row
-    const modGridHTML = modKeys.map((k, mi) => {
-      const mp  = u.modProgress[k];
-      const mbp = u.moduleBreakdown?.[k];
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">M${mi+1}: ${modNames[mi]}</div>
-        <div style="font-size:14px;font-weight:700;color:${mp.pct>=100?'var(--success)':'var(--gold)'};">${mp.done}/${mp.total} sections</div>
-        ${mbp ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">Quiz: ${mbp.correct}/${mbp.total} (${mbp.pct}%)</div>` : ''}
-      </div>`;
-    }).join('');
-
-    const attemptsHTML = u.attempts.length > 0
-      ? u.attempts.map((a, ai) => {
-          const d = a.date?.seconds ? new Date(a.date.seconds * 1000).toLocaleDateString() : 'N/A';
-          return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);">
-            <span>Attempt ${ai+1} — ${d}</span>
-            <span style="font-weight:700;color:${a.passed?'var(--success)':'var(--danger)'};">${a.score}% ${a.passed?'🟢':'🔴'}</span>
-          </div>`;
-        }).join('')
-      : '<div style="font-size:12px;color:var(--muted);">No attempts yet</div>';
-
-    const dtr = document.createElement('tr');
-    dtr.id = `cp-drilldown-${i}`;
-    dtr.style.display = 'none';
-    dtr.innerHTML = `<td colspan="10" style="background:var(--surface);padding:0;">
-      <div style="padding:16px 20px;border-top:1px solid var(--border);">
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Module Breakdown</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">${modGridHTML}</div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Attempt History</div>
-        ${attemptsHTML}
-      </div>
-    </td>`;
-    tbody.appendChild(dtr);
-  });
-}
-
-window.cpToggleDrilldown = i => {
-  const row = $(`cp-drilldown-${i}`);
-  const btn = $(`cp-expand-${i}`);
-  const isOpen = row.style.display !== 'none';
-  row.style.display = isOpen ? 'none' : 'table-row';
-  btn.textContent   = isOpen ? 'Details' : 'Close';
-};
-
-window.cpExportCSV = () => {
-  const headers = ['Name','Email','Total Done','M1','M2','M3','M4','Best Score','Passed','Attempts','Last Seen'];
-  const rows = _cpData.map(u => [
-    u.name, u.email, u.totalDone,
-    u.modProgress.m1.done, u.modProgress.m2.done,
-    u.modProgress.m3.done, u.modProgress.m4.done,
-    u.bestScore !== undefined ? u.bestScore + '%' : 'N/A',
-    u.bestPassed !== undefined ? (u.bestPassed ? 'Yes' : 'No') : 'N/A',
-    u.attemptCount,
-    u.lastSeen?.seconds ? new Date(u.lastSeen.seconds * 1000).toLocaleDateString() : 'N/A'
-  ]);
-  const csv  = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-  const blob = new Blob([csv], {type: 'text/csv'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `grafana-essentials-progress-${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
 window.addEventListener('beforeunload', cleanup);
 </script>
 <footer style="padding:16px 32px;border-top:1px solid rgba(255,255,255,.06);text-align:center;background:rgba(13,17,23,.5);">
   <div style="font-size:11px;color:#4d5562;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0;">
-    <span>🤖 AI-Generated &amp; Expert-Reviewed</span>
-    <span style="margin:0 10px;opacity:.3;">|</span>
-    <span>📚 Educational Use Only</span>
-    <span style="margin:0 10px;opacity:.3;">|</span>
-    <span>🔒 Data stored securely in Firebase</span>
-    <span style="margin:0 10px;opacity:.3;">|</span>
-    <span>🔗 External links for reference only</span>
-    <span style="margin:0 10px;opacity:.3;">|</span>
-    <span>🔄 Content current as of March 2026</span>
-    <span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🤖 AI-Generated &amp; Expert-Reviewed</span><span style="margin:0 10px;opacity:.3;">|</span>
+    <span>📚 Educational Use Only</span><span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🔒 Data stored securely in Firebase</span><span style="margin:0 10px;opacity:.3;">|</span>
+    <span>🔄 Content current as of March 2026</span><span style="margin:0 10px;opacity:.3;">|</span>
     <span>© 2026 SourceFuse Technologies</span>
   </div>
 </footer>
