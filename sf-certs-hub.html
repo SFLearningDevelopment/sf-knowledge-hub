@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603181400 -->
+  <!-- Cache busting v202603181600 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -352,6 +352,35 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .deny-attach-btn:hover{border-color:var(--accent);color:var(--accent);}
 .deny-attach-preview{font-size:12px;color:#34d399;}
 .deny-modal-btns{display:flex;gap:12px;justify-content:flex-end;}
+
+/* ══ SNAP SECTION (exam monitoring) ══ */
+.snap-section{margin-top:16px;}
+.snap-section-title{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.snap-section-title .live-dot{width:7px;height:7px;border-radius:50%;background:#34d399;animation:pulse 1s ease-in-out infinite;flex-shrink:0;}
+.snap-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.snap-frame{position:relative;text-align:center;cursor:default;}
+.snap-frame img{width:80px;height:60px;border-radius:8px;object-fit:cover;border:2px solid var(--border);transition:border-color .2s;}
+.snap-frame img.flag-end{border-color:#f87171;box-shadow:0 0 0 2px rgba(239,68,68,.3);}
+.snap-frame-time{font-size:9px;color:var(--muted);margin-top:3px;}
+.snap-frame-badge{position:absolute;top:-5px;right:-5px;font-size:10px;background:#ef4444;color:#fff;border-radius:50px;padding:1px 5px;font-weight:700;line-height:1.4;}
+.end-flag-alert{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;align-items:center;gap:12px;}
+.end-flag-alert-icon{font-size:22px;flex-shrink:0;}
+.end-flag-alert-body{flex:1;}
+.end-flag-alert-title{font-size:13px;font-weight:800;color:#f87171;}
+.end-flag-alert-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.end-flag-actions{display:flex;gap:8px;margin-top:8px;}
+.btn-flag-ack{padding:6px 14px;border-radius:7px;border:none;background:var(--danger);color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+.btn-flag-dismiss{padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;}
+
+/* ══ SESSION STAT PILLS ══ */
+.session-stat-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.stat-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;}
+.pill-tab{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.2);}
+.pill-face{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);}
+.pill-clean{background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);}
+
+/* ══ ADMIN endFaceFlag badge ══ */
+.end-face-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);animation:pulse-border .9s ease infinite;margin-left:8px;}
 </style></head>
 <body>
 
@@ -470,7 +499,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
       <button class="admin-tab"        id="atab-nominations"  onclick="switchAdminTab('nominations')">Nominations</button>
       <button class="admin-tab"        id="atab-monitor"      onclick="switchAdminTab('monitor')">Live Monitor</button>
       <button class="admin-tab"        id="atab-reports"      onclick="switchAdminTab('reports')">Reports</button>
-      <!-- AUDIT LOG TAB — shown only for JV via JS -->
       <button class="admin-tab"        id="atab-auditlog"     onclick="switchAdminTab('auditlog')" style="display:none;">🔍 Audit Log</button>
     </div>
 
@@ -501,8 +529,6 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           <thead><tr><th>Exam</th><th>Course Link</th><th>Pass</th><th>Attempts</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="exam-table-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">Loading…</td></tr></tbody>
         </table>
-
-        <!-- RESCHEDULE REQUESTS -->
         <div style="margin-top:40px;">
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px;">📋 Reschedule Requests</div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners requesting to reschedule after a proctor denial. Approve to create a new confirmed slot; reject to decline.</div>
@@ -563,9 +589,9 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           <button class="refresh-btn" id="admin-refresh-btn" onclick="loadProctorSessions()">⟳ Refresh</button>
         </div>
         <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0;">
-          <button class="s-tab active" id="mtab-slots" onclick="switchMonitorTab('slots')" style="font-size:13px;padding:8px 16px;">📋 Booked Slots</button>
-          <button class="s-tab" id="mtab-admit" onclick="switchMonitorTab('admit')" style="font-size:13px;padding:8px 16px;">🎥 Awaiting Admit</button>
-          <button class="s-tab" id="mtab-active" onclick="switchMonitorTab('active')" style="font-size:13px;padding:8px 16px;">📡 Active Sessions</button>
+          <button class="s-tab active" id="mtab-slots"  onclick="switchMonitorTab('slots')"  style="font-size:13px;padding:8px 16px;">📋 Booked Slots</button>
+          <button class="s-tab"        id="mtab-admit"  onclick="switchMonitorTab('admit')"  style="font-size:13px;padding:8px 16px;">🎥 Awaiting Admit</button>
+          <button class="s-tab"        id="mtab-active" onclick="switchMonitorTab('active')" style="font-size:13px;padding:8px 16px;">📡 Active Sessions</button>
         </div>
         <div id="flag-alerts-container" style="margin-bottom:8px;"></div>
         <div id="mtab-content-slots">
@@ -667,7 +693,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc,
-  serverTimestamp, query, where, onSnapshot
+  serverTimestamp, query, where, onSnapshot, orderBy, limit
 } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const FB = {
@@ -696,22 +722,20 @@ let sessionDocId = null;
 let proctorRefreshTimer = null;
 let adminTab = 'exams';
 
+// ── Exam-monitoring cleanup registry ──
+// Keyed by slotId → unsubscribe fn for examSnapshots listener
+const _snapListeners = {};
+
 /* ══════════════════════════════════════
    AUDIT LOG HELPER
 ═══════════════════════════════════════ */
 async function auditEntry(action, details = {}) {
   try {
     await addDoc(collection(db, 'auditLog'), {
-      action,
-      actorEmail: meEmail,
-      actorRole:  myRole,
-      timestamp:  serverTimestamp(),
-      ...details
+      action, actorEmail: meEmail, actorRole: myRole,
+      timestamp: serverTimestamp(), ...details
     });
-  } catch(e) {
-    // Silent — never block main action
-    console.warn('auditLog write failed:', e);
-  }
+  } catch(e) { console.warn('auditLog write failed:', e); }
 }
 
 async function loadAuditLog() {
@@ -722,57 +746,48 @@ async function loadAuditLog() {
     const snap = await getDocs(collection(db, 'auditLog'));
     let entries = [];
     snap.forEach(d => entries.push({id: d.id, ...d.data()}));
-
     const roleFilter   = $('audit-filter-role')?.value   || '';
     const actionFilter = $('audit-filter-action')?.value || '';
     if (roleFilter)   entries = entries.filter(e => e.actorRole === roleFilter);
     if (actionFilter) entries = entries.filter(e => e.action    === actionFilter);
     entries.sort((a, b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
-
     if (!entries.length) {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;">No audit entries found.</div>';
       return;
     }
-
     const roleColor   = {admin:'#fbbf24', proctor:'#34d399', student:'#60a5fa'};
     const actionColor = {
       admitLearner:'#34d399', rejectLearner:'#f87171', adminOverrideAdmit:'#f59e0b',
       confirmSlot:'#60a5fa', addNomination:'#a78bfa', removeNomination:'#f87171'
     };
-
     container.innerHTML = `<div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border);">
-            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Time</th>
-            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Actor</th>
-            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Role</th>
-            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Action</th>
-            <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Target / Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${entries.map(e => {
-            const ts  = e.timestamp?.seconds ? new Date(e.timestamp.seconds*1000).toLocaleString() : '—';
-            const ac  = actionColor[e.action] || 'var(--muted)';
-            const rc  = roleColor[e.actorRole] || 'var(--muted)';
-            const det = [
-              e.targetEmail ? 'Learner: '+esc(e.targetEmail) : '',
-              e.slotId      ? 'Slot: '+esc(e.slotId)         : '',
-              e.examId      ? 'Exam: '+esc(e.examId)         : '',
-              e.metadata    ? esc(e.metadata)                : ''
-            ].filter(Boolean).join(' · ');
-            return `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:10px 14px;color:var(--muted);white-space:nowrap;font-size:12px;">${ts}</td>
-              <td style="padding:10px 14px;font-size:12px;">${esc(e.actorEmail||'—')}</td>
-              <td style="padding:10px 14px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:${rc}22;color:${rc};border:1px solid ${rc}44;">${esc(e.actorRole||'—')}</span></td>
-              <td style="padding:10px 14px;"><span style="font-size:12px;font-weight:700;color:${ac};">${esc(e.action||'—')}</span></td>
-              <td style="padding:10px 14px;font-size:12px;color:var(--muted);">${det||'—'}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
+        <thead><tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Time</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Actor</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Role</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Action</th>
+          <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Target / Details</th>
+        </tr></thead>
+        <tbody>${entries.map(e => {
+          const ts  = e.timestamp?.seconds ? new Date(e.timestamp.seconds*1000).toLocaleString() : '—';
+          const ac  = actionColor[e.action] || 'var(--muted)';
+          const rc  = roleColor[e.actorRole] || 'var(--muted)';
+          const det = [
+            e.targetEmail ? 'Learner: '+esc(e.targetEmail) : '',
+            e.slotId      ? 'Slot: '+esc(e.slotId)         : '',
+            e.examId      ? 'Exam: '+esc(e.examId)         : '',
+            e.metadata    ? esc(e.metadata)                : ''
+          ].filter(Boolean).join(' · ');
+          return `<tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:10px 14px;color:var(--muted);white-space:nowrap;font-size:12px;">${ts}</td>
+            <td style="padding:10px 14px;font-size:12px;">${esc(e.actorEmail||'—')}</td>
+            <td style="padding:10px 14px;"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:50px;background:${rc}22;color:${rc};border:1px solid ${rc}44;">${esc(e.actorRole||'—')}</span></td>
+            <td style="padding:10px 14px;"><span style="font-size:12px;font-weight:700;color:${ac};">${esc(e.action||'—')}</span></td>
+            <td style="padding:10px 14px;font-size:12px;color:var(--muted);">${det||'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
   } catch(e) {
     console.error('loadAuditLog:', e);
     container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;">Error loading audit log.</div>';
@@ -794,7 +809,6 @@ const authTimeout = setTimeout(() => {
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
   $('loading-splash').classList.add('hidden');
-
   if (!user) {
     $('auth-screen').style.display = 'flex';
     $('signin-box').style.display  = 'flex';
@@ -802,7 +816,6 @@ onAuthStateChanged(auth, async user => {
     $('app').style.display = 'none';
     return;
   }
-
   if (user.email.split('@')[1] !== DOMAIN) {
     await signOut(auth);
     $('auth-screen').style.display = 'flex';
@@ -810,25 +823,20 @@ onAuthStateChanged(auth, async user => {
     $('denied-box').style.display  = 'flex';
     return;
   }
-
-  me = user;
-  meEmail = user.email.toLowerCase();
+  me = user; meEmail = user.email.toLowerCase();
   $('auth-screen').style.display = 'none';
   $('app').style.display         = 'block';
   $('user-name').textContent     = user.displayName || user.email;
   if (user.photoURL) $('user-avatar').src = user.photoURL;
-
   if (ADMINS.includes(meEmail)) {
     myRole = 'admin';
   } else {
     const snap = await getDoc(doc(db, 'users', meEmail));
     myRole = snap.exists() ? (snap.data().role || 'student') : 'student';
   }
-
   $('chip-admin').style.display   = myRole === 'admin'   ? 'inline-flex' : 'none';
   $('chip-proctor').style.display = myRole === 'proctor' ? 'inline-flex' : 'none';
   $('admin-dashboard-link').style.display = myRole === 'admin' ? 'inline-flex' : 'none';
-
   route();
 });
 
@@ -862,11 +870,9 @@ function route() {
   $('student-view').style.display = 'none';
   $('proctor-view').style.display = 'none';
   $('admin-view').style.display   = 'none';
-
   const urlParams   = new URLSearchParams(window.location.search);
   const preview     = urlParams.get('preview');
   const prevProctor = urlParams.get('previewProctor');
-
   if (myRole === 'admin' && prevProctor) {
     _previewProctorEmail = decodeURIComponent(prevProctor);
     history.replaceState({}, '', window.location.pathname);
@@ -875,7 +881,6 @@ function route() {
     initProctor();
     return;
   }
-
   if (preview && myRole === 'admin') {
     history.replaceState({}, '', window.location.pathname);
     if (preview === 'proctor') {
@@ -885,7 +890,6 @@ function route() {
       return;
     }
   }
-
   if      (myRole === 'admin')   { $('admin-view').style.display = 'block'; initAdmin().then(() => {
     const urlTab = urlParams.get('tab');
     if (urlTab) { switchAdminTab(urlTab); history.replaceState({}, '', window.location.pathname); }
@@ -1119,7 +1123,153 @@ function cleanup() {
   if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
   if (faceGraceTimer) { clearTimeout(faceGraceTimer); faceGraceTimer = null; }
   if (proctorRefreshTimer) { clearInterval(proctorRefreshTimer); proctorRefreshTimer = null; }
+  // Unsubscribe all snap listeners
+  Object.values(_snapListeners).forEach(unsub => { try { unsub(); } catch{} });
 }
+
+/* ══════════════════════════════════════
+   SNAP SECTION — real-time frames grid
+   Used by both Proctor Live tab and
+   Admin Active Sessions tab.
+   
+   container  : DOM element to render into
+   slotId     : examSnapshots/{slotId}/frames
+   isAdmin    : true → show endFaceFlag action
+═══════════════════════════════════════ */
+function renderSnapSection(container, slotId, isAdmin = false) {
+  if (!slotId) return;
+
+  // Tear down existing listener for this slot if any
+  if (_snapListeners[slotId]) {
+    try { _snapListeners[slotId](); } catch{}
+    delete _snapListeners[slotId];
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'snap-section';
+  wrapper.id = 'snaps-' + slotId;
+  wrapper.innerHTML = `
+    <div class="snap-section-title">
+      <span class="live-dot"></span>
+      📸 Live Exam Snapshots
+      <span id="snap-count-${slotId}" style="font-size:11px;color:var(--muted);margin-left:4px;">(loading…)</span>
+    </div>
+    <div class="snap-grid" id="snap-grid-${slotId}"></div>
+    <div id="end-flag-${slotId}"></div>`;
+  container.appendChild(wrapper);
+
+  // Subscribe to frames subcollection
+  const framesRef = collection(db, 'examSnapshots', slotId, 'frames');
+  const framesQ   = query(framesRef, orderBy('takenAt', 'asc'));
+
+  const unsub = onSnapshot(framesQ, snap => {
+    const frames = [];
+    snap.forEach(d => frames.push({id: d.id, ...d.data()}));
+
+    const countEl = document.getElementById('snap-count-' + slotId);
+    const gridEl  = document.getElementById('snap-grid-' + slotId);
+    const flagEl  = document.getElementById('end-flag-' + slotId);
+    if (!gridEl) return;
+
+    if (countEl) countEl.textContent = `(${frames.length} frame${frames.length !== 1 ? 's' : ''})`;
+
+    gridEl.innerHTML = frames.length === 0
+      ? '<span style="font-size:12px;color:var(--muted);">No snapshots yet — waiting for exam to start.</span>'
+      : frames.map(f => {
+          const ts = f.takenAt?.seconds
+            ? new Date(f.takenAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+            : '—';
+          const isEnd = f.isEndSnapshot === true;
+          const isFlagged = f.noFaceAtEnd === true;
+          return `<div class="snap-frame" title="${esc(ts)}${isEnd ? ' · Final frame' : ''}">
+            <img src="${esc(f.dataUrl || '')}" class="snap-img${isFlagged ? ' flag-end' : ''}" onerror="this.style.display='none'">
+            ${isEnd ? '<span class="snap-frame-badge">END</span>' : ''}
+            <div class="snap-frame-time">${ts}</div>
+          </div>`;
+        }).join('');
+
+    // endFaceFlag alert — show if last frame has noFaceAtEnd and not yet acknowledged
+    if (flagEl) {
+      const endFrame = frames.find(f => f.isEndSnapshot === true);
+      if (endFrame && endFrame.noFaceAtEnd === true && !endFrame.acknowledged) {
+        flagEl.innerHTML = `
+          <div class="end-flag-alert">
+            <div class="end-flag-alert-icon">🚨</div>
+            <div class="end-flag-alert-body">
+              <div class="end-flag-alert-title">Face not detected in final snapshot</div>
+              <div class="end-flag-alert-sub">The proctor flagged that the candidate's face was absent at exam end. Review required.</div>
+              ${isAdmin ? `<div class="end-flag-actions">
+                <button class="btn-flag-ack" onclick="acknowledgeEndFlag('${slotId}','${endFrame.id}')">✓ Acknowledge</button>
+                <button class="btn-flag-dismiss" onclick="dismissEndFlag('${slotId}','${endFrame.id}')">Dismiss</button>
+              </div>` : ''}
+            </div>
+          </div>`;
+      } else {
+        flagEl.innerHTML = '';
+      }
+    }
+  }, err => {
+    console.warn('snapSection listener error:', err);
+    const gridEl = document.getElementById('snap-grid-' + slotId);
+    if (gridEl) gridEl.innerHTML = '<span style="font-size:12px;color:#f87171;">Error loading snapshots.</span>';
+  });
+
+  _snapListeners[slotId] = unsub;
+}
+
+/* ══════════════════════════════════════
+   FLAG NO FACE AT END
+   Called by proctor from Live Session tab
+   when final snapshot shows no face.
+═══════════════════════════════════════ */
+window.flagNoFaceAtEnd = async function(slotId) {
+  if (!confirm('Flag the final snapshot as "no face detected"? Admins will be alerted.')) return;
+  try {
+    // Find the end frame doc
+    const framesRef = collection(db, 'examSnapshots', slotId, 'frames');
+    const snap = await getDocs(query(framesRef, where('isEndSnapshot', '==', true), limit(1)));
+    if (snap.empty) {
+      toast('No end snapshot found for this slot.', 'error');
+      return;
+    }
+    const frameDoc = snap.docs[0];
+    await setDoc(doc(db, 'examSnapshots', slotId, 'frames', frameDoc.id), {
+      noFaceAtEnd: true, flaggedBy: meEmail, flaggedAt: serverTimestamp()
+    }, {merge: true});
+
+    // Notify admins
+    for (const adminEmail of ADMINS) {
+      await addDoc(collection(db, 'notifications', adminEmail, 'items'), {
+        message: `Proctor flagged: no face detected in final exam snapshot for slot ${slotId}.`,
+        type: 'endFaceFlag', slotId, read: false, createdAt: serverTimestamp()
+      });
+    }
+    await auditEntry('flagNoFaceAtEnd', {slotId, metadata: 'Proctor flagged no face at end'});
+    toast('Final snapshot flagged. Admins notified.', 'success');
+  } catch(e) {
+    console.error('flagNoFaceAtEnd:', e);
+    toast('Error flagging snapshot.', 'error');
+  }
+};
+
+window.acknowledgeEndFlag = async function(slotId, frameId) {
+  try {
+    await setDoc(doc(db, 'examSnapshots', slotId, 'frames', frameId), {
+      acknowledged: true, acknowledgedBy: meEmail, acknowledgedAt: serverTimestamp()
+    }, {merge: true});
+    await auditEntry('acknowledgeEndFlag', {slotId, metadata: 'Admin acknowledged end-face flag'});
+    toast('Flag acknowledged.', 'success');
+  } catch(e) { toast('Error acknowledging flag.', 'error'); }
+};
+
+window.dismissEndFlag = async function(slotId, frameId) {
+  try {
+    await setDoc(doc(db, 'examSnapshots', slotId, 'frames', frameId), {
+      acknowledged: true, dismissed: true, dismissedBy: meEmail, dismissedAt: serverTimestamp()
+    }, {merge: true});
+    toast('Flag dismissed.', 'success');
+  } catch(e) { toast('Error dismissing flag.', 'error'); }
+};
 
 /* ══════════════════════════════════════
    PROCTOR
@@ -1176,9 +1326,7 @@ async function loadProctorAssignedSlots() {
       }
     } catch(e) { console.warn('proctor candidate lookup:', e); }
 
-    // Filter out denied+inProgress slots — they are resolved, not active
     const activeSlots = slots.filter(s => !(s.status === 'inProgress' && s.denied === true));
-
     if (!activeSlots.length) {
       container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;font-size:14px;">No slots assigned to you yet.<br><span style="font-size:12px;">Ask your L&D administrator to assign you to a learner.</span></div>';
       return;
@@ -1196,7 +1344,6 @@ async function loadProctorAssignedSlots() {
         const unsub = onSnapshot(doc(db, 'examSlots', slot.id), slotSnap => {
           if (!slotSnap.exists()) return;
           const updated = {id: slotSnap.id, ...slotSnap.data()};
-          // If slot becomes denied, remove it from proctor view immediately
           if (updated.status === 'inProgress' && updated.denied === true) {
             const existing = document.getElementById('p-slot-' + slot.id);
             if (existing) existing.remove();
@@ -1240,16 +1387,12 @@ function buildProctorSlotCard(slot) {
     ? `<div style="font-size:12px;color:#fbbf24;margin-top:6px;">📅 Rescheduled ${rescheduleCount}x — New time: <strong>${timeStr}</strong></div>`
     : '';
 
-  // Actions
   let actions = '';
   if (slot.status === 'bookedByLearner') {
     actions = `<button class="p-slot-confirm-btn" onclick="proctorConfirmSlot('${slot.id}','${esc(slot.learnerEmail||'')}','${esc(slot.learnerName||'')}','${esc(timeStr)}')">✅ Confirm This Slot</button>`;
   } else if (slot.status === 'awaitingAdmit') {
     if (slot.admitted === true) {
-      // Already admitted — show resolved state so proctor can't double-act
-      actions = `<div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">
-        ✅ Learner already admitted
-      </div>`;
+      actions = `<div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">✅ Learner already admitted</div>`;
     } else {
       actions = `<div style="display:flex;gap:10px;margin-top:12px;">
         <button class="admit-btn" style="flex:1;padding:10px;" onclick="admitLearner('${slot.id}','${esc(slot.learnerEmail||'')}')">✅ Admit</button>
@@ -1273,17 +1416,14 @@ function buildProctorSlotCard(slot) {
     }
   }
 
-  // Scheduling selfie + live snapshots side by side for awaitingAdmit
   let snapshotsHtml = '';
   if (slot.status === 'awaitingAdmit') {
-    // Scheduling selfie — identity reference
     if (slot.learnerSelfie) {
       snapshotsHtml += `<div style="margin-bottom:16px;">
         <div class="slot-selfie-label" style="margin-bottom:8px;">📸 Scheduling Selfie <span style="font-weight:400;color:var(--muted);">(Identity Reference)</span></div>
         <img src="${slot.learnerSelfie}" style="width:100px;height:75px;border-radius:8px;object-fit:cover;border:2px solid var(--accent);" onerror="this.style.display=&apos;none&apos;">
       </div>`;
     }
-    // Live snapshots
     if (slot.snapshots && slot.snapshots.length > 0) {
       snapshotsHtml += '<div style="margin-bottom:12px;"><div class="slot-selfie-label" style="margin-bottom:8px;">🎥 Live Snapshots <span style="font-weight:400;color:var(--muted);">(taken at exam time)</span></div><div class="slot-snapshots">';
       slot.snapshots.forEach(snap => {
@@ -1292,7 +1432,6 @@ function buildProctorSlotCard(slot) {
         snapshotsHtml += `<div class="snap-item"><img src="${snap.image}" class="snap-img" style="border-color:${color};" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${color};">${score != null ? score+'%' : '&mdash;'}</div></div>`;
       });
       snapshotsHtml += '</div></div>';
-      // Average score
       const scores = slot.snapshots.map(s => s.matchScore).filter(s => s != null);
       if (scores.length > 0) {
         const avg = Math.round(scores.reduce((a,b) => a+b,0) / scores.length);
@@ -1370,11 +1509,42 @@ async function loadProctorSession() {
     container.innerHTML = `<div class="proctor-standby"><div class="proctor-standby-icon">👁</div><h2>Waiting for Candidate</h2><p><strong>${esc(assigned)}</strong> has not started their exam yet.<br>This page will auto-refresh every 30 seconds.</p></div>`;
     return;
   }
-  for (const s of sessions) container.appendChild(buildSessionCard(s));
+  for (const s of sessions) {
+    const card = buildSessionCard(s, false);
+    container.appendChild(card);
+
+    // Wire snap section for each active session — use session id as slotId proxy
+    // The slot for this proctor + candidate: look it up
+    try {
+      const slotSnap = await getDocs(query(
+        collection(db, 'examSlots'),
+        where('learnerEmail', '==', assigned),
+        where('status', '==', 'inProgress')
+      ));
+      if (!slotSnap.empty) {
+        const slotDoc = slotSnap.docs[0];
+        const snapContainer = document.createElement('div');
+        snapContainer.style.padding = '0 20px 16px';
+        card.appendChild(snapContainer);
+        renderSnapSection(snapContainer, slotDoc.id, false);
+
+        // "Flag no face at end" button — proctor action
+        const flagBtnWrap = document.createElement('div');
+        flagBtnWrap.style.cssText = 'padding:0 20px 16px;';
+        flagBtnWrap.innerHTML = `<button onclick="flagNoFaceAtEnd('${slotDoc.id}')" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);color:#f87171;font-size:12px;font-weight:700;cursor:pointer;">🚩 Flag: No Face at Exam End</button>`;
+        card.appendChild(flagBtnWrap);
+      }
+    } catch(e) { console.warn('proctor snap section:', e); }
+  }
 }
 
-function buildSessionCard(s) {
+/* ══════════════════════════════════════
+   buildSessionCard — tab + face counts
+═══════════════════════════════════════ */
+function buildSessionCard(s, isAdmin = false) {
   const flags = s.flags || [];
+  const tabSwitchCount = flags.filter(f => f.type === 'tab_switch' || f.type === 'tabSwitch').length;
+  const faceAwayCount  = flags.filter(f => f.type === 'face_away'  || f.type === 'faceAway').length;
   const hasAlert = flags.length > 0;
   const initials = (s.candidateName||s.candidateEmail||'?').charAt(0).toUpperCase();
   const startTs = s.startedAt ? (s.startedAt.toDate ? s.startedAt.toDate() : new Date(s.startedAt)) : null;
@@ -1384,11 +1554,17 @@ function buildSessionCard(s) {
   const recentFlags = flags.slice(-4).reverse();
   const card = document.createElement('div');
   card.className = 'session-card' + (hasAlert ? ' alert' : '');
+
+  // Check for end-face flag badge (admin view)
+  // We'll inject it via renderSnapSection; here we just build the card shell
+  const endFlagBadge = isAdmin && s._hasEndFaceFlag
+    ? `<span class="end-face-badge">🚨 End Flag</span>` : '';
+
   card.innerHTML = `
     <div class="session-head">
       <div class="session-avatar">${esc(initials)}</div>
       <div class="session-info">
-        <div class="session-name">${esc(s.candidateName||s.candidateEmail)}</div>
+        <div class="session-name">${esc(s.candidateName||s.candidateEmail)}${endFlagBadge}</div>
         <div class="session-email">${esc(s.candidateEmail||'')}</div>
       </div>
       <span class="session-status ${hasAlert ? 'ss-alert' : 'ss-active'}">${hasAlert ? '⚠ Flagged' : '● Live'}</span>
@@ -1399,10 +1575,28 @@ function buildSessionCard(s) {
         <span class="session-timer ${elapsedMins>40?'urgent':''}">${elapsedMins}m elapsed</span>
       </div>
       <div class="progress-bar-wrap"><div class="progress-bar" style="width:${progPct}%"></div></div>
-      ${flags.length ? `<div class="session-flags">${recentFlags.map(f =>
-        `<div class="flag-item">⚠ ${esc(f.type==='face_away'?'Face not detected':'Event')}<span class="flag-time">${new Date(f.at).toLocaleTimeString()}</span></div>`
-      ).join('')}</div>` : `<div class="no-flags">✓ No flags — session clean</div>`}
-      <div class="session-attempts" style="margin-top:8px">Total flags: <strong>${flags.length}</strong></div>
+      <div class="session-stat-pills">
+        ${tabSwitchCount > 0
+          ? `<span class="stat-pill pill-tab">↕ Tab switches: ${tabSwitchCount}</span>`
+          : ''}
+        ${faceAwayCount > 0
+          ? `<span class="stat-pill pill-face">👤 Face away: ${faceAwayCount}</span>`
+          : ''}
+        ${flags.length === 0
+          ? `<span class="stat-pill pill-clean">✓ No flags</span>`
+          : ''}
+      </div>
+      ${recentFlags.length ? `<div class="session-flags">${recentFlags.map(f => {
+        const label = f.type === 'face_away' || f.type === 'faceAway' ? '👤 Face not detected'
+                    : f.type === 'tab_switch' || f.type === 'tabSwitch' ? '↕ Tab switch detected'
+                    : '⚠ ' + esc(f.type);
+        return `<div class="flag-item">${label}<span class="flag-time">${new Date(f.at).toLocaleTimeString()}</span></div>`;
+      }).join('')}</div>` : ''}
+      <div class="session-attempts" style="margin-top:8px">
+        Total flags: <strong>${flags.length}</strong>
+        &nbsp;·&nbsp; Tab: <strong style="color:#fbbf24;">${tabSwitchCount}</strong>
+        &nbsp;·&nbsp; Face: <strong style="color:#f87171;">${faceAwayCount}</strong>
+      </div>
     </div>`;
   return card;
 }
@@ -1425,7 +1619,6 @@ async function initAdmin() {
     if (adminTab === 'monitor') loadProctorSessions();
   }, 30000);
 
-  // Show audit log tab only for JV
   if (meEmail === 'jv.ravichandran@sourcefuse.com') {
     const auditTab = $('atab-auditlog');
     if (auditTab) auditTab.style.display = 'inline-flex';
@@ -1777,15 +1970,12 @@ function buildBookedSlotCard(slot, mode) {
     : '<span class="slot-status-tag sst-awaiting waiting-pulse">🎥 Waiting for Admit</span>';
 
   let bodyHtml='';
-
-  // Scheduling selfie (admit mode only)
   if (mode==='admit' && slot.learnerSelfie) {
     bodyHtml+=`<div class="slot-selfie-wrap">
       <div class="slot-selfie-label">📸 Scheduling Selfie <span style="font-weight:400;color:var(--muted);">(Identity Reference)</span></div>
       <img src="${slot.learnerSelfie}" class="slot-selfie-img" onerror="this.style.display=&apos;none&apos;">
     </div>`;
   }
-
   if (mode==='booked') {
     const proctorInfo=slot.assignedProctor||slot.confirmedBy||null;
     bodyHtml+=`<div style="font-size:13px;color:var(--muted);padding:4px 0;">
@@ -1793,8 +1983,6 @@ function buildBookedSlotCard(slot, mode) {
       ${proctorInfo?`<span style="color:#34d399;">${esc(proctorInfo)}</span>`:'<span style="color:#f59e0b;">Not yet assigned</span>'}
     </div>`;
   }
-
-  // Snapshots (admit mode)
   if (mode==='admit' && slot.snapshots && slot.snapshots.length>0) {
     bodyHtml+='<div class="slot-selfie-label" style="margin-bottom:8px;">🎥 Live Snapshots <span style="font-weight:400;color:var(--muted);">(taken at exam time)</span></div>';
     bodyHtml+='<div class="slot-snapshots">';
@@ -1815,10 +2003,8 @@ function buildBookedSlotCard(slot, mode) {
       </div>`;
     }
   }
-
-  // Actions
   if (mode==='booked') {
-    // Booked mode — informational only, no action buttons
+    // informational only
   } else if (mode==='admit') {
     const waitMins=slot._waitMins;
     if (waitMins!==null&&waitMins>=5) {
@@ -1830,12 +2016,8 @@ function buildBookedSlotCard(slot, mode) {
         ⏱ Waiting for ${waitMins} minute${waitMins!==1?'s':''} — proctor has ${5-waitMins} minute${(5-waitMins)!==1?'s':''} before override is suggested.
       </div>`;
     }
-
-    // ── KEY CHANGE: Admit/Deny/Override only shown when slot.flagged === true ──
     if (slot.admitted===true) {
-      bodyHtml+=`<div style="padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">
-        ✅ Learner already admitted
-      </div>`;
+      bodyHtml+=`<div style="padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;color:#34d399;font-weight:700;text-align:center;">✅ Learner already admitted</div>`;
     } else if (slot.flagged===true) {
       bodyHtml+=`<div style="padding:10px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:12px;color:#f87171;margin-bottom:12px;">
         🚩 Learner has flagged a proctor delay. Proctor action is overdue.
@@ -1851,7 +2033,6 @@ function buildBookedSlotCard(slot, mode) {
       </div>`;
     }
   }
-
   card.innerHTML=`
     <div class="slot-card-header">
       ${photoHtml}
@@ -1891,7 +2072,6 @@ window.admitLearner = async function(slotId, learnerEmail) {
   } catch(e) { console.error('admitLearner:',e); toast('Error admitting learner.','error'); }
 };
 
-// ── DENY MODAL ──
 let _denySlotId = null, _denyLearnerEmail = null, _denyAttachBase64 = null;
 
 window.openDenyModal = function(slotId, learnerEmail, learnerName) {
@@ -1927,17 +2107,13 @@ window.confirmDeny = async function() {
     const slotSnap = await getDoc(doc(db,'examSlots',slotId));
     if (!slotSnap.exists()) { toast('Slot not found.','error'); return; }
     const slotData = slotSnap.data(), currentCount = slotData.rescheduleCount||0, examId = slotData.examId||null;
-
     await setDoc(doc(db,'examSlots',slotId), {
       admitted: false, denied: true,
       deniedBy: meEmail, deniedAt: serverTimestamp(),
-      denialReason: reason,
-      denialAttachment: attachment || null,
+      denialReason: reason, denialAttachment: attachment || null,
       status: 'inProgress', flagged: false,
       rescheduleCount: currentCount + 1
     }, {merge: true});
-
-    // Decrement attempt count
     if (examId) {
       try {
         let learnerUid = null;
@@ -1954,7 +2130,6 @@ window.confirmDeny = async function() {
         }
       } catch(e) { console.warn('deny attempt decrement:',e); }
     }
-
     await addDoc(collection(db,'notifications',learnerEmail,'items'), {
       message: 'Your proctor denied your exam session. Reason: ' + reason + '. You may request a reschedule from your exam card.',
       type: 'denied', read: false, createdAt: serverTimestamp()
@@ -1966,7 +2141,6 @@ window.confirmDeny = async function() {
   } catch(e) { console.error('confirmDeny:',e); toast('Error denying learner.','error'); }
 };
 
-// ── RESCHEDULE REQUESTS ──
 async function loadRescheduleRequests() {
   const container = $('resched-requests-list');
   if (!container) return;
@@ -2012,48 +2186,29 @@ window.approveRescheduleRequest = async function(reqId) {
     let utcDateTime = null;
     try { utcDateTime = new Date(req.requestedDate + 'T' + req.requestedTime + ':00').toISOString(); } catch{}
     const tz = req.requestedTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    // Create new confirmed slot — skip re-confirmation, proctor already assigned
     const newSlotRef = await addDoc(collection(db,'examSlots'), {
-      examId: req.examId||null,
-      learnerEmail: req.learnerEmail,
-      learnerName: req.learnerName||req.learnerEmail,
-      learnerSelfie: req.learnerSelfie||null,
+      examId: req.examId||null, learnerEmail: req.learnerEmail,
+      learnerName: req.learnerName||req.learnerEmail, learnerSelfie: req.learnerSelfie||null,
       learnerPhotoConsent: req.learnerPhotoConsent||false,
-      requestedDate: req.requestedDate,
-      requestedTime: req.requestedTime,
-      requestedTimezone: tz,
-      utcDateTime,
-      status: 'confirmed',
-      bookedAt: serverTimestamp(),
-      assignedProctor: req.assignedProctor||null,
+      requestedDate: req.requestedDate, requestedTime: req.requestedTime,
+      requestedTimezone: tz, utcDateTime, status: 'confirmed',
+      bookedAt: serverTimestamp(), assignedProctor: req.assignedProctor||null,
       confirmedBy: meEmail, confirmedAt: serverTimestamp(),
-      admitted: false, denied: false, flagged: false,
-      snapshots: [],
-      rescheduleCount: req.rescheduleCount||0,
-      rescheduledViaRequest: true
+      admitted: false, denied: false, flagged: false, snapshots: [],
+      rescheduleCount: req.rescheduleCount||0, rescheduledViaRequest: true
     });
-
     await addDoc(collection(db,'rescheduleHistory'), {
-      originalSlotId: req.originalSlotId||null,
-      examId: req.examId||null,
-      learnerEmail: req.learnerEmail,
-      learnerName: req.learnerName||req.learnerEmail,
+      originalSlotId: req.originalSlotId||null, examId: req.examId||null,
+      learnerEmail: req.learnerEmail, learnerName: req.learnerName||req.learnerEmail,
       assignedProctor: req.assignedProctor||null,
-      originalDate: req.originalDate||null,
-      originalTime: req.originalTime||null,
-      newDate: req.requestedDate,
-      newTime: req.requestedTime,
-      rescheduleCount: req.rescheduleCount||1,
-      rescheduledAt: serverTimestamp(),
-      rescheduledBy: req.learnerEmail,
-      approvedBy: meEmail, approvedAt: serverTimestamp()
+      originalDate: req.originalDate||null, originalTime: req.originalTime||null,
+      newDate: req.requestedDate, newTime: req.requestedTime,
+      rescheduleCount: req.rescheduleCount||1, rescheduledAt: serverTimestamp(),
+      rescheduledBy: req.learnerEmail, approvedBy: meEmail, approvedAt: serverTimestamp()
     });
-
     await setDoc(doc(db,'rescheduleRequests',reqId), {status:'approved', reviewedBy:meEmail, reviewedAt:serverTimestamp(), newSlotId:newSlotRef.id}, {merge:true});
-
     await addDoc(collection(db,'notifications',req.learnerEmail,'items'), {
-      message: 'Your reschedule request has been approved! Exam confirmed for ' + req.requestedDate + ' at ' + req.requestedTime + '. You may begin setup at the scheduled time.',
+      message: 'Your reschedule request has been approved! Exam confirmed for ' + req.requestedDate + ' at ' + req.requestedTime + '.',
       type: 'reschedule_approved', read: false, createdAt: serverTimestamp()
     });
     if (req.assignedProctor) {
@@ -2062,7 +2217,6 @@ window.approveRescheduleRequest = async function(reqId) {
         type: 'reschedule_approved', read: false, createdAt: serverTimestamp()
       });
     }
-
     await auditEntry('approveReschedule', {targetEmail:req.learnerEmail, examId:req.examId||undefined, metadata:'Approved by '+meEmail+' for '+req.requestedDate+' '+req.requestedTime});
     const card = document.getElementById('resched-req-'+reqId);
     if (card) card.remove();
@@ -2099,9 +2253,19 @@ window.adminOverrideAdmit = async function(slotId, learnerEmail) {
   } catch(e) { console.error('adminOverride:',e); toast('Error with override.','error'); }
 };
 
+/* ══════════════════════════════════════
+   ADMIN — ACTIVE SESSIONS (with snap sections)
+═══════════════════════════════════════ */
 window.loadProctorSessions = async function() {
   const container=$('admin-sessions');
   if (!container) return;
+
+  // Tear down any existing snap listeners before reloading
+  Object.keys(_snapListeners).forEach(slotId => {
+    try { _snapListeners[slotId](); } catch{}
+    delete _snapListeners[slotId];
+  });
+
   container.innerHTML='<div style="color:var(--muted);font-size:14px;text-align:center;padding:40px 0">Loading sessions…</div>';
   try {
     const snap=await getDocs(query(collection(db,'examSessions'),where('status','==','active')));
@@ -2109,9 +2273,53 @@ window.loadProctorSessions = async function() {
     const totalFlags=sessions.reduce((a,s)=>a+(s.flags||[]).length,0);
     $('a-stat-active').textContent=sessions.length; $('a-stat-flags').textContent=totalFlags;
     container.innerHTML='';
-    if (!sessions.length) { container.innerHTML='<div class="proctor-empty"><h3>No active sessions</h3><p>No candidates are currently in an exam.</p></div>'; return; }
-    for (const s of sessions) container.appendChild(buildSessionCard(s));
-  } catch { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">Error loading sessions.</div>'; }
+    if (!sessions.length) {
+      container.innerHTML='<div class="proctor-empty"><h3>No active sessions</h3><p>No candidates are currently in an exam.</p></div>';
+      return;
+    }
+
+    for (const s of sessions) {
+      // Check if there's an endFaceFlag for this session's slot
+      let slotIdForSession = null;
+      let hasEndFaceFlag = false;
+      try {
+        const slotQ = await getDocs(query(
+          collection(db,'examSlots'),
+          where('learnerEmail','==', s.candidateEmail),
+          where('status','==','inProgress')
+        ));
+        if (!slotQ.empty) {
+          slotIdForSession = slotQ.docs[0].id;
+          // Check frames subcollection for end flag
+          const framesQ2 = await getDocs(query(
+            collection(db,'examSnapshots', slotIdForSession, 'frames'),
+            where('isEndSnapshot','==',true),
+            where('noFaceAtEnd','==',true),
+            limit(1)
+          ));
+          if (!framesQ2.empty) {
+            const endFrame = framesQ2.docs[0].data();
+            hasEndFaceFlag = !endFrame.acknowledged;
+          }
+        }
+      } catch(e) { console.warn('admin session slot lookup:', e); }
+
+      s._hasEndFaceFlag = hasEndFaceFlag;
+      const card = buildSessionCard(s, true);
+      container.appendChild(card);
+
+      // Wire real-time snap section for each active session
+      if (slotIdForSession) {
+        const snapWrap = document.createElement('div');
+        snapWrap.style.cssText = 'padding:0 20px 20px;border-top:1px solid var(--border);margin-top:4px;';
+        card.appendChild(snapWrap);
+        renderSnapSection(snapWrap, slotIdForSession, true);  // isAdmin=true → shows ack/dismiss
+      }
+    }
+  } catch(e) {
+    console.error('loadProctorSessions:', e);
+    container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px">Error loading sessions.</div>';
+  }
 };
 
 /* ══════════════════════════════════════
@@ -2125,7 +2333,6 @@ async function loadReports() {
   const completed=sessions.filter(s=>s.status!=='active');
   if (!completed.length) { $('report-list').innerHTML='<div style="color:var(--muted);text-align:center;padding:40px 0">No completed sessions yet.</div>'; return; }
 
-  // Fetch denial data from examSlots to show in Exam Sessions
   const slotDenials = {};
   try {
     const deniedSnap = await getDocs(query(collection(db,'examSlots'), where('denied','==',true)));
@@ -2134,27 +2341,32 @@ async function loadReports() {
 
   $('report-list').innerHTML=completed.map(s=>{
     const flags=s.flags||[];
-    const at=s.startedAt?(s.startedAt.toDate?s.startedAt.toDate().toLocaleString():new Date(s.startedAt).toLocaleString()):'\u2014';
+    const tabCount = flags.filter(f=>f.type==='tab_switch'||f.type==='tabSwitch').length;
+    const faceCount= flags.filter(f=>f.type==='face_away' ||f.type==='faceAway').length;
+    const at=s.startedAt?(s.startedAt.toDate?s.startedAt.toDate().toLocaleString():new Date(s.startedAt).toLocaleString()):'—';
     const denial = slotDenials[s.candidateEmail];
     const denialHtml = denial ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px;font-size:12px;">
-      <strong style="color:#f87171;">Denial Reason:</strong> <span style="color:var(--muted);">${esc(denial.denialReason||'\u2014')}</span>
-      ${denial.denialAttachment?`<br><a href="${denial.denialAttachment}" target="_blank" style="color:var(--accent);font-size:11px;margin-top:4px;display:inline-block;">\ud83d\udcce View attachment</a>`:''}
-      <span style="color:var(--muted);font-size:11px;margin-left:8px;">by: ${esc(denial.deniedBy||'\u2014')}</span>
+      <strong style="color:#f87171;">Denial Reason:</strong> <span style="color:var(--muted);">${esc(denial.denialReason||'—')}</span>
+      ${denial.denialAttachment?`<br><a href="${denial.denialAttachment}" target="_blank" style="color:var(--accent);font-size:11px;margin-top:4px;display:inline-block;">📎 View attachment</a>`:''}
+      <span style="color:var(--muted);font-size:11px;margin-left:8px;">by: ${esc(denial.deniedBy||'—')}</span>
     </div>` : '';
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div><strong>${esc(s.candidateEmail||'\u2014')}</strong> <span style="color:var(--muted);font-size:12px;">\u00b7 ${esc(s.examId||'\u2014')}</span></div>
+        <div><strong>${esc(s.candidateEmail||'—')}</strong> <span style="color:var(--muted);font-size:12px;">· ${esc(s.examId||'—')}</span></div>
         <span style="font-size:12px;color:var(--muted)">${at}</span>
       </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:${(flags.length||denial)?'10px':'0'}">
-        Status: <span style="color:${s.status==='denied_consent'?'var(--danger)':'var(--muted)'}">${esc(s.status||'\u2014')}</span>
-        \u00b7 Flags: <strong style="color:${flags.length>0?'var(--danger)':'var(--success)'}">${flags.length}</strong>
+        Status: <span style="color:${s.status==='denied_consent'?'var(--danger)':'var(--muted)'}">${esc(s.status||'—')}</span>
+        · Total flags: <strong style="color:${flags.length>0?'var(--danger)':'var(--success)'}">${flags.length}</strong>
+        · Tab: <strong style="color:#fbbf24;">${tabCount}</strong>
+        · Face: <strong style="color:#f87171;">${faceCount}</strong>
       </div>
-      ${flags.length?`<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>`<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">\u26a0 ${esc(f.type)} \u00b7 ${new Date(f.at).toLocaleTimeString()}</div>`).join('')}</div>`:''}
+      ${flags.length?`<div style="display:flex;flex-direction:column;gap:4px;">${flags.map(f=>`<div style="font-size:12px;color:#fca5a5;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;padding:5px 9px;">⚠ ${esc(f.type)} · ${new Date(f.at).toLocaleTimeString()}</div>`).join('')}</div>`:''}
       ${denialHtml}
     </div>`;
   }).join('');
 }
+
 async function loadTestResults() {
   const container=$('test-results-list');
   if (!container) return;
@@ -2165,8 +2377,6 @@ async function loadTestResults() {
     if (!exs.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">No exams found.</div>'; return; }
     const examResultsSnap=await getDocs(collection(db,'examResults'));
     const resultsByExam={}; exs.forEach(e=>resultsByExam[e.id]=[]);
-    // Fix: build uid→{name,email} from examSessions (has candidateUid/Email/Name)
-    // users collection is keyed by email not uid, so userMap[uid] never matched
     const sessionsSnap=await getDocs(collection(db,'examSessions'));
     const userMap={}; sessionsSnap.forEach(d=>{
       const sd=d.data();
