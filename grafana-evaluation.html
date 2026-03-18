@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603120909 -->
+  <!-- Cache busting v202603181604 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -328,9 +328,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SCREEN: LOADING
-══════════════════════════════════════════ -->
+<!-- SCREEN: LOADING -->
 <div id="screenLoading" class="screen active">
   <div class="center-wrap">
     <div style="text-align:center;">
@@ -340,9 +338,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SCREEN: AUTH (Google SSO)
-══════════════════════════════════════════ -->
+<!-- SCREEN: AUTH -->
 <div id="screenAuth" class="screen">
   <div class="center-wrap">
     <div class="card" style="max-width:480px;text-align:center;">
@@ -352,7 +348,6 @@
            font-size:28px;font-weight:800;color:#fff;margin:0 auto 24px;">SF</div>
       <h1 style="font-size:24px;margin-bottom:10px;">Grafana Certification</h1>
       <p style="margin-bottom:32px;">Sign in with your SourceFuse Google account to access the exam.</p>
-
       <button class="btn btn-primary" id="googleSignInBtn" onclick="doGoogleSignIn()"
         style="width:100%;justify-content:center;gap:12px;font-size:15px;padding:14px 24px;">
         <svg width="20" height="20" viewBox="0 0 48 48">
@@ -363,9 +358,7 @@
         </svg>
         Sign in with Google
       </button>
-
       <p id="authError" style="color:var(--red);font-size:13px;margin-top:16px;display:none;"></p>
-
       <p style="color:var(--muted);font-size:12px;margin-top:24px;line-height:1.6;">
         Only <strong style="color:var(--text);">@sourcefuse.com</strong> Google accounts are permitted.
       </p>
@@ -373,28 +366,22 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SCREEN: INTRO
-══════════════════════════════════════════ -->
+<!-- SCREEN: INTRO -->
 <div id="screenIntro" class="screen">
   <div class="center-wrap">
     <div class="card">
-      <div style="margin-bottom:20px;">
-        <span class="section-badge">Grafana</span>
-      </div>
+      <div style="margin-bottom:20px;"><span class="section-badge">Grafana</span></div>
       <h1>Grafana Certification Exam</h1>
       <p style="margin:14px 0 24px;">
         Test your knowledge of Grafana dashboards, data sources, alerting, and administration
         across 30 questions in 4 sections.
       </p>
-
       <div class="stats-row">
         <div class="stat-card neutral"><div class="stat-value">30</div><div class="stat-label">Questions</div></div>
         <div class="stat-card neutral"><div class="stat-value">45</div><div class="stat-label">Minutes</div></div>
         <div class="stat-card neutral"><div class="stat-value">70%</div><div class="stat-label">Pass Score</div></div>
         <div class="stat-card neutral"><div class="stat-value" id="attemptsLeft">—</div><div class="stat-label">Attempts Left</div></div>
       </div>
-
       <div style="background:var(--navy-mid);border:1px solid var(--navy-border);border-radius:10px;padding:18px;margin-bottom:24px;">
         <p style="font-size:13px;line-height:1.7;color:var(--muted);">
           • Answer all questions before submitting.<br/>
@@ -403,9 +390,7 @@
           • Results are saved automatically upon submission or timeout.
         </p>
       </div>
-
       <div id="prevResultInfo" style="display:none;margin-bottom:20px;"></div>
-
       <button class="btn btn-primary" id="startBtn" onclick="startExam()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
         Start Exam →
       </button>
@@ -414,13 +399,9 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SCREEN: EXAM
-══════════════════════════════════════════ -->
+<!-- SCREEN: EXAM -->
 <div id="screenExam" class="screen">
   <div class="exam-layout">
-
-    <!-- SIDEBAR -->
     <div class="sidebar">
       <div id="sidebarSections"></div>
       <div style="margin-top:24px;">
@@ -429,8 +410,6 @@
         </button>
       </div>
     </div>
-
-    <!-- MAIN -->
     <div class="exam-main">
       <div class="progress-bar-wrap">
         <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
@@ -440,9 +419,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     SCREEN: RESULT
-══════════════════════════════════════════ -->
+<!-- SCREEN: RESULT -->
 <div id="screenResult" class="screen">
   <div class="center-wrap">
     <div class="card">
@@ -458,9 +435,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     CONFIRM SUBMIT OVERLAY
-══════════════════════════════════════════ -->
+<!-- CONFIRM SUBMIT OVERLAY -->
 <div class="overlay" id="confirmOverlay">
   <div class="overlay-card">
     <h2>Submit Exam?</h2>
@@ -472,18 +447,14 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     TOAST
-══════════════════════════════════════════ -->
 <div class="toast" id="toast"></div>
 
-<!-- ══════════════════════════════════════════
-     FIREBASE + EXAM LOGIC
-══════════════════════════════════════════ -->
 <script type="module">
+console.log('%c[grafana-evaluation] ✅ v202603181604 — loaded from GitHub Pages', 'color:#4f8ef7;font-weight:bold;');
+
 import { initializeApp }                      from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc,
+import { getFirestore, doc, getDoc, setDoc, addDoc,
          collection, query, where, getDocs,
          serverTimestamp }                    from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -498,12 +469,13 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 /* ── State ── */
-let currentUser = null;
+let currentUser   = null;
 let grafanaCourseId = null;
-let userAnswers  = {};
-let timerInt     = null;
-let timeLeft     = 45 * 60;
-let examStarted  = false;
+let grafanaExamId   = null;   // FIX: exam doc ID from 'exams' collection (used by sf-certs-hub reports)
+let userAnswers   = {};
+let timerInt      = null;
+let timeLeft      = 45 * 60;
+let examStarted   = false;
 let examSubmitted = false;
 let attemptNumber = 1;
 const MAX_ATTEMPTS = 3;
@@ -513,177 +485,83 @@ const PASS_SCORE   = 70;
 /* ── Question Bank (30 questions, 4 sections) ── */
 const sections = [
   {
-    id: "s1",
-    title: "Grafana Fundamentals",
+    id: "s1", title: "Grafana Fundamentals",
     questions: [
-      {
-        id: "q1", text: "What is Grafana primarily used for?",
-        options: ["Database management","Observability and dashboard visualisation","Source code management","Container orchestration"],
-        correct: 1
-      },
-      {
-        id: "q2", text: "Which file format is used to provision Grafana dashboards as code?",
-        options: ["XML","YAML or JSON","TOML only","CSV"],
-        correct: 1
-      },
-      {
-        id: "q3", text: "What is a Grafana 'panel'?",
-        options: ["A user permission group","A single visualisation unit within a dashboard","An authentication plugin","A log file viewer"],
-        correct: 1
-      },
-      {
-        id: "q4", text: "Which of the following is NOT a built-in Grafana visualisation type?",
-        options: ["Time series","Bar chart","Pie chart","Relational diagram"],
-        correct: 3
-      },
-      {
-        id: "q5", text: "What is the default port Grafana runs on?",
-        options: ["8080","9090","3000","5601"],
-        correct: 2
-      },
-      {
-        id: "q6", text: "Grafana 'annotations' are used to:",
-        options: ["Restrict panel visibility","Mark events on graphs","Configure data sources","Set alert thresholds"],
-        correct: 1
-      },
-      {
-        id: "q7", text: "Which Grafana feature allows you to create reusable query variables?",
-        options: ["Panel links","Template variables","Data links","Alert rules"],
-        correct: 1
-      },
-      {
-        id: "q8", text: "What does the Grafana 'Explore' mode enable?",
-        options: ["Ad-hoc querying without creating a dashboard","User management","Dashboard sharing","Plugin installation"],
-        correct: 0
-      }
+      { id:"q1",  text:"What is Grafana primarily used for?",
+        options:["Database management","Observability and dashboard visualisation","Source code management","Container orchestration"], correct:1 },
+      { id:"q2",  text:"Which file format is used to provision Grafana dashboards as code?",
+        options:["XML","YAML or JSON","TOML only","CSV"], correct:1 },
+      { id:"q3",  text:"What is a Grafana 'panel'?",
+        options:["A user permission group","A single visualisation unit within a dashboard","An authentication plugin","A log file viewer"], correct:1 },
+      { id:"q4",  text:"Which of the following is NOT a built-in Grafana visualisation type?",
+        options:["Time series","Bar chart","Pie chart","Relational diagram"], correct:3 },
+      { id:"q5",  text:"What is the default port Grafana runs on?",
+        options:["8080","9090","3000","5601"], correct:2 },
+      { id:"q6",  text:"Grafana 'annotations' are used to:",
+        options:["Restrict panel visibility","Mark events on graphs","Configure data sources","Set alert thresholds"], correct:1 },
+      { id:"q7",  text:"Which Grafana feature allows you to create reusable query variables?",
+        options:["Panel links","Template variables","Data links","Alert rules"], correct:1 },
+      { id:"q8",  text:"What does the Grafana 'Explore' mode enable?",
+        options:["Ad-hoc querying without creating a dashboard","User management","Dashboard sharing","Plugin installation"], correct:0 }
     ]
   },
   {
-    id: "s2",
-    title: "Data Sources & Queries",
+    id: "s2", title: "Data Sources & Queries",
     questions: [
-      {
-        id: "q9", text: "Which data source is natively supported by Grafana for metrics?",
-        options: ["MongoDB","Prometheus","Redis","RabbitMQ"],
-        correct: 1
-      },
-      {
-        id: "q10", text: "What query language does Prometheus use?",
-        options: ["SQL","PromQL","LogQL","InfluxQL"],
-        correct: 1
-      },
-      {
-        id: "q11", text: "Which data source is recommended for log aggregation in the Grafana ecosystem?",
-        options: ["InfluxDB","Elasticsearch only","Loki","TimescaleDB"],
-        correct: 2
-      },
-      {
-        id: "q12", text: "What is Grafana's query language for Loki logs?",
-        options: ["PromQL","LogQL","SQL","KQL"],
-        correct: 1
-      },
-      {
-        id: "q13", text: "When using mixed data sources in a single panel, what must each query specify?",
-        options: ["The same time range","Its own data source","A shared variable","A unique panel ID"],
-        correct: 1
-      },
-      {
-        id: "q14", text: "What does the 'instant query' option do in a Prometheus panel?",
-        options: ["Fetches data for the full time range","Returns a single value at the current time","Refreshes the dashboard every second","Bypasses caching"],
-        correct: 1
-      },
-      {
-        id: "q15", text: "Which Grafana feature caches data source results to reduce load?",
-        options: ["Query inspector","Query caching (Enterprise)","Alert state history","Panel overrides"],
-        correct: 1
-      },
-      {
-        id: "q16", text: "A 'data source proxy' in Grafana is used to:",
-        options: ["Visualise proxy server logs","Route data source requests through the Grafana backend","Store query results locally","Enforce row-level security"],
-        correct: 1
-      }
+      { id:"q9",  text:"Which data source is natively supported by Grafana for metrics?",
+        options:["MongoDB","Prometheus","Redis","RabbitMQ"], correct:1 },
+      { id:"q10", text:"What query language does Prometheus use?",
+        options:["SQL","PromQL","LogQL","InfluxQL"], correct:1 },
+      { id:"q11", text:"Which data source is recommended for log aggregation in the Grafana ecosystem?",
+        options:["InfluxDB","Elasticsearch only","Loki","TimescaleDB"], correct:2 },
+      { id:"q12", text:"What is Grafana's query language for Loki logs?",
+        options:["PromQL","LogQL","SQL","KQL"], correct:1 },
+      { id:"q13", text:"When using mixed data sources in a single panel, what must each query specify?",
+        options:["The same time range","Its own data source","A shared variable","A unique panel ID"], correct:1 },
+      { id:"q14", text:"What does the 'instant query' option do in a Prometheus panel?",
+        options:["Fetches data for the full time range","Returns a single value at the current time","Refreshes the dashboard every second","Bypasses caching"], correct:1 },
+      { id:"q15", text:"Which Grafana feature caches data source results to reduce load?",
+        options:["Query inspector","Query caching (Enterprise)","Alert state history","Panel overrides"], correct:1 },
+      { id:"q16", text:"A 'data source proxy' in Grafana is used to:",
+        options:["Visualise proxy server logs","Route data source requests through the Grafana backend","Store query results locally","Enforce row-level security"], correct:1 }
     ]
   },
   {
-    id: "s3",
-    title: "Alerting",
+    id: "s3", title: "Alerting",
     questions: [
-      {
-        id: "q17", text: "What component manages alert routing in modern Grafana alerting?",
-        options: ["Alert manager (built-in)","Prometheus Alert Manager only","Grafana Alertmanager or an external one","PagerDuty directly"],
-        correct: 0
-      },
-      {
-        id: "q18", text: "What is a 'contact point' in Grafana alerting?",
-        options: ["A user allowed to view alerts","A destination where alert notifications are sent","A threshold value","A data source linked to an alert"],
-        correct: 1
-      },
-      {
-        id: "q19", text: "What is an 'alert rule evaluation interval'?",
-        options: ["How long an alert stays firing","How often the alert condition is checked","The cooldown after an alert resolves","The maximum number of alerts per rule"],
-        correct: 1
-      },
-      {
-        id: "q20", text: "Silences in Grafana Alertmanager are used to:",
-        options: ["Delete alert rules","Suppress notifications for a defined period","Change alert severity","Escalate alerts to another team"],
-        correct: 1
-      },
-      {
-        id: "q21", text: "Which state indicates an alert rule's query returned no data?",
-        options: ["Pending","Alerting","NoData","Error"],
-        correct: 2
-      },
-      {
-        id: "q22", text: "What is the purpose of a 'notification policy' in Grafana alerting?",
-        options: ["To create new alert rules","To route alerts to the correct contact point based on labels","To silence specific dashboards","To export alert history"],
-        correct: 1
-      },
-      {
-        id: "q23", text: "Which threshold mode in Grafana highlights only the area beyond the threshold?",
-        options: ["Absolute","Percentage","Outside range","gt / lt"],
-        correct: 3
-      },
-      {
-        id: "q24", text: "Alert 'labels' in Grafana are used to:",
-        options: ["Style the alert banner colour","Identify and route alerts","Set the evaluation interval","Define the contact point directly"],
-        correct: 1
-      }
+      { id:"q17", text:"What component manages alert routing in modern Grafana alerting?",
+        options:["Alert manager (built-in)","Prometheus Alert Manager only","Grafana Alertmanager or an external one","PagerDuty directly"], correct:0 },
+      { id:"q18", text:"What is a 'contact point' in Grafana alerting?",
+        options:["A user allowed to view alerts","A destination where alert notifications are sent","A threshold value","A data source linked to an alert"], correct:1 },
+      { id:"q19", text:"What is an 'alert rule evaluation interval'?",
+        options:["How long an alert stays firing","How often the alert condition is checked","The cooldown after an alert resolves","The maximum number of alerts per rule"], correct:1 },
+      { id:"q20", text:"Silences in Grafana Alertmanager are used to:",
+        options:["Delete alert rules","Suppress notifications for a defined period","Change alert severity","Escalate alerts to another team"], correct:1 },
+      { id:"q21", text:"Which state indicates an alert rule's query returned no data?",
+        options:["Pending","Alerting","NoData","Error"], correct:2 },
+      { id:"q22", text:"What is the purpose of a 'notification policy' in Grafana alerting?",
+        options:["To create new alert rules","To route alerts to the correct contact point based on labels","To silence specific dashboards","To export alert history"], correct:1 },
+      { id:"q23", text:"Which threshold mode in Grafana highlights only the area beyond the threshold?",
+        options:["Absolute","Percentage","Outside range","gt / lt"], correct:3 },
+      { id:"q24", text:"Alert 'labels' in Grafana are used to:",
+        options:["Style the alert banner colour","Identify and route alerts","Set the evaluation interval","Define the contact point directly"], correct:1 }
     ]
   },
   {
-    id: "s4",
-    title: "Administration & Best Practices",
+    id: "s4", title: "Administration & Best Practices",
     questions: [
-      {
-        id: "q25", text: "Which Grafana role has full administrative access?",
-        options: ["Editor","Viewer","Admin","Grafana Admin"],
-        correct: 3
-      },
-      {
-        id: "q26", text: "What is 'Grafana as Code' and which tool is commonly used?",
-        options: ["Running Grafana in a container — Docker","Defining dashboards in version-controlled JSON/YAML — Grafonnet or Terraform","Scripting alerts in Python — GrafPy","Embedding dashboards in code — iframe API"],
-        correct: 1
-      },
-      {
-        id: "q27", text: "Which Grafana API endpoint is used to export a dashboard as JSON?",
-        options: ["/api/dashboards/uid/{uid}","/api/export/dashboard","/api/dashboards/json","/api/panels/export"],
-        correct: 0
-      },
-      {
-        id: "q28", text: "What is the purpose of Grafana's 'provisioning' system?",
-        options: ["Installing plugins automatically","Pre-loading dashboards and data sources from files on startup","Backing up the database","Managing user LDAP sync"],
-        correct: 1
-      },
-      {
-        id: "q29", text: "Which setting controls whether anonymous access is enabled in Grafana?",
-        options: ["auth.anonymous in grafana.ini","security.allow_anon in config.yaml","users.public_access in defaults.ini","server.anon_enable in grafana.ini"],
-        correct: 0
-      },
-      {
-        id: "q30", text: "What is a best practice for organising dashboards in a large Grafana deployment?",
-        options: ["Keep all dashboards in the General folder","Use folders per team or service with RBAC","Export all dashboards to CSV weekly","Embed all panels in a single mega-dashboard"],
-        correct: 1
-      }
+      { id:"q25", text:"Which Grafana role has full administrative access?",
+        options:["Editor","Viewer","Admin","Grafana Admin"], correct:3 },
+      { id:"q26", text:"What is 'Grafana as Code' and which tool is commonly used?",
+        options:["Running Grafana in a container — Docker","Defining dashboards in version-controlled JSON/YAML — Grafonnet or Terraform","Scripting alerts in Python — GrafPy","Embedding dashboards in code — iframe API"], correct:1 },
+      { id:"q27", text:"Which Grafana API endpoint is used to export a dashboard as JSON?",
+        options:["/api/dashboards/uid/{uid}","/api/export/dashboard","/api/dashboards/json","/api/panels/export"], correct:0 },
+      { id:"q28", text:"What is the purpose of Grafana's 'provisioning' system?",
+        options:["Installing plugins automatically","Pre-loading dashboards and data sources from files on startup","Backing up the database","Managing user LDAP sync"], correct:1 },
+      { id:"q29", text:"Which setting controls whether anonymous access is enabled in Grafana?",
+        options:["auth.anonymous in grafana.ini","security.allow_anon in config.yaml","users.public_access in defaults.ini","server.anon_enable in grafana.ini"], correct:0 },
+      { id:"q30", text:"What is a best practice for organising dashboards in a large Grafana deployment?",
+        options:["Keep all dashboards in the General folder","Use folders per team or service with RBAC","Export all dashboards to CSV weekly","Embed all panels in a single mega-dashboard"], correct:1 }
     ]
   }
 ];
@@ -704,11 +582,10 @@ function setLoading(msg) {
   showScreen('screenLoading');
 }
 
-/* ── Auth flow — Google SSO ── */
+/* ── Auth ── */
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ hd: 'sourcefuse.com' });  // restrict to SF domain
+googleProvider.setCustomParameters({ hd: 'sourcefuse.com' });
 
-// Hard timeout: if onAuthStateChanged hasn't fired within 6 s, show sign-in screen
 const authTimeout = setTimeout(() => {
   if (document.getElementById('screenLoading').classList.contains('active')) {
     showScreen('screenAuth');
@@ -720,10 +597,9 @@ onAuthStateChanged(auth, async user => {
   if (user) {
     const email = user.email || '';
     if (!email.endsWith('@sourcefuse.com')) {
-      // Wrong Google account — sign out and show error
       await auth.signOut();
       const err = document.getElementById('authError');
-      err.textContent = 'Only @sourcefuse.com accounts are permitted. Please sign in with your SourceFuse Google account.';
+      err.textContent = 'Only @sourcefuse.com accounts are permitted.';
       err.style.display = 'block';
       showScreen('screenAuth');
       return;
@@ -743,13 +619,12 @@ window.doGoogleSignIn = async function() {
   btn.textContent = 'Signing in…';
   try {
     await signInWithPopup(auth, googleProvider);
-    // onAuthStateChanged will fire and route to initForUser
   } catch(e) {
     console.error(e);
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
       err.textContent = 'Sign-in was cancelled. Please try again.';
     } else if (e.code === 'auth/popup-blocked') {
-      err.textContent = 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
+      err.textContent = 'Pop-up was blocked. Please allow pop-ups for this site and try again.';
     } else {
       err.textContent = 'Sign-in failed: ' + e.message;
     }
@@ -768,10 +643,11 @@ window.doGoogleSignIn = async function() {
 async function initForUser() {
   setLoading('Loading exam configuration…');
   try {
-    // 1) Look up Grafana courseId
+    // 1) Look up Grafana courseId (for progress write) AND examId (for examResults write)
     grafanaCourseId = await findGrafanaCourseId();
+    grafanaExamId   = await findGrafanaExamId();   // FIX: resolve exam doc ID from 'exams' collection
 
-    // 2) Load attempt history
+    // 2) Load attempt history from results/{uid} (legacy) and examResults/{uid} (hub-compatible)
     const resRef  = doc(db, 'results', currentUser.uid);
     const resSnap = await getDoc(resRef);
     const resData = resSnap.exists() ? resSnap.data() : {};
@@ -783,15 +659,13 @@ async function initForUser() {
     document.getElementById('attemptsLeft').textContent = left;
 
     if (left <= 0) {
-      // Show result screen with final result
       renderResultScreen(resData, false);
       return;
     }
 
-    // Show previous result summary if any
     if (attemptsUsed > 0 && resData.lastScore !== undefined) {
-      const info  = document.getElementById('prevResultInfo');
-      const pass  = resData.lastScore >= PASS_SCORE;
+      const info = document.getElementById('prevResultInfo');
+      const pass = resData.lastScore >= PASS_SCORE;
       info.style.display = 'block';
       info.innerHTML = `<div style="background:var(--navy-mid);border:1px solid var(--navy-border);
         border-radius:10px;padding:16px;font-size:14px;color:var(--muted);">
@@ -809,25 +683,36 @@ async function initForUser() {
   }
 }
 
-/* ── Find Grafana course in Firestore ── */
+/* ── Find Grafana course ID from 'courses' collection ── */
 async function findGrafanaCourseId() {
   try {
-    const coursesRef = collection(db, 'courses');
-    const q = query(coursesRef, where('title', '>=', 'Grafana'), where('title', '<=', 'Grafana\uf8ff'));
+    const q = query(collection(db,'courses'), where('title','>=','Grafana'), where('title','<=','Grafana\uf8ff'));
     const snap = await getDocs(q);
     if (!snap.empty) return snap.docs[0].id;
-
-    // Broader fallback: check all docs for partial match
-    const allSnap = await getDocs(coursesRef);
+    const allSnap = await getDocs(collection(db,'courses'));
     for (const d of allSnap.docs) {
-      const t = (d.data().title || '').toLowerCase();
-      if (t.includes('grafana')) return d.id;
+      if ((d.data().title||'').toLowerCase().includes('grafana')) return d.id;
     }
     return null;
-  } catch(e) {
-    console.warn('Could not find Grafana courseId:', e.message);
+  } catch(e) { console.warn('Could not find Grafana courseId:', e.message); return null; }
+}
+
+/* ── FIX: Find Grafana exam ID from 'exams' collection ──
+   This is the ID used as the key inside examResults/{uid},
+   which is what sf-certs-hub reads for the Test Results report. */
+async function findGrafanaExamId() {
+  try {
+    const q = query(collection(db,'exams'), where('title','>=','Grafana'), where('title','<=','Grafana\uf8ff'));
+    const snap = await getDocs(q);
+    if (!snap.empty) return snap.docs[0].id;
+    // Broader fallback: partial match on title
+    const allSnap = await getDocs(collection(db,'exams'));
+    for (const d of allSnap.docs) {
+      if ((d.data().title||'').toLowerCase().includes('grafana')) return d.id;
+    }
+    console.warn('Could not find Grafana examId — Test Results report will not update');
     return null;
-  }
+  } catch(e) { console.warn('Could not find Grafana examId:', e.message); return null; }
 }
 
 /* ── Start exam ── */
@@ -842,21 +727,19 @@ window.startExam = function() {
 
 /* ── Render exam ── */
 function renderExam() {
-  const sidebar    = document.getElementById('sidebarSections');
-  const container  = document.getElementById('questionsContainer');
+  const sidebar   = document.getElementById('sidebarSections');
+  const container = document.getElementById('questionsContainer');
   sidebar.innerHTML   = '';
   container.innerHTML = '';
 
   let qIndex = 0;
   sections.forEach((sec, si) => {
-    // Sidebar section
     const sdiv = document.createElement('div');
     sdiv.className = 'sidebar-section';
     sdiv.innerHTML = `<div class="sidebar-section-title">Section ${si+1}: ${sec.title}</div>
                       <div class="q-grid" id="grid_${sec.id}"></div>`;
     sidebar.appendChild(sdiv);
 
-    // Questions
     const sh = document.createElement('div');
     sh.className = 'section-header';
     sh.innerHTML = `<span class="section-badge">Section ${si+1}</span>
@@ -868,15 +751,13 @@ function renderExam() {
       qIndex++;
       const localIdx = qIndex;
 
-      // Dot
       const dot = document.createElement('div');
-      dot.className = 'q-dot';
-      dot.id        = `dot_${q.id}`;
+      dot.className   = 'q-dot';
+      dot.id          = `dot_${q.id}`;
       dot.textContent = localIdx;
-      dot.onclick   = () => document.getElementById(`block_${q.id}`).scrollIntoView({behavior:'smooth'});
+      dot.onclick     = () => document.getElementById(`block_${q.id}`).scrollIntoView({behavior:'smooth'});
       grid.appendChild(dot);
 
-      // Block
       const block = document.createElement('div');
       block.className = 'question-block';
       block.id        = `block_${q.id}`;
@@ -885,13 +766,13 @@ function renderExam() {
         <div class="options" id="opts_${q.id}"></div>`;
       container.appendChild(block);
 
-      const opts = block.querySelector(`#opts_${q.id}`);
+      const opts    = block.querySelector(`#opts_${q.id}`);
       const letters = ['A','B','C','D'];
       q.options.forEach((opt, oi) => {
         const el = document.createElement('div');
         el.className = 'option';
         el.innerHTML = `<div class="option-letter">${letters[oi]}</div><div>${opt}</div>`;
-        el.onclick = () => selectAnswer(q.id, oi, el, block, dot);
+        el.onclick   = () => selectAnswer(q.id, oi, el, block, dot);
         opts.appendChild(el);
       });
     });
@@ -902,7 +783,6 @@ function renderExam() {
 function selectAnswer(qId, optIdx, el, block, dot) {
   if (examSubmitted) return;
   userAnswers[qId] = optIdx;
-  // Update visuals
   el.parentElement.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
   block.classList.add('answered');
@@ -921,8 +801,8 @@ function updateProgress() {
 function startTimer() {
   timerInt = setInterval(() => {
     timeLeft--;
-    const m = Math.floor(timeLeft / 60).toString().padStart(2,'0');
-    const s = (timeLeft % 60).toString().padStart(2,'0');
+    const m  = Math.floor(timeLeft/60).toString().padStart(2,'0');
+    const s  = (timeLeft%60).toString().padStart(2,'0');
     const el = document.getElementById('timerDisplay');
     el.textContent = `${m}:${s}`;
     if      (timeLeft <= 300) el.className = 'timer-badge danger';
@@ -937,13 +817,12 @@ function startTimer() {
 
 /* ── Submit flow ── */
 window.requestSubmit = function() {
-  const total    = sections.reduce((a,s) => a + s.questions.length, 0);
-  const answered = Object.keys(userAnswers).length;
+  const total      = sections.reduce((a,s) => a + s.questions.length, 0);
+  const answered   = Object.keys(userAnswers).length;
   const unanswered = total - answered;
-  document.getElementById('confirmMsg').textContent =
-    unanswered > 0
-      ? `You have ${unanswered} unanswered question(s). They will be marked incorrect.`
-      : 'All questions answered. Ready to submit?';
+  document.getElementById('confirmMsg').textContent = unanswered > 0
+    ? `You have ${unanswered} unanswered question(s). They will be marked incorrect.`
+    : 'All questions answered. Ready to submit?';
   document.getElementById('confirmOverlay').classList.add('active');
 };
 window.closeConfirm = function() {
@@ -957,7 +836,7 @@ window.submitExam = async function() {
   clearInterval(timerInt);
   setLoading('Saving results…');
 
-  // Score
+  // ── Score calculation ──
   let correct = 0, total = 0;
   const reviewItems = [];
   sections.forEach(sec => {
@@ -969,30 +848,82 @@ window.submitExam = async function() {
       reviewItems.push({ q, ans, isRight });
     });
   });
-  const score    = Math.round((correct / total) * 100);
-  const passed   = score >= PASS_SCORE;
+  const score     = Math.round((correct / total) * 100);
+  const passed    = score >= PASS_SCORE;
   const timeTaken = 45 * 60 - timeLeft;
+  const candidateName  = currentUser.displayName || currentUser.email;
+  const candidateEmail = currentUser.email;
 
   try {
-    // Write to results/{uid}
-    const resRef = doc(db, 'results', currentUser.uid);
-    const prev   = await getDoc(resRef);
+    // ── Write 1: results/{uid} — existing format, keeps backward compatibility ──
+    const resRef   = doc(db, 'results', currentUser.uid);
+    const prev     = await getDoc(resRef);
     const prevData = prev.exists() ? prev.data() : {};
     const newCount = (prevData.attemptCount || 0) + 1;
 
     await setDoc(resRef, {
-      uid:          currentUser.uid,
-      email:        userEmail(),
-      lastScore:    score,
-      lastPassed:   passed,
-      attemptCount: newCount,
+      uid:           currentUser.uid,
+      email:         candidateEmail,
+      lastScore:     score,
+      lastPassed:    passed,
+      attemptCount:  newCount,
       lastAttemptAt: serverTimestamp(),
       [`attempt_${newCount}_score`]:  score,
       [`attempt_${newCount}_passed`]: passed,
       [`attempt_${newCount}_time`]:   timeTaken,
     }, { merge: true });
 
-    // Write progress flag if passed
+    // ── FIX Write 2: examResults/{uid} — the format sf-certs-hub Test Results reads ──
+    // This was the missing link: grafana-evaluation never wrote here, so the
+    // admin Test Results report showed only raw UIDs with no score or pass/fail.
+    if (grafanaExamId) {
+      const examResRef  = doc(db, 'examResults', currentUser.uid);
+      const examResSnap = await getDoc(examResRef);
+      const examResData = examResSnap.exists() ? examResSnap.data() : {};
+      const existingExamEntry = examResData[grafanaExamId] || { attemptCount: 0, attempts: [] };
+
+      const updatedAttempts = [
+        ...(existingExamEntry.attempts || []),
+        { at: new Date().toISOString(), score, passed, timeTaken }
+      ];
+      const bestScore  = Math.max(score, existingExamEntry.bestScore ?? -1);
+      // bestPassed is true if ANY attempt passed
+      const bestPassed = passed || (existingExamEntry.bestPassed === true);
+
+      await setDoc(examResRef, {
+        // Top-level identity fields — used by loadTestResults name lookup
+        learnerEmail: candidateEmail,
+        learnerName:  candidateName,
+        // Per-exam entry keyed by examId
+        [grafanaExamId]: {
+          attemptCount: (existingExamEntry.attemptCount || 0) + 1,
+          bestScore,
+          bestPassed,
+          lastScore:    score,
+          lastPassed:   passed,
+          lastAttemptAt: serverTimestamp(),
+          attempts:     updatedAttempts,
+        }
+      }, { merge: true });
+    } else {
+      console.warn('grafanaExamId not resolved — examResults not updated. Test Results report will show Taken only.');
+    }
+
+    // ── FIX Write 3: examSessions — provides the candidateUid→email bridge for name lookup ──
+    // sf-certs-hub's loadTestResults uses examSessions as its primary UID→name source.
+    await addDoc(collection(db, 'examSessions'), {
+      candidateUid:   currentUser.uid,
+      candidateEmail: candidateEmail,
+      candidateName:  candidateName,
+      examId:         grafanaExamId || 'grafana',
+      score,
+      passed,
+      timeTaken,
+      startedAt:      serverTimestamp(),
+      status:         passed ? 'passed' : 'failed',
+    });
+
+    // ── Write 4: progress/{uid} — marks course complete if passed ──
     if (passed && grafanaCourseId) {
       const progRef = doc(db, 'progress', currentUser.uid);
       await setDoc(progRef, {
@@ -1043,12 +974,11 @@ function renderResultScreen(data, fromSubmit, reviewItems = []) {
     document.getElementById('retryBtn').style.display = 'inline-flex';
   } else if (!passed && left <= 0) {
     attDiv.innerHTML = `<p style="color:var(--red);font-size:14px;">
-      No attempts remaining. Please contact your L&D administrator.</p>`;
+      No attempts remaining. Please contact your L&amp;D administrator.</p>`;
   } else {
     attDiv.innerHTML = '';
   }
 
-  // Review
   const rev = document.getElementById('reviewContainer');
   if (reviewItems.length > 0) {
     rev.innerHTML = `<h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">Answer Review</h3>`;
@@ -1072,9 +1002,7 @@ function renderResultScreen(data, fromSubmit, reviewItems = []) {
   showScreen('screenResult');
 }
 
-window.goRetry = function() {
-  location.reload();
-};
+window.goRetry = function() { location.reload(); };
 </script>
 </body>
 </html>
