@@ -881,7 +881,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603181603 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603181604 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1725,7 +1725,7 @@ window.submitExamSlot = async function() {
   if (utcDateTime<=new Date()) { showSchedError('Please select a future date and time.'); return; }
   const btn=$('sched-submit-btn'); btn.disabled=true; btn.textContent='Submitting\u2026';
   try {
-    await addDoc(collection(db,'examSlots'),{examId:_schedExamId,learnerEmail:lookupEmail(),learnerName:me.displayName||lookupEmail(),learnerSelfie:_selfieBase64,learnerPhotoConsent:true,requestedDate:date,requestedTime:time,requestedTimezone:_activeTz,utcDateTime:utcDateTime.toISOString(),status:'bookedByLearner',bookedAt:serverTimestamp(),assignedProctor:null,confirmedBy:null,confirmedAt:null,admitted:false,admittedBy:null,adminOverride:false,snapshots:[]});
+    await addDoc(collection(db,'examSlots'),{examId:_schedExamId,learnerEmail:lookupEmail(),learnerName:me.displayName||lookupEmail(),learnerUid:me.uid,learnerSelfie:_selfieBase64,learnerPhotoConsent:true,requestedDate:date,requestedTime:time,requestedTimezone:_activeTz,utcDateTime:utcDateTime.toISOString(),status:'bookedByLearner',bookedAt:serverTimestamp(),assignedProctor:null,confirmedBy:null,confirmedAt:null,admitted:false,admittedBy:null,adminOverride:false,snapshots:[]});
     await addDoc(collection(db,'notifications',lookupEmail(),'items'),{message:'Your exam slot for '+date+' at '+time+' ('+_activeTz+') has been submitted. Awaiting proctor confirmation.',type:'slot_requested',read:false,createdAt:serverTimestamp()});
     closeScheduleModal(); toast('Slot requested! Awaiting proctor confirmation.','success');
     await loadStudentExams();
@@ -1797,7 +1797,7 @@ async function takeBeginSetupSnapshots(referenceImage) {
   } catch(e){console.error('snapshot save:',e);}
   try {
     const uid=await lookupUid();
-    if (uid) { const resRef=doc(db,'examResults',uid); const resSnap=await getDoc(resRef); const cur=resSnap.exists()?((resSnap.data()[_sessionExamId]||{}).attemptCount||0):0; await setDoc(resRef,{[_sessionExamId]:{attemptCount:cur+1,lastAttemptAt:serverTimestamp()}},{merge:true}); }
+    if (uid) { const resRef=doc(db,'examResults',uid); const resSnap=await getDoc(resRef); const cur=resSnap.exists()?((resSnap.data()[_sessionExamId]||{}).attemptCount||0):0; await setDoc(resRef,{learnerEmail:me.email,learnerName:me.displayName||me.email,[_sessionExamId]:{attemptCount:cur+1,lastAttemptAt:serverTimestamp()}},{merge:true}); }
   } catch{}
   $('setup-step-camera').style.display='none'; $('setup-step-waiting').style.display='block';
   const strip=$('setup-thumb-strip'); strip.innerHTML=thumbs.innerHTML;
