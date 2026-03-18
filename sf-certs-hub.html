@@ -688,7 +688,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202603181604 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202603181605 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -2411,8 +2411,10 @@ async function loadTestResults() {
     } catch(e){ console.warn('examSessions fetch:',e); }
 
     // Secondary source: users collection, keyed by email.
-    // Users docs don't store UID, but if examResults doc-id looks like an email
-    // (legacy records) we can resolve it directly.
+    // users/{email} docs carry displayName/name for identity resolution.
+    // After the submitAssignProctor fix, candidate docs also carry assignedExamId.
+    // We still can't go directly UID→email from here, but we build a full
+    // emailNameMap for use as fallback and for the tertiary source below.
     const emailNameMap={};
     try {
       const usersSnap=await getDocs(collection(db,'users'));
