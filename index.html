@@ -792,7 +792,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;">
       <div style="font-size:13px;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 14px;margin-bottom:20px;">
-        ⚠️ New date/time must be at least <strong>24 hours</strong> from now. Your request will be reviewed by the admin.
+        <span id="resched-warn-text">⚠️ New date/time must be at least <strong>24 hours</strong> from now. Your request will be reviewed by the admin.</span>
       </div>
       <div style="margin-bottom:16px;">
         <label style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">New Date</label>
@@ -881,7 +881,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191004 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1340,7 +1340,7 @@ function buildStudentExamCard(exam,myResults,myProgress) {
     const _fSlotPast = _fSlotMs ? Date.now() > _fSlotMs : false;
     if (slot.reassignRequested && _fSlotPast) {
       // Slot time passed + admin notified — prompt reschedule with existing modal
-      footerHtml=`<button class="card-btn btn-enter" style="width:100%;background:#7c3aed;" onclick="openRescheduleRequestModal('${slot.id}','${esc(exam.title)}','${esc(exam.id)}','${esc(slot.assignedProctor||'')}')">&#128198; Reschedule Your Exam Now</button>`;
+      footerHtml=`<button class="card-btn btn-enter" style="width:100%;background:#7c3aed;" onclick="openRescheduleRequestModal('${slot.id}','${esc(exam.title)}','${esc(exam.id)}','${esc(slot.assignedProctor||'')}',true)">&#128198; Reschedule Your Exam Now</button>`;
     } else {
       footerHtml=`<div style="display:flex;gap:10px;">
         <button class="card-btn btn-locked" disabled style="flex:1;">⏳ Awaiting Confirmation</button>
@@ -2066,16 +2066,53 @@ document.addEventListener('click',e=>{
 });
 
 // ══ RESCHEDULE ══
-let _reschedSlotId=null, _reschedExamId=null, _reschedProctor=null;
+let _reschedSlotId=null, _reschedExamId=null, _reschedProctor=null, _reschedAllowSameDay=false;
 
-window.openRescheduleRequestModal = function(slotId, examTitle, examId, assignedProctor) {
+window.openRescheduleRequestModal = function(slotId, examTitle, examId, assignedProctor, allowSameDay) {
   _reschedSlotId = slotId; _reschedExamId = examId; _reschedProctor = assignedProctor || null;
+  _reschedAllowSameDay = allowSameDay === true;
   $('reschedule-subtitle').textContent = examTitle + ' — Your request will be reviewed by the admin.';
   $('resched-error').style.display = 'none';
   $('resched-date').value = ''; $('resched-time').value = '';
   $('resched-submit-btn').disabled = false; $('resched-submit-btn').textContent = 'Submit Request';
-  const minDate = new Date(Date.now() + 24*60*60*1000);
-  $('resched-date').min = minDate.toISOString().split('T')[0];
+
+  if (_reschedAllowSameDay) {
+    // Same-day allowed: min date is today, default time is now+30min
+    const today = new Date();
+    $('resched-date').min = today.toISOString().split('T')[0];
+    // Default time to now + 30 min, rounded up to nearest 5 min
+    const earliest = new Date(today.getTime() + 30*60*1000);
+    const hh = earliest.getHours().toString().padStart(2,'0');
+    const mm = (Math.ceil(earliest.getMinutes()/5)*5 % 60).toString().padStart(2,'0');
+    $('resched-time').value = hh+':'+mm;
+    $('resched-time').min = hh+':'+mm;
+    // Update warning text
+    const warn = $('resched-warn-text');
+    if (warn) warn.innerHTML = '&#9203; You can reschedule for today but no earlier than <strong>30 minutes</strong> from now. Your request will be reviewed by the admin.';
+    // When date changes: lift time restriction if not today
+    $('resched-date').onchange = function() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (this.value === todayStr) {
+        const now30 = new Date(Date.now() + 30*60*1000);
+        const hh2 = now30.getHours().toString().padStart(2,'0');
+        const mm2 = (Math.ceil(now30.getMinutes()/5)*5 % 60).toString().padStart(2,'0');
+        $('resched-time').min = hh2+':'+mm2;
+        if (!$('resched-time').value || $('resched-time').value < hh2+':'+mm2) {
+          $('resched-time').value = hh2+':'+mm2;
+        }
+      } else {
+        $('resched-time').min = '';
+      }
+    };
+  } else {
+    // Standard flow: must be at least 24 hours from now
+    const minDate = new Date(Date.now() + 24*60*60*1000);
+    $('resched-date').min = minDate.toISOString().split('T')[0];
+    $('resched-time').min = '';
+    $('resched-date').onchange = null;
+    const warn = $('resched-warn-text');
+    if (warn) warn.innerHTML = '&#9888;&#65039; New date/time must be at least <strong>24 hours</strong> from now. Your request will be reviewed by the admin.';
+  }
   $('reschedule-modal').style.display = 'block';
 };
 
@@ -2090,8 +2127,16 @@ window.submitRescheduleRequest = async function() {
   const date = $('resched-date').value, time = $('resched-time').value;
   if (!date) { showReschedError('Please select a new date.'); return; }
   if (!time) { showReschedError('Please select a new time.'); return; }
-  const chosen = new Date(date + 'T' + time + ':00'), minAllowed = new Date(Date.now() + 24*60*60*1000);
-  if (chosen < minAllowed) { showReschedError('New date/time must be at least 24 hours from now.'); return; }
+  const chosen = new Date(date + 'T' + time + ':00');
+  if (_reschedAllowSameDay) {
+    // Same-day mode: must be at least 30 min from now
+    const minAllowed = new Date(Date.now() + 30*60*1000);
+    if (chosen < minAllowed) { showReschedError('Please select a time at least 30 minutes from now.'); return; }
+  } else {
+    // Standard mode: must be at least 24 hours from now
+    const minAllowed = new Date(Date.now() + 24*60*60*1000);
+    if (chosen < minAllowed) { showReschedError('New date/time must be at least 24 hours from now.'); return; }
+  }
   const btn = $('resched-submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
   try {
     const slotSnap = await getDoc(doc(db, 'examSlots', _reschedSlotId));
