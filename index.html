@@ -881,7 +881,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603181605 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1170,6 +1170,11 @@ async function loadStudentExams() {
       slotSnap.forEach(d=>{const s={id:d.id,...d.data()};if(!slotMap[s.examId]||(s.bookedAt?.seconds||0)>(slotMap[s.examId].bookedAt?.seconds||0)) slotMap[s.examId]=s;});
     } catch(e){console.warn('slot fetch:',e);}
     _currentExams=nominatedExams; window._currentExams=_currentExams;
+    // Clear any running reassign countdowns from previous load
+    if (window._reassignCountdowns) {
+      Object.values(window._reassignCountdowns).forEach(t => clearInterval(t));
+      window._reassignCountdowns = {};
+    }
     if (window._examSlotListeners) { window._examSlotListeners.forEach(u=>u()); }
     window._examSlotListeners = [];
     for (const exam of nominatedExams) {
@@ -1213,7 +1218,45 @@ function buildStudentExamCard(exam,myResults,myProgress) {
   if (slotStatus==='bookedByLearner') {
     const rc=slot.rescheduleCount||0;
     const reschedTag=rc>0?`<span style="font-size:11px;margin-left:8px;padding:2px 8px;border-radius:50px;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.2);">Rescheduled ${rc}/2</span>`:'';
-    slotStatusHtml=`<div class="slot-status awaiting">&#9203; Awaiting proctor confirmation &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}${reschedTag}</div>`;
+    // Calculate ms since booking to decide: countdown vs immediate button
+    const _bookedMs = slot.bookedAt?.toDate ? slot.bookedAt.toDate().getTime() : (slot.bookedAt?.seconds ? slot.bookedAt.seconds*1000 : null);
+    const _notifyThresholdMs = 15 * 60 * 1000; // 15 minutes
+    const _msElapsed = _bookedMs ? Date.now() - _bookedMs : _notifyThresholdMs + 1;
+    const _msRemaining = _notifyThresholdMs - _msElapsed;
+    const _alreadyNotified = slot.reassignRequested === true;
+    let _notifyBlock = '';
+    if (_alreadyNotified) {
+      _notifyBlock = `<div style="margin-top:10px;font-size:12px;color:#34d399;padding:8px 12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;">&#10003; Admin has been notified — proctor reassignment pending</div>`;
+    } else if (_msRemaining > 0) {
+      // Countdown: notify button not yet available
+      const _minsLeft = Math.ceil(_msRemaining / 60000);
+      _notifyBlock = `<div id="reassign-countdown-${slot.id}" style="margin-top:10px;font-size:12px;color:var(--muted);padding:8px 12px;background:rgba(59,130,246,.04);border:1px solid var(--border);border-radius:8px;">&#9203; Notify admin option available in <strong id="reassign-countdown-val-${slot.id}">${_minsLeft} min</strong></div>
+        <button id="reassign-btn-${slot.id}" class="card-btn btn-enter" style="display:none;margin-top:8px;width:100%;background:#7c3aed;font-size:12px;padding:8px 12px;" onclick="notifyAdminReassignment('${slot.id}','${esc(exam.id)}','${esc(exam.title)}','${esc(slot.assignedProctor||'')}','${esc(slot.requestedDate||'')}','${esc(slot.requestedTime||'')}')">&#128276; Notify Admin of delay in confirmation</button>`;
+      // Start countdown timer for this slot
+      window._reassignCountdowns = window._reassignCountdowns || {};
+      if (!window._reassignCountdowns[slot.id]) {
+        window._reassignCountdowns[slot.id] = setInterval(() => {
+          const remaining = _notifyThresholdMs - (Date.now() - _bookedMs);
+          const valEl = document.getElementById('reassign-countdown-val-'+slot.id);
+          const countEl = document.getElementById('reassign-countdown-'+slot.id);
+          const btnEl = document.getElementById('reassign-btn-'+slot.id);
+          if (!valEl) { clearInterval(window._reassignCountdowns[slot.id]); delete window._reassignCountdowns[slot.id]; return; }
+          if (remaining <= 0) {
+            clearInterval(window._reassignCountdowns[slot.id]);
+            delete window._reassignCountdowns[slot.id];
+            if (countEl) countEl.style.display = 'none';
+            if (btnEl) btnEl.style.display = 'block';
+          } else {
+            const minsLeft = Math.ceil(remaining / 60000);
+            valEl.textContent = minsLeft + ' min';
+          }
+        }, 10000); // check every 10s
+      }
+    } else {
+      // 15 min passed — show button immediately
+      _notifyBlock = `<button class="card-btn btn-enter" style="margin-top:8px;width:100%;background:#7c3aed;font-size:12px;padding:8px 12px;" onclick="notifyAdminReassignment('${slot.id}','${esc(exam.id)}','${esc(exam.title)}','${esc(slot.assignedProctor||'')}','${esc(slot.requestedDate||'')}','${esc(slot.requestedTime||'')}')">&#128276; Notify Admin of delay in confirmation</button>`;
+    }
+    slotStatusHtml=`<div class="slot-status awaiting">&#9203; Awaiting proctor confirmation &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}${reschedTag}</div>${_notifyBlock}`;
   } else if (slotStatus==='confirmed') {
     slotStatusHtml=`<div class="slot-status confirmed">&#10003; Slot confirmed &middot; ${slot.requestedDate||''} ${slot.requestedTime||''}</div>`;
     if (slot.requestedDate&&slot.requestedTime) {
@@ -1257,7 +1300,7 @@ function buildStudentExamCard(exam,myResults,myProgress) {
         <div style="font-size:12px;color:#fbbf24;padding:8px 12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px;">
           &#128196; Attempt recorded. To try again, please schedule a new exam slot.
         </div>
-        <button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128197; Schedule New Attempt</button>
+        <button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128198; Schedule New Attempt</button>
       </div>`;
     } else {
       // No attempts left
@@ -1279,7 +1322,7 @@ function buildStudentExamCard(exam,myResults,myProgress) {
       <button class="card-btn btn-enter" style="flex:1;background:#7c3aed;" onclick="openRescheduleRequestModal('${slot.id}','${esc(exam.title)}','${esc(exam.id)}','${esc(slot.assignedProctor||'')}')">📅 Reschedule</button>
     </div>`;
   } else if (canTake) {
-    footerHtml=`<button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128197; Schedule Exam</button>`;
+    footerHtml=`<button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128198; Schedule Exam</button>`;
   } else {
     footerHtml=`<button class="card-btn btn-locked" disabled>${attemptsLeft===0?'No Attempts Left':'🔒 Complete Course First'}</button>`;
   }
@@ -1889,6 +1932,43 @@ window.closeSessionModal=function(){
   if(_sessionStream){_sessionStream.getTracks().forEach(t=>t.stop());_sessionStream=null;}
   if(_admitListener){_admitListener();_admitListener=null;}
   $('session-modal').style.display='none';
+};
+
+// ══ NOTIFY ADMIN — PROCTOR REASSIGNMENT REQUEST ══
+window.notifyAdminReassignment = async function(slotId, examId, examTitle, currentProctor, requestedDate, requestedTime) {
+  const btn = document.getElementById('reassign-btn-'+slotId) ||
+              [...document.querySelectorAll('button')].find(b => b.textContent.includes('Notify Admin') && b.onclick?.toString().includes(slotId));
+  if (btn) { btn.disabled = true; btn.textContent = 'Notifying admin…'; }
+  try {
+    // Write reassignment request
+    await addDoc(collection(db,'proctorReassignmentRequests'), {
+      slotId, examId, examTitle: examTitle||'',
+      learnerEmail:  me.email,
+      learnerName:   me.displayName || me.email,
+      currentProctor: currentProctor || null,
+      requestedDate, requestedTime,
+      bookedAt:      serverTimestamp(),
+      requestedAt:   serverTimestamp(),
+      status:        'pending'
+    });
+    // Mark slot so candidate can't submit again
+    await setDoc(doc(db,'examSlots',slotId), {reassignRequested:true, reassignRequestedAt:serverTimestamp()}, {merge:true});
+    // Notify both admins
+    for (const adminEmail of ADMINS) {
+      await addDoc(collection(db,'notifications',adminEmail,'items'), {
+        message: `${me.displayName||me.email} is awaiting proctor confirmation for their exam slot on ${requestedDate} at ${requestedTime}. Proctor reassignment may be needed.`,
+        type: 'proctor_reassignment_request',
+        slotId, examId, read: false, createdAt: serverTimestamp()
+      });
+    }
+    toast('Admin notified. They will reassign a proctor shortly.', 'success');
+    // Refresh card to show "already notified" state
+    await loadStudentExams();
+  } catch(e) {
+    console.error('notifyAdminReassignment:', e);
+    toast('Error notifying admin. Please try again.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔔 Notify Admin of delay in confirmation'; }
+  }
 };
 
 // ══ FLAG DELAY ══
