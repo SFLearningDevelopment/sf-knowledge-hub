@@ -736,7 +736,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
         <div id="ap-current-proctor" style="font-size:14px;font-weight:600;color:var(--text);">None</div>
       </div>
       <div id="ap-proctor-wrap" style="display:none;margin-bottom:20px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Step 3 — Assign Proctor</div>
+        <div id="ap-step3-label" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Step 3 — Assign Proctor</div>
         <select id="ap-proctor-select" class="schedule-input"><option value="">— Select a proctor —</option></select>
       </div>
       <div id="ap-error" style="display:none;font-size:13px;color:#f87171;padding:10px 14px;background:rgba(239,68,68,.08);border-radius:8px;border:1px solid rgba(239,68,68,.2);margin-bottom:14px;"></div>
@@ -881,7 +881,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2218,8 +2218,27 @@ window.loadApCurrentProctor = function() {
   const sel=$('ap-nominee-select'), opt=sel.options[sel.selectedIndex];
   if (!sel.value){$('ap-proctor-wrap').style.display='none';$('ap-current-wrap').style.display='none';return;}
   const current=opt&&opt.dataset?opt.dataset.currentProctor:'';
-  $('ap-current-proctor').textContent=current||'None assigned yet'; $('ap-current-wrap').style.display='block'; $('ap-proctor-wrap').style.display='block';
-  if(current) $('ap-proctor-select').value=current;
+
+  // Show current proctor info
+  $('ap-current-proctor').textContent=current||'None assigned yet';
+  $('ap-current-wrap').style.display='block';
+  $('ap-proctor-wrap').style.display='block';
+
+  // Rebuild proctor dropdown excluding the current proctor
+  // so admin cannot "reassign" the same person and is forced to pick someone new
+  const proctorSel=$('ap-proctor-select');
+  const allOptions=Array.from(proctorSel.options);
+  proctorSel.innerHTML=current
+    ? '<option value="">— Select a new proctor —</option>'
+    : '<option value="">— Select a proctor —</option>';
+  allOptions.forEach(o=>{
+    if (!o.value) return; // skip blank placeholder
+    if (o.value===current) return; // skip current proctor
+    proctorSel.appendChild(o.cloneNode(true));
+  });
+  // Update Step 3 label to reflect whether this is a reassignment
+  const step3Label=$('ap-step3-label');
+  if (step3Label) step3Label.textContent=current?'Step 3 — Assign New Proctor':'Step 3 — Assign Proctor';
 };
 
 window.closeAssignProctorModal=function(){$('assign-proctor-modal').style.display='none';};
