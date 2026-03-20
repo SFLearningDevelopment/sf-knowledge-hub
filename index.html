@@ -922,7 +922,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603201006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603201007 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2462,7 +2462,25 @@ window.openAssignProctorModal = async function() {
     exs.forEach(e=>{const opt=document.createElement('option');opt.value=e.id;opt.textContent=e.title||e.id;sel.appendChild(opt);});
     const uSnap=await getDocs(collection(db,'users'));
     const proctorSel=$('ap-proctor-select'); proctorSel.innerHTML='<option value="">— Select a proctor —</option>';
-    uSnap.forEach(d=>{if(d.data().role==='proctor'){const opt=document.createElement('option');opt.value=d.id;opt.textContent=(d.data().name||d.id)+' ('+d.id+')';proctorSel.appendChild(opt);}});
+    // _apProctorMap: maps stored value (UID or email) → display label and canonical email
+    window._apProctorMap={};
+    uSnap.forEach(d=>{
+      if(d.data().role==='proctor'){
+        const ud=d.data();
+        // Prefer email field for canonical identity; fall back to doc id
+        const email=ud.email&&ud.email.includes('@')?ud.email.toLowerCase():null;
+        const displayEmail=email||d.id;
+        const displayName=ud.name||ud.displayName||displayEmail;
+        const opt=document.createElement('option');
+        // Use email as value if available (canonical), else UID
+        opt.value=displayEmail;
+        opt.textContent=displayName+' ('+displayEmail+')';
+        proctorSel.appendChild(opt);
+        // Store mapping so currentProctor UID can be resolved to display label
+        window._apProctorMap[d.id]=displayEmail; // UID → email
+        if(email) window._apProctorMap[email]=displayEmail; // email → email (passthrough)
+      }
+    });
   } catch(e){console.error('openAssignProctorModal:',e);}
 };
 
@@ -2482,8 +2500,10 @@ window.loadApCurrentProctor = function() {
   if (!sel.value){$('ap-proctor-wrap').style.display='none';$('ap-current-wrap').style.display='none';return;}
   const current=opt&&opt.dataset?opt.dataset.currentProctor:'';
 
-  // Show current proctor info
-  $('ap-current-proctor').textContent=current||'None assigned yet';
+  // Resolve stored value (may be UID) to canonical email/name for display
+  const resolvedCurrent = (window._apProctorMap&&window._apProctorMap[current])||current;
+  // Show current proctor info — use resolved email/name not raw UID
+  $('ap-current-proctor').textContent=resolvedCurrent||'None assigned yet';
   $('ap-current-wrap').style.display='block';
   $('ap-proctor-wrap').style.display='block';
 
@@ -2496,7 +2516,8 @@ window.loadApCurrentProctor = function() {
     : '<option value="">— Select a proctor —</option>';
   allOptions.forEach(o=>{
     if (!o.value) return; // skip blank placeholder
-    if (o.value===current) return; // skip current proctor
+    const resolvedCur=(window._apProctorMap&&window._apProctorMap[current])||current;
+    if (o.value===resolvedCur) return; // skip current proctor (match by canonical email)
     proctorSel.appendChild(o.cloneNode(true));
   });
   // Update Step 3 label to reflect whether this is a reassignment
