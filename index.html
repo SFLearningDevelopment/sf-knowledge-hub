@@ -922,7 +922,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603201005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603201006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2343,8 +2343,11 @@ window.addUserToHub = async function() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Invalid email format.'; errEl.style.display = 'block'; return; }
 
   // Check if already in the list
-  if (_setRoleUsers.find(u => u.email === email)) {
-    errEl.textContent = 'This user is already in the list. Select them below to update their role.';
+  const existingUser = _setRoleUsers.find(u => u.email === email);
+  if (existingUser) {
+    const roleName = existingUser.role || 'student';
+    const displayName = existingUser.name && existingUser.name !== existingUser.email ? existingUser.name : email;
+    errEl.textContent = `${displayName} already exists in the Hub as ${roleName}. Select them below to update their role.`;
     errEl.style.display = 'block';
     // Highlight them in the list
     const q = $('set-role-search'); if (q) { q.value = email; filterSetRoleList(); }
