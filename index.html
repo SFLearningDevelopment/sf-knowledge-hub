@@ -759,6 +759,21 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
       <button onclick="closeSetRoleModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&#10005;</button>
     </div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;">
+      <!-- Add User to Hub -->
+      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Add New User to Hub</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="add-user-email" placeholder="name@sourcefuse.com" style="flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" oninput="$('add-user-error').style.display='none'">
+          <select id="add-user-role" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+            <option value="student">Student</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="proctor">Proctor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onclick="addUserToHub()" style="padding:9px 18px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;">+ Add</button>
+        </div>
+        <div id="add-user-error" style="display:none;font-size:12px;color:#f87171;margin-top:6px;"></div>
+      </div>
       <input id="set-role-search" placeholder="Search by name or email..." oninput="filterSetRoleList()" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;margin-bottom:16px;">
       <div id="set-role-list" style="max-height:300px;overflow-y:auto;margin-bottom:20px;"></div>
       <div id="set-role-loading" style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">Loading users&hellip;</div>
@@ -881,7 +896,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603191005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603201001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2202,6 +2217,7 @@ window.openSetRoleModal = async function() {
   $('set-role-modal').style.display='block'; $('set-role-loading').style.display='block';
   $('set-role-list').style.display='none'; $('set-role-empty').style.display='none';
   $('set-role-selector').style.display='none'; $('set-role-search').value='';
+  $('add-user-email').value=''; $('add-user-role').value='student'; $('add-user-error').style.display='none';
   _setRoleSelected=null; _setRoleValue=null;
   try {
     const emailSet=new Map();
@@ -2242,6 +2258,57 @@ function selectSetRoleUser(u) {
 
 window.setRoleSelect=function(role){_setRoleValue=role;['student','reviewer','proctor','admin'].forEach(r=>{const selClass=r==='reviewer'?'selected-reviewer':r==='proctor'?'selected-proctor':r==='admin'?'selected-admin':'selected';$('role-btn-'+r).className='role-pick-btn'+(r===role?' '+selClass:'');});enableSetRoleSubmit();};
 function enableSetRoleSubmit(){if(_setRoleSelected&&_setRoleValue){$('set-role-submit-btn').disabled=false;$('set-role-submit-btn').style.opacity='1';}}
+window.addUserToHub = async function() {
+  const emailInput = $('add-user-email');
+  const roleInput  = $('add-user-role');
+  const errEl      = $('add-user-error');
+  const email = (emailInput.value||'').trim().toLowerCase();
+  const role  = roleInput.value || 'student';
+
+  // Validate
+  errEl.style.display = 'none';
+  if (!email) { errEl.textContent = 'Please enter an email address.'; errEl.style.display = 'block'; return; }
+  if (!email.endsWith('@sourcefuse.com')) { errEl.textContent = 'Only @sourcefuse.com email addresses are allowed.'; errEl.style.display = 'block'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Invalid email format.'; errEl.style.display = 'block'; return; }
+
+  // Check if already in the list
+  if (_setRoleUsers.find(u => u.email === email)) {
+    errEl.textContent = 'This user is already in the list. Select them below to update their role.';
+    errEl.style.display = 'block';
+    // Highlight them in the list
+    const q = $('set-role-search'); if (q) { q.value = email; filterSetRoleList(); }
+    return;
+  }
+
+  const btn = emailInput.nextElementSibling?.nextElementSibling;
+  const addBtn = document.querySelector('#add-user-email ~ * ~ button') ||
+                 [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '+ Add');
+  if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+
+  try {
+    await setDoc(doc(db,'users',email), {
+      role, updatedAt: serverTimestamp(), updatedBy: me.email
+    }, {merge: true});
+
+    // Add to in-memory list and re-render
+    const newUser = {email, name: email, role};
+    _setRoleUsers.push(newUser);
+    _setRoleUsers.sort((a,b) => (a.email).localeCompare(b.email));
+
+    emailInput.value = '';
+    roleInput.value  = 'student';
+    renderSetRoleList(_setRoleUsers);
+    // Auto-select the newly added user
+    selectSetRoleUser(newUser);
+    toast(email + ' added to Hub as ' + role, 'success');
+  } catch(e) {
+    console.error('addUserToHub:', e);
+    errEl.textContent = 'Error adding user. Please try again.';
+    errEl.style.display = 'block';
+  }
+  if (addBtn) { addBtn.disabled = false; addBtn.textContent = '+ Add'; }
+};
+
 window.closeSetRoleModal=function(){$('set-role-modal').style.display='none';_setRoleSelected=null;_setRoleValue=null;};
 
 window.submitSetRole = async function() {
