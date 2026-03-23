@@ -422,7 +422,6 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
       <span class="nav-chip chip-proctor" id="chip-proctor">PROCTOR</span>
     </div>
     <div class="nav-right">
-      <a href="sf-certs-hub.html" class="nav-link" id="certs-link">🎓 Certifications</a>
       <button class="nav-link" id="learner-view-btn" onclick="toggleLearnerView()" style="cursor:pointer;background:none;">📚 Learner View</button>
       <button class="nav-link" id="admin-console-btn" onclick="backToAdminConsole()" style="cursor:pointer;background:none;">⚙ Admin Console</button>
       <div class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()" style="position:relative;">
@@ -922,7 +921,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202603231002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202603231003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1125,7 +1124,6 @@ function showChips() {
   $('chip-admin').style.display    = myRole==='admin'    ? 'inline-flex' : 'none';
   $('chip-reviewer').style.display = myRole==='reviewer' ? 'inline-flex' : 'none';
   $('chip-proctor').style.display  = myRole==='proctor'  ? 'inline-flex' : 'none';
-  $('certs-link').style.display    = (myRole==='student'||myRole==='reviewer') ? 'inline-flex' : 'none';
   $('learner-view-btn').style.display  = (myRole==='admin'||myRole==='reviewer') ? 'inline-flex' : 'none';
   $('admin-console-btn').style.display = myRole==='admin' ? 'inline-flex' : 'none';
 }
@@ -1380,7 +1378,7 @@ function buildStudentExamCard(exam,myResults,myProgress) {
         <div style="font-size:12px;color:#fbbf24;padding:8px 12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px;">
           &#128196; Attempt recorded. To try again, please schedule a new exam slot.
         </div>
-        <button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}')">&#128198; Schedule New Attempt</button>
+        <button class="card-btn btn-enter" onclick="openScheduleModal('${exam.id}','${esc(exam.title)}','${esc(slot?.learnerSelfie||'')}')">&#128198; Schedule New Attempt</button>
       </div>`;
     } else {
       // No attempts left
@@ -1788,17 +1786,37 @@ async function loadFaceApi() {
   } catch(e) { console.warn('face-api load failed:',e); return false; }
 }
 
-window.openScheduleModal = function(examId,examTitle) {
+window.openScheduleModal = function(examId, examTitle, existingSelfie) {
   _schedExamId=examId; _selfieBase64=null;
   $('sched-exam-title').textContent=examTitle; $('sched-error').style.display='none';
   $('sched-consent-check').checked=false; $('sched-photo-status').textContent='';
   $('sched-submit-btn').textContent='Request Slot \u2192'; $('sched-submit-btn').disabled=false;
-  $('selfie-start-btn').style.display='block'; $('selfie-cam-wrap').style.display='none';
-  $('selfie-preview-wrap').style.display='none'; $('selfie-retake-btn').style.display='none';
   $('selfie-countdown').style.display='none';
   const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
   $('sched-date').min=tomorrow.toISOString().split('T')[0]; $('sched-date').value='';
-  updateTzDisplay(); $('schedule-modal').style.display='block';
+  updateTzDisplay();
+
+  if (existingSelfie) {
+    // Re-attempt: candidate already has a selfie from their first slot booking.
+    // Reuse it silently — no need to retake the photo.
+    _selfieBase64 = existingSelfie;
+    $('selfie-start-btn').style.display='none';
+    $('selfie-cam-wrap').style.display='none';
+    $('selfie-retake-btn').style.display='none';
+    $('selfie-preview-wrap').style.display='none';
+    $('sched-photo-status').textContent='✅ Using your selfie from your previous booking.';
+    // Auto-check consent since they already consented when originally scheduling
+    $('sched-consent-check').checked=true;
+  } else {
+    // First attempt: show the camera section as normal
+    $('selfie-start-btn').style.display='block';
+    $('selfie-cam-wrap').style.display='none';
+    $('selfie-preview-wrap').style.display='none';
+    $('selfie-retake-btn').style.display='none';
+    $('sched-photo-status').textContent='';
+  }
+
+  $('schedule-modal').style.display='block';
 };
 
 function updateTzDisplay() {
@@ -1931,11 +1949,12 @@ async function takeBeginSetupSnapshots(referenceImage) {
   try {
     const uid=await lookupUid();
     if (uid) {
-      // Write examResults — increments attemptCount and stamps identity fields
+      // Write examResults — identity fields ONLY (learnerEmail, learnerName).
+      // attemptCount is intentionally NOT incremented here — that happens in
+      // the exam page (grafana-evaluation.html Write 2) at submit time.
+      // Incrementing here caused double-counting in the Admin Test Results report.
       const resRef=doc(db,'examResults',uid);
-      const resSnap=await getDoc(resRef);
-      const cur=resSnap.exists()?((resSnap.data()[_sessionExamId]||{}).attemptCount||0):0;
-      await setDoc(resRef,{learnerEmail:me.email,learnerName:me.displayName||me.email,[_sessionExamId]:{attemptCount:cur+1,lastAttemptAt:serverTimestamp()}},{merge:true});
+      await setDoc(resRef,{learnerEmail:me.email,learnerName:me.displayName||me.email},{merge:true});
       // Write examSessions — creates the candidateUid→email bridge that loadTestResults uses
       // for name resolution in the Test Results report. This is the new-flow equivalent
       // of createSessionDoc() in sf-certs-hub (old consent screen), which never fires
