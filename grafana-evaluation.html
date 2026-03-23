@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603181604 -->
+  <!-- Cache busting v202603231002 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -478,6 +478,10 @@ let timeLeft      = 45 * 60;
 let examStarted   = false;
 let examSubmitted = false;
 let attemptNumber = 1;
+let slotId        = null;  // passed via URL param from index.html Begin Exam button
+let _timedOut     = false; // true when timer fires submitExam, false when candidate clicks Submit
+let sessionDocId  = null;  // examSessions doc ID — created at startExam, updated at submitExam
+let _tabSwitchCount = 0;   // running count for beforeunload message
 const MAX_ATTEMPTS = 3;
 const userEmail = () => currentUser?.email || "unknown";
 const PASS_SCORE   = 70;
@@ -605,6 +609,10 @@ onAuthStateChanged(auth, async user => {
       return;
     }
     currentUser = user;
+  // Read slotId from URL — passed by index.html when opening the exam
+  const _urlParams = new URLSearchParams(window.location.search);
+  slotId = _urlParams.get('slotId') || null;
+  if (slotId) console.log('[grafana-eval] slotId from URL:', slotId);
     await initForUser();
   } else {
     showScreen('screenAuth');
@@ -716,10 +724,35 @@ async function findGrafanaExamId() {
 }
 
 /* ── Start exam ── */
-window.startExam = function() {
+window.startExam = async function() {
   if (examStarted) return;
   examStarted = true;
   document.getElementById('startBtn').disabled = true;
+
+  // ── Create examSessions doc at exam start so flags can be appended throughout ──
+  try {
+    const sessRef = await addDoc(collection(db, 'examSessions'), {
+      candidateUid:   currentUser.uid,
+      candidateEmail: currentUser.email,
+      candidateName:  currentUser.displayName || currentUser.email,
+      examId:         grafanaExamId || 'grafana',
+      slotId:         slotId || null,
+      startedAt:      serverTimestamp(),
+      status:         'active',
+      flags:          [],
+      questionProgress: 0,
+      totalQuestions:   sections.reduce((a,s)=>a+s.questions.length,0)
+    });
+    sessionDocId = sessRef.id;
+    console.log('[grafana-eval] examSessions doc created:', sessionDocId);
+  } catch(e) { console.warn('[grafana-eval] examSessions create failed:', e.message); }
+
+  // ── Tab switch detection ──
+  document.addEventListener('visibilitychange', _onVisibilityChange);
+
+  // ── Exit/navigate warning ──
+  window.addEventListener('beforeunload', _onBeforeUnload);
+
   renderExam();
   startTimer();
   showScreen('screenExam');
@@ -809,6 +842,7 @@ function startTimer() {
     else if (timeLeft <= 600) el.className = 'timer-badge warning';
     if (timeLeft <= 0) {
       clearInterval(timerInt);
+      _timedOut = true;
       showToast('Time is up! Submitting…', 'error');
       submitExam();
     }
@@ -829,11 +863,75 @@ window.closeConfirm = function() {
   document.getElementById('confirmOverlay').classList.remove('active');
 };
 
+// ── Tab switch / exit event handlers ──
+async function _logExamEvent(type, extra = {}) {
+  const entry = { type, at: new Date().toISOString(), ts: Date.now(), ...extra };
+  // Write to examSessions flags array
+  if (sessionDocId) {
+    try {
+      const ref  = doc(db, 'examSessions', sessionDocId);
+      const snap = await getDoc(ref);
+      const flags = (snap.exists() ? snap.data().flags : []) || [];
+      flags.push(entry);
+      await setDoc(ref, { flags, lastFlagAt: serverTimestamp() }, { merge: true });
+    } catch(e) { console.warn('[grafana-eval] flag write failed:', e.message); }
+  }
+  // Write to auditLog
+  try {
+    await addDoc(collection(db, 'auditLog'), {
+      action:       type,
+      actorEmail:   currentUser?.email || 'unknown',
+      actorRole:    'student',
+      targetEmail:  currentUser?.email || 'unknown',
+      slotId:       slotId || null,
+      examId:       grafanaExamId || 'grafana',
+      sessionDocId: sessionDocId || null,
+      metadata:     extra.message || type,
+      timestamp:    serverTimestamp()
+    });
+  } catch(e) { console.warn('[grafana-eval] auditLog write failed:', e.message); }
+}
+
+function _onVisibilityChange() {
+  if (!examStarted || examSubmitted) return;
+  if (document.hidden) {
+    _tabSwitchCount++;
+    _logExamEvent('tab_switch', {
+      count: _tabSwitchCount,
+      message: 'Candidate switched away from exam tab (switch #' + _tabSwitchCount + ')'
+    });
+  } else {
+    _logExamEvent('tab_switch_return', {
+      count: _tabSwitchCount,
+      message: 'Candidate returned to exam tab after switch #' + _tabSwitchCount
+    });
+  }
+}
+
+function _onBeforeUnload(e) {
+  if (!examStarted || examSubmitted) return;
+  const msg = 'Your exam is in progress. Leaving this page may result in your attempt being marked as abandoned.';
+  e.preventDefault();
+  e.returnValue = msg;
+  // Log the exit attempt (best-effort — browser may not wait for async)
+  _logExamEvent('exit_attempt', {
+    message: 'Candidate attempted to close/navigate away from exam tab (tab switches so far: ' + _tabSwitchCount + ')'
+  });
+  return msg;
+}
+
+function _removeExamListeners() {
+  document.removeEventListener('visibilitychange', _onVisibilityChange);
+  window.removeEventListener('beforeunload', _onBeforeUnload);
+}
+
 window.submitExam = async function() {
   document.getElementById('confirmOverlay').classList.remove('active');
   if (examSubmitted) return;
   examSubmitted = true;
   clearInterval(timerInt);
+  // Remove tab/exit listeners now that exam is submitted
+  _removeExamListeners();
   setLoading('Saving results…');
 
   // ── Score calculation ──
@@ -909,19 +1007,40 @@ window.submitExam = async function() {
       console.warn('grafanaExamId not resolved — examResults not updated. Test Results report will show Taken only.');
     }
 
-    // ── FIX Write 3: examSessions — provides the candidateUid→email bridge for name lookup ──
-    // sf-certs-hub's loadTestResults uses examSessions as its primary UID→name source.
-    await addDoc(collection(db, 'examSessions'), {
-      candidateUid:   currentUser.uid,
-      candidateEmail: candidateEmail,
-      candidateName:  candidateName,
-      examId:         grafanaExamId || 'grafana',
-      score,
-      passed,
-      timeTaken,
-      startedAt:      serverTimestamp(),
-      status:         passed ? 'passed' : 'failed',
-    });
+    // ── Write 3: Update existing examSessions doc (created at startExam) ──
+    // Adds final score/status and preserves all flags written during the exam.
+    if (sessionDocId) {
+      await setDoc(doc(db, 'examSessions', sessionDocId), {
+        candidateUid:   currentUser.uid,
+        candidateEmail: candidateEmail,
+        candidateName:  candidateName,
+        examId:         grafanaExamId || 'grafana',
+        slotId:         slotId || null,
+        score,
+        passed,
+        timeTaken,
+        tabSwitchCount: _tabSwitchCount,
+        completedAt:    serverTimestamp(),
+        status:         passed ? 'passed' : 'failed',
+        completionType: _timedOut ? 'timeout' : 'submitted',
+      }, { merge: true });
+    } else {
+      // Fallback: no session doc from startExam (e.g. page refreshed mid-exam)
+      await addDoc(collection(db, 'examSessions'), {
+        candidateUid:   currentUser.uid,
+        candidateEmail: candidateEmail,
+        candidateName:  candidateName,
+        examId:         grafanaExamId || 'grafana',
+        slotId:         slotId || null,
+        score, passed, timeTaken,
+        tabSwitchCount: _tabSwitchCount,
+        startedAt:      serverTimestamp(),
+        completedAt:    serverTimestamp(),
+        status:         passed ? 'passed' : 'failed',
+        completionType: _timedOut ? 'timeout' : 'submitted',
+        flags:          [],
+      });
+    }
 
     // ── Write 4: progress/{uid} — marks course complete if passed ──
     if (passed && grafanaCourseId) {
@@ -933,6 +1052,34 @@ window.submitExam = async function() {
     }
 
     showToast(passed ? '🎉 Exam passed! Results saved.' : 'Results saved.', passed ? 'success' : 'error');
+
+    // ── Write 5: examSlots status update ──
+    // Mark the slot as completed or abandoned so the proctor dashboard
+    // stops showing "Exam In Progress" for past slots.
+    if (slotId) {
+      try {
+        await setDoc(doc(db, 'examSlots', slotId), {
+          status:         _timedOut ? 'abandoned' : 'completed',
+          completionType: _timedOut ? 'timeout'   : 'submitted',
+          completedAt:    serverTimestamp(),
+          finalScore:     score,
+          finalPassed:    passed,
+        }, { merge: true });
+        console.log('[grafana-eval] examSlots status written:', _timedOut ? 'abandoned' : 'completed');
+      } catch(slotErr) {
+        console.warn('[grafana-eval] examSlots update failed (non-critical):', slotErr.message);
+      }
+    }
+
+    // ── Signal hub tab that exam is complete ──
+    // index.html listens for this via storage event to clear its beforeunload lock
+    try {
+      localStorage.setItem('sf_exam_done', JSON.stringify({
+        slotId, status: _timedOut ? 'abandoned' : 'completed',
+        examId: grafanaExamId || 'grafana',
+        ts: Date.now()
+      }));
+    } catch(e) { console.warn('[grafana-eval] localStorage signal failed:', e.message); }
   } catch(e) {
     console.error('Firestore write error:', e);
     showToast('Could not save results: ' + e.message, 'error');
