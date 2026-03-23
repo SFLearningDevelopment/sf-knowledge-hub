@@ -693,7 +693,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202603191005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202603201001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -1424,29 +1424,82 @@ function buildProctorSlotCard(slot) {
 
   let snapshotsHtml = '';
   if (slot.status === 'awaitingAdmit') {
-    if (slot.learnerSelfie) {
-      snapshotsHtml += `<div style="margin-bottom:16px;">
-        <div class="slot-selfie-label" style="margin-bottom:8px;">📸 Scheduling Selfie <span style="font-weight:400;color:var(--muted);">(Identity Reference)</span></div>
-        <img src="${slot.learnerSelfie}" style="width:100px;height:75px;border-radius:8px;object-fit:cover;border:2px solid var(--accent);" onerror="this.style.display=&apos;none&apos;">
-      </div>`;
+    // ── bookedByLearner: show scheduling selfie so proctor knows who they're confirming ──
+    if (slot.status === 'bookedByLearner' && slot.learnerSelfie) {
+      snapshotsHtml += `
+        <div style="margin-bottom:16px;padding:14px;background:rgba(59,130,246,.04);border:1px solid rgba(59,130,246,.15);border-radius:10px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">📸 Candidate Identity Selfie</div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <img src="${slot.learnerSelfie}" style="width:80px;height:80px;border-radius:10px;object-fit:cover;border:2px solid var(--accent);flex-shrink:0;" onerror="this.style.display='none'">
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+              Taken when the candidate scheduled this slot.<br>
+              Verify this matches the person you expect before confirming.
+            </div>
+          </div>
+        </div>`;
     }
-    if (slot.snapshots && slot.snapshots.length > 0) {
-      snapshotsHtml += '<div style="margin-bottom:12px;"><div class="slot-selfie-label" style="margin-bottom:8px;">🎥 Live Snapshots <span style="font-weight:400;color:var(--muted);">(taken at exam time)</span></div><div class="slot-snapshots">';
-      slot.snapshots.forEach(snap => {
-        const score = snap.matchScore;
-        const color = score == null ? 'var(--border)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
-        snapshotsHtml += `<div class="snap-item"><img src="${snap.image}" class="snap-img" style="border-color:${color};" onerror="this.style.display=&apos;none&apos;"><div class="snap-score" style="color:${color};">${score != null ? score+'%' : '&mdash;'}</div></div>`;
-      });
-      snapshotsHtml += '</div></div>';
-      const scores = slot.snapshots.map(s => s.matchScore).filter(s => s != null);
+
+    // ── awaitingAdmit: side-by-side comparison with verdict banner ──
+    if (slot.status === 'awaitingAdmit') {
+      // Scheduling selfie (reference)
+      const selfieHtml = slot.learnerSelfie
+        ? `<img src="${slot.learnerSelfie}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;border:2px solid var(--accent);" onerror="this.style.display='none'">`
+        : `<div style="width:90px;height:90px;border-radius:10px;background:var(--surface);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);text-align:center;">No selfie</div>`;
+
+      // Snapshots with individual scores
+      let snapGridHtml = '';
+      const scores = [];
+      if (slot.snapshots && slot.snapshots.length > 0) {
+        slot.snapshots.forEach(snap => {
+          const score = snap.matchScore;
+          if (score != null) scores.push(score);
+          const col = score == null ? 'var(--border)' : score >= 70 ? '#34d399' : score >= 50 ? '#f59e0b' : '#ef4444';
+          snapGridHtml += `<div style="text-align:center;">
+            <img src="${snap.image}" style="width:56px;height:56px;border-radius:6px;object-fit:cover;border:2px solid ${col};display:block;" onerror="this.style.display='none'">
+            <div style="font-size:10px;font-weight:700;color:${col};margin-top:3px;">${score != null ? score+'%' : '&mdash;'}</div>
+          </div>`;
+        });
+      } else {
+        snapGridHtml = `<div style="font-size:12px;color:var(--muted);">No snapshots received yet.</div>`;
+      }
+
+      // Overall verdict
+      let verdictHtml = '';
       if (scores.length > 0) {
         const avg = Math.round(scores.reduce((a,b) => a+b,0) / scores.length);
-        const avgColor = avg >= 70 ? '#34d399' : avg >= 50 ? '#f59e0b' : '#f87171';
-        snapshotsHtml += `<div style="background:rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:12px;color:var(--muted);">Average Face Match Score</span>
-          <span style="font-size:16px;font-weight:800;color:${avgColor};">${avg}%</span>
-        </div>`;
+        const avgCol   = avg >= 70 ? '#34d399'              : avg >= 50 ? '#f59e0b'              : '#f87171';
+        const avgBg    = avg >= 70 ? 'rgba(16,185,129,.08)' : avg >= 50 ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
+        const avgBdr   = avg >= 70 ? 'rgba(16,185,129,.25)' : avg >= 50 ? 'rgba(245,158,11,.25)' : 'rgba(239,68,68,.25)';
+        const verdict  = avg >= 70 ? '✅ Good match — identity likely confirmed'
+                       : avg >= 50 ? '⚠️ Partial match — verify carefully before admitting'
+                       :             '🔴 Low match — consider denying and requesting re-verification';
+        verdictHtml = `
+          <div style="background:${avgBg};border:1px solid ${avgBdr};border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+            <div style="font-size:12px;color:${avgCol};font-weight:600;flex:1;">${verdict}</div>
+            <div style="font-size:20px;font-weight:800;color:${avgCol};white-space:nowrap;">Avg ${avg}%</div>
+          </div>`;
+      } else {
+        verdictHtml = `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted);">
+            ⚠️ Face match score unavailable — please compare the photos visually before admitting.
+          </div>`;
       }
+
+      snapshotsHtml += `
+        <div style="margin-bottom:14px;padding:14px;background:rgba(0,0,0,.15);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">🔍 Identity Verification</div>
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:14px;flex-wrap:wrap;">
+            <div style="text-align:center;flex-shrink:0;">
+              <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Reference Selfie</div>
+              ${selfieHtml}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Live Snapshots</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">${snapGridHtml}</div>
+            </div>
+          </div>
+          ${verdictHtml}
+        </div>`;
     }
   }
 
