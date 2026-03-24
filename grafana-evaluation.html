@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603231002 -->
+  <!-- Cache busting v202603241001 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -322,7 +322,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:18px;">
     <div class="timer-badge" id="timerDisplay">45:00</div>
-    <a class="back-link" href="https://sflearningdevelopment.github.io/sf-learning-hub/index.html">
+    <a class="back-link" href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html">
       ← Back to Hub
     </a>
   </div>
@@ -428,7 +428,7 @@
       <div id="resultAttempts" style="margin-bottom:20px;"></div>
       <div id="reviewContainer"></div>
       <div class="btn-row">
-        <a class="btn btn-secondary" href="https://sflearningdevelopment.github.io/sf-learning-hub/index.html">← Back to Hub</a>
+        <a class="btn btn-secondary" href="https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html">← Back to Hub</a>
         <button class="btn btn-primary" id="retryBtn" onclick="goRetry()" style="display:none;">Retry Exam</button>
       </div>
     </div>
@@ -470,8 +470,8 @@ const db   = getFirestore(app);
 
 /* ── State ── */
 let currentUser   = null;
-let grafanaCourseId = null;
-let grafanaExamId   = null;   // FIX: exam doc ID from 'exams' collection (used by sf-certs-hub reports)
+let examCourseId = null;  // from URL param courseId — passed by index.html
+let examDocId    = null;  // from URL param examId  — passed by index.html
 let userAnswers   = {};
 let timerInt      = null;
 let timeLeft      = 45 * 60;
@@ -609,10 +609,12 @@ onAuthStateChanged(auth, async user => {
       return;
     }
     currentUser = user;
-  // Read slotId from URL — passed by index.html when opening the exam
+  // Read URL params — all passed by index.html when opening the exam
   const _urlParams = new URLSearchParams(window.location.search);
-  slotId = _urlParams.get('slotId') || null;
-  if (slotId) console.log('[grafana-eval] slotId from URL:', slotId);
+  slotId      = _urlParams.get('slotId')   || null;
+  examDocId   = _urlParams.get('examId')   || null;
+  examCourseId = _urlParams.get('courseId') || null;
+  console.log('[grafana-eval] URL params — slotId:', slotId, 'examId:', examDocId, 'courseId:', examCourseId);
     await initForUser();
   } else {
     showScreen('screenAuth');
@@ -651,9 +653,9 @@ window.doGoogleSignIn = async function() {
 async function initForUser() {
   setLoading('Loading exam configuration…');
   try {
-    // 1) Look up Grafana courseId (for progress write) AND examId (for examResults write)
-    grafanaCourseId = await findGrafanaCourseId();
-    grafanaExamId   = await findGrafanaExamId();   // FIX: resolve exam doc ID from 'exams' collection
+    // 1) examId and courseId are passed via URL params from index.html — no Firestore lookup needed.
+    // findGrafanaCourseId() / findGrafanaExamId() are no longer used.
+    // examDocId and examCourseId are already set from URL params in onAuthStateChanged.
 
     // 2) Load attempt history from results/{uid} (legacy) and examResults/{uid} (hub-compatible)
     const resRef  = doc(db, 'results', currentUser.uid);
@@ -692,36 +694,9 @@ async function initForUser() {
 }
 
 /* ── Find Grafana course ID from 'courses' collection ── */
-async function findGrafanaCourseId() {
-  try {
-    const q = query(collection(db,'courses'), where('title','>=','Grafana'), where('title','<=','Grafana\uf8ff'));
-    const snap = await getDocs(q);
-    if (!snap.empty) return snap.docs[0].id;
-    const allSnap = await getDocs(collection(db,'courses'));
-    for (const d of allSnap.docs) {
-      if ((d.data().title||'').toLowerCase().includes('grafana')) return d.id;
-    }
-    return null;
-  } catch(e) { console.warn('Could not find Grafana courseId:', e.message); return null; }
-}
-
-/* ── FIX: Find Grafana exam ID from 'exams' collection ──
-   This is the ID used as the key inside examResults/{uid},
-   which is what sf-certs-hub reads for the Test Results report. */
-async function findGrafanaExamId() {
-  try {
-    const q = query(collection(db,'exams'), where('title','>=','Grafana'), where('title','<=','Grafana\uf8ff'));
-    const snap = await getDocs(q);
-    if (!snap.empty) return snap.docs[0].id;
-    // Broader fallback: partial match on title
-    const allSnap = await getDocs(collection(db,'exams'));
-    for (const d of allSnap.docs) {
-      if ((d.data().title||'').toLowerCase().includes('grafana')) return d.id;
-    }
-    console.warn('Could not find Grafana examId — Test Results report will not update');
-    return null;
-  } catch(e) { console.warn('Could not find Grafana examId:', e.message); return null; }
-}
+// findGrafanaCourseId() and findGrafanaExamId() removed.
+// examDocId and examCourseId are now passed via URL params from index.html.
+// See EXAM_DEVELOPER_NOTES.md section 1 for details.
 
 /* ── Start exam ── */
 window.startExam = async function() {
@@ -735,7 +710,7 @@ window.startExam = async function() {
       candidateUid:   currentUser.uid,
       candidateEmail: currentUser.email,
       candidateName:  currentUser.displayName || currentUser.email,
-      examId:         grafanaExamId || 'grafana',
+      examId:         examDocId || 'unknown',
       slotId:         slotId || null,
       startedAt:      serverTimestamp(),
       status:         'active',
@@ -864,6 +839,13 @@ window.closeConfirm = function() {
 };
 
 // ── Tab switch / exit event handlers ──
+/* ══════════════════════════════════════════════════════════════
+   SHARED EXAM INTEGRITY MODULE
+   Copy this entire block verbatim into any new exam page.
+   Do NOT modify function names — index.html and sf-certs-hub
+   depend on the localStorage signal format and flag type strings.
+   See EXAM_DEVELOPER_NOTES.md for full integration guide.
+══════════════════════════════════════════════════════════════ */
 async function _logExamEvent(type, extra = {}) {
   const entry = { type, at: new Date().toISOString(), ts: Date.now(), ...extra };
   // Write to examSessions flags array
@@ -884,7 +866,7 @@ async function _logExamEvent(type, extra = {}) {
       actorRole:    'student',
       targetEmail:  currentUser?.email || 'unknown',
       slotId:       slotId || null,
-      examId:       grafanaExamId || 'grafana',
+      examId:       examDocId || 'unknown',
       sessionDocId: sessionDocId || null,
       metadata:     extra.message || type,
       timestamp:    serverTimestamp()
@@ -924,6 +906,7 @@ function _removeExamListeners() {
   document.removeEventListener('visibilitychange', _onVisibilityChange);
   window.removeEventListener('beforeunload', _onBeforeUnload);
 }
+/* ══ END SHARED EXAM INTEGRITY MODULE ══ */
 
 window.submitExam = async function() {
   document.getElementById('confirmOverlay').classList.remove('active');
@@ -974,11 +957,11 @@ window.submitExam = async function() {
     // ── FIX Write 2: examResults/{uid} — the format sf-certs-hub Test Results reads ──
     // This was the missing link: grafana-evaluation never wrote here, so the
     // admin Test Results report showed only raw UIDs with no score or pass/fail.
-    if (grafanaExamId) {
+    if (examDocId) {
       const examResRef  = doc(db, 'examResults', currentUser.uid);
       const examResSnap = await getDoc(examResRef);
       const examResData = examResSnap.exists() ? examResSnap.data() : {};
-      const existingExamEntry = examResData[grafanaExamId] || { attemptCount: 0, attempts: [] };
+      const existingExamEntry = examResData[examDocId] || { attemptCount: 0, attempts: [] };
 
       const updatedAttempts = [
         ...(existingExamEntry.attempts || []),
@@ -993,7 +976,7 @@ window.submitExam = async function() {
         learnerEmail: candidateEmail,
         learnerName:  candidateName,
         // Per-exam entry keyed by examId
-        [grafanaExamId]: {
+        [examDocId]: {
           attemptCount: (existingExamEntry.attemptCount || 0) + 1,
           bestScore,
           bestPassed,
@@ -1004,81 +987,34 @@ window.submitExam = async function() {
         }
       }, { merge: true });
     } else {
-      console.warn('grafanaExamId not resolved — examResults not updated. Test Results report will show Taken only.');
-    }
-
-    // ── Write 3: Update existing examSessions doc (created at startExam) ──
-    // Adds final score/status and preserves all flags written during the exam.
-    if (sessionDocId) {
-      await setDoc(doc(db, 'examSessions', sessionDocId), {
-        candidateUid:   currentUser.uid,
-        candidateEmail: candidateEmail,
-        candidateName:  candidateName,
-        examId:         grafanaExamId || 'grafana',
-        slotId:         slotId || null,
-        score,
-        passed,
-        timeTaken,
-        tabSwitchCount: _tabSwitchCount,
-        completedAt:    serverTimestamp(),
-        status:         passed ? 'passed' : 'failed',
-        completionType: _timedOut ? 'timeout' : 'submitted',
-      }, { merge: true });
-    } else {
-      // Fallback: no session doc from startExam (e.g. page refreshed mid-exam)
-      await addDoc(collection(db, 'examSessions'), {
-        candidateUid:   currentUser.uid,
-        candidateEmail: candidateEmail,
-        candidateName:  candidateName,
-        examId:         grafanaExamId || 'grafana',
-        slotId:         slotId || null,
-        score, passed, timeTaken,
-        tabSwitchCount: _tabSwitchCount,
-        startedAt:      serverTimestamp(),
-        completedAt:    serverTimestamp(),
-        status:         passed ? 'passed' : 'failed',
-        completionType: _timedOut ? 'timeout' : 'submitted',
-        flags:          [],
-      });
-    }
-
-    // ── Write 4: progress/{uid} — marks course complete if passed ──
-    if (passed && grafanaCourseId) {
-      const progRef = doc(db, 'progress', currentUser.uid);
-      await setDoc(progRef, {
-        [`course_${grafanaCourseId}`]: true,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      console.warn('examDocId not resolved — examResults not updated. Test Results report will show Taken only.');
     }
 
     showToast(passed ? '🎉 Exam passed! Results saved.' : 'Results saved.', passed ? 'success' : 'error');
 
-    // ── Write 5: examSlots status update ──
-    // Mark the slot as completed or abandoned so the proctor dashboard
-    // stops showing "Exam In Progress" for past slots.
-    if (slotId) {
-      try {
-        await setDoc(doc(db, 'examSlots', slotId), {
-          status:         _timedOut ? 'abandoned' : 'completed',
-          completionType: _timedOut ? 'timeout'   : 'submitted',
-          completedAt:    serverTimestamp(),
-          finalScore:     score,
-          finalPassed:    passed,
-        }, { merge: true });
-        console.log('[grafana-eval] examSlots status written:', _timedOut ? 'abandoned' : 'completed');
-      } catch(slotErr) {
-        console.warn('[grafana-eval] examSlots update failed (non-critical):', slotErr.message);
-      }
-    }
-
-    // ── Signal hub tab that exam is complete ──
-    // index.html listens for this via storage event to clear its beforeunload lock
+    // ── Signal hub tab — Writes 3, 4, 5 handled by index.html ──
+    // index.html receives this signal and executes:
+    //   Write 3: examSessions update (status, score, flags preserved)
+    //   Write 4: progress/{uid} course unlock (if passed)
+    //   Write 5: examSlots status (completed / abandoned)
+    // This keeps all platform-state writes exam-agnostic and in one place.
     try {
       localStorage.setItem('sf_exam_done', JSON.stringify({
-        slotId, status: _timedOut ? 'abandoned' : 'completed',
-        examId: grafanaExamId || 'grafana',
+        slotId,
+        examId:       examDocId || null,
+        courseId:     examCourseId || null,
+        sessionDocId: sessionDocId || null,
+        candidateUid:   currentUser.uid,
+        candidateEmail: candidateEmail,
+        candidateName:  candidateName,
+        score,
+        passed,
+        timeTaken,
+        timedOut:       _timedOut,
+        tabSwitchCount: _tabSwitchCount,
         ts: Date.now()
       }));
+      console.log('[grafana-eval] sf_exam_done signal sent — timedOut:', _timedOut);
     } catch(e) { console.warn('[grafana-eval] localStorage signal failed:', e.message); }
   } catch(e) {
     console.error('Firestore write error:', e);
@@ -1149,7 +1085,7 @@ function renderResultScreen(data, fromSubmit, reviewItems = []) {
   showScreen('screenResult');
 }
 
-window.goRetry = function() { location.reload(); };
+window.goRetry = function() { window.location.href = 'https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html'; };
 </script>
 </body>
 </html>
