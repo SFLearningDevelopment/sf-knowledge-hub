@@ -2,61 +2,70 @@
 
 **Project:** `sf-knowledge-hub` (sflearningdevelopment.github.io/sf-knowledge-hub/)
 **Firebase:** `sfcertification-grafana`
-**Reference implementation:** `grafana-evaluation.html`
-**Last updated:** 2026-03-23
+**Last updated:** 2026-03-24
 
 ---
 
 ## Overview
 
-This document describes everything a developer needs to know when building a **new exam page** (e.g. Kubernetes, AWS, Databricks) that integrates with the SF Certifications Hub (`index.html`) and Admin Dashboard (`sf-certs-hub.html`).
+This document describes everything a developer needs to know when building a new exam page
+(e.g. Kubernetes, AWS, Databricks) that integrates with the SF Certifications Hub (`index.html`)
+and Admin Dashboard (`sf-certs-hub.html`).
 
-The hub manages the full exam lifecycle — slot booking, proctor assignment, identity verification, and admission. Once admitted, the candidate clicks "Begin Exam" and is opened into your exam page in a new tab. **Your exam page is responsible for everything from that point onward.**
+The hub manages the full exam lifecycle — slot booking, proctor assignment, identity verification,
+and admission. Once admitted, the candidate clicks "Begin Exam" and is opened into your exam page
+in a new tab. **Your exam page is responsible for Writes 1 and 2 only (score writes). All
+platform-state writes are handled by index.html.**
 
 ---
 
-## 1. How Your Exam Page Receives Context
+## 1. URL Parameters — What index.html Passes to Your Exam Page
 
-When `index.html` opens your exam page, it appends a `slotId` query parameter to the URL:
+When `index.html` opens your exam page, it appends four URL parameters:
 
 ```
-https://yourexam.html?slotId=<examSlotDocId>
+https://yourexam.html?slotId=X&examId=Y&courseId=Z&duration=45
 ```
 
-Read this at page load (after auth):
+| Param | Value | Used for |
+|---|---|---|
+| `slotId` | `examSlots` doc ID | Write 5, tab-switch flags, session doc |
+| `examId` | `exams` collection doc ID | Write 2 key in `examResults` |
+| `courseId` | `courses` collection doc ID | Write 4 progress unlock |
+| `duration` | Minutes (e.g. `45`) | Timer |
+
+Read all four at page load after auth:
 
 ```javascript
-const slotId = new URLSearchParams(window.location.search).get('slotId') || null;
+const _urlParams  = new URLSearchParams(window.location.search);
+slotId       = _urlParams.get('slotId')   || null;
+examDocId    = _urlParams.get('examId')   || null;
+examCourseId = _urlParams.get('courseId') || null;
+const duration = parseInt(_urlParams.get('duration') || '45', 10);
 ```
 
-**`slotId` is the Firestore document ID in `examSlots/{slotId}`.** It links your exam page to the candidate's booking, proctor assignment, and proctoring snapshots. It is the key that connects all systems together.
-
-If `slotId` is null, the exam was opened directly (not through the hub admission flow). All Firestore writes guarded by `if (slotId)` will simply be skipped — this is safe.
+**There is no need to query Firestore for the exam or course ID.** The old pattern of
+`findGrafanaExamId()` / `findGrafanaCourseId()` is removed. Do not implement title-based
+lookups in new exam pages.
 
 ---
 
 ## 2. Required Module-Level State Variables
 
 ```javascript
-let slotId        = null;   // from URL param — set after auth
-let _timedOut     = false;  // set to true ONLY when timer fires submitExam
-let sessionDocId  = null;   // examSessions doc ID — created at startExam, updated at submitExam
-let _tabSwitchCount = 0;    // running count of tab switches during exam
+let slotId         = null;   // from URL param
+let examDocId      = null;   // from URL param — key in examResults
+let examCourseId   = null;   // from URL param — for progress unlock
+let _timedOut      = false;  // set true ONLY when timer fires submitExam
+let sessionDocId   = null;   // examSessions doc ID — created at startExam
+let _tabSwitchCount = 0;     // running count of tab switches
 ```
-
-You also need to resolve the exam's Firestore doc ID (used as the key in `examResults`):
-
-```javascript
-let myExamId = null; // resolved from 'exams' collection by title match
-```
-
-See `findGrafanaExamId()` in `grafana-evaluation.html` for the title-query pattern. Each exam page implements its own version of this function.
 
 ---
 
-## 3. Session Document — Create at Exam Start, Not at Submit
+## 3. Session Document — Create at Exam Start
 
-**Critical:** Create the `examSessions` document when the candidate **starts** the exam (clicks the Start button), not when they submit. This allows flags (tab switches, exit attempts, face-away events) to be appended throughout the exam.
+Create the `examSessions` doc when the candidate starts (not at submit):
 
 ```javascript
 // At startExam() — BEFORE renderExam() and startTimer()
@@ -64,7 +73,7 @@ const sessRef = await addDoc(collection(db, 'examSessions'), {
   candidateUid:     currentUser.uid,
   candidateEmail:   currentUser.email,
   candidateName:    currentUser.displayName || currentUser.email,
-  examId:           myExamId || 'unknown',   // your resolved exam doc ID
+  examId:           examDocId || 'unknown',
   slotId:           slotId || null,
   startedAt:        serverTimestamp(),
   status:           'active',
@@ -75,116 +84,31 @@ const sessRef = await addDoc(collection(db, 'examSessions'), {
 sessionDocId = sessRef.id;
 ```
 
-**Why this matters:** `sf-certs-hub.html` reads `examSessions` in real-time during Live Monitor and Reports. If the doc is only created at submit, the proctor sees nothing during the exam and tab-switch counts are lost.
+Then attach the shared integrity listeners (see Section 6).
 
 ---
 
-## 4. Tab Switch and Exit Detection
-
-Attach these listeners immediately after creating the session doc in `startExam()`:
+## 4. Timer — Set _timedOut Before submitExam
 
 ```javascript
-document.addEventListener('visibilitychange', _onVisibilityChange);
-window.addEventListener('beforeunload', _onBeforeUnload);
-```
-
-**`_onVisibilityChange`:** Detects when the candidate switches away from the exam tab.
-
-```javascript
-function _onVisibilityChange() {
-  if (!examStarted || examSubmitted) return;
-  if (document.hidden) {
-    _tabSwitchCount++;
-    _logExamEvent('tab_switch', {
-      count: _tabSwitchCount,
-      message: 'Candidate switched away from exam tab (switch #' + _tabSwitchCount + ')'
-    });
-  } else {
-    _logExamEvent('tab_switch_return', {
-      count: _tabSwitchCount,
-      message: 'Candidate returned to exam tab after switch #' + _tabSwitchCount
-    });
-  }
+if (timeLeft <= 0) {
+  clearInterval(timerInt);
+  _timedOut = true;          // MUST be set before submitExam()
+  showToast('Time is up! Submitting…', 'error');
+  submitExam();
 }
 ```
 
-**`_onBeforeUnload`:** Warns the candidate and logs the attempt if they try to close or navigate away.
-
-```javascript
-function _onBeforeUnload(e) {
-  if (!examStarted || examSubmitted) return;
-  const msg = 'Your exam is in progress. Leaving this page may result in your attempt being marked as abandoned.';
-  e.preventDefault();
-  e.returnValue = msg;
-  _logExamEvent('exit_attempt', {
-    message: 'Candidate attempted to close/navigate away (tab switches so far: ' + _tabSwitchCount + ')'
-  });
-  return msg;
-}
-```
-
-**Remove both listeners at the top of `submitExam()`:**
-
-```javascript
-document.removeEventListener('visibilitychange', _onVisibilityChange);
-window.removeEventListener('beforeunload', _onBeforeUnload);
-```
+`_timedOut` propagates to the localStorage signal. `index.html` uses it to write
+`status: 'abandoned'` vs `status: 'completed'` to `examSlots`. The Kubernetes "Failed"
+instead of "Abandoned" bug was caused by not setting this flag.
 
 ---
 
-## 5. Logging Events — `_logExamEvent(type, extra)`
+## 5. The Two Exam-Specific Writes at Submit
 
-All integrity events must be written to **two places simultaneously**:
-
-1. **`examSessions/{sessionDocId}.flags[]`** — read by proctor Live Monitor and Admin Reports
-2. **`auditLog`** — permanent record readable only by the super-admin
-
-```javascript
-async function _logExamEvent(type, extra = {}) {
-  const entry = { type, at: new Date().toISOString(), ts: Date.now(), ...extra };
-
-  // 1. Append to examSessions flags array
-  if (sessionDocId) {
-    try {
-      const ref  = doc(db, 'examSessions', sessionDocId);
-      const snap = await getDoc(ref);
-      const flags = (snap.exists() ? snap.data().flags : []) || [];
-      flags.push(entry);
-      await setDoc(ref, { flags, lastFlagAt: serverTimestamp() }, { merge: true });
-    } catch(e) { console.warn('flag write failed:', e.message); }
-  }
-
-  // 2. Write to auditLog
-  try {
-    await addDoc(collection(db, 'auditLog'), {
-      action:       type,
-      actorEmail:   currentUser?.email || 'unknown',
-      actorRole:    'student',
-      targetEmail:  currentUser?.email || 'unknown',
-      slotId:       slotId || null,
-      examId:       myExamId || null,
-      sessionDocId: sessionDocId || null,
-      metadata:     extra.message || type,
-      timestamp:    serverTimestamp()
-    });
-  } catch(e) { console.warn('auditLog write failed:', e.message); }
-}
-```
-
-**Supported event types (used by `sf-certs-hub.html` reports):**
-
-| `type` | When | Reported as |
-|---|---|---|
-| `tab_switch` | Candidate hides exam tab | Tab count in Reports |
-| `tab_switch_return` | Candidate returns to exam tab | Duration calculable |
-| `exit_attempt` | Candidate tries to close/navigate | Flag in Reports |
-| `face_away` | Face not detected for >N seconds | Face-away count in Reports |
-
----
-
-## 6. The Five Firestore Writes at Submit
-
-Execute these in order inside `submitExam()`. Each write is wrapped in its own try/catch so one failure doesn't block the others.
+**Your exam page only handles Writes 1 and 2.** Writes 3, 4, 5 are handled by `index.html`
+after receiving the localStorage signal.
 
 ### Write 1 — `results/{uid}` (Legacy, backward-compatible)
 ```javascript
@@ -196,14 +120,13 @@ await setDoc(doc(db, 'results', currentUser.uid), {
   [`attempt_${n}_time`]: timeTaken,
 }, { merge: true });
 ```
-Kept for backward compatibility. `sf-certs-hub.html` does NOT read this collection for its reports — it reads `examResults` (Write 2).
 
-### Write 2 — `examResults/{uid}` (Hub-compatible — REQUIRED for Test Results report)
+### Write 2 — `examResults/{uid}` (Hub Test Results report — REQUIRED)
 ```javascript
 await setDoc(doc(db, 'examResults', currentUser.uid), {
-  learnerEmail: candidateEmail,   // identity fields for name lookup
+  learnerEmail: candidateEmail,
   learnerName:  candidateName,
-  [myExamId]: {                   // keyed by exam doc ID from 'exams' collection
+  [examDocId]: {                  // key is the examId URL param
     attemptCount: n,
     bestScore, bestPassed,
     lastScore, lastPassed,
@@ -213,141 +136,115 @@ await setDoc(doc(db, 'examResults', currentUser.uid), {
 }, { merge: true });
 ```
 
-> **Important:** The key inside `examResults/{uid}` must be the Firestore document ID from the `exams` collection — not a hardcoded string. Resolve it at init time using a title query (see `findGrafanaExamId()` pattern). If this ID is wrong, the candidate's result will never appear in the admin Test Results report.
-
-### Write 3 — `examSessions/{sessionDocId}` (Update existing doc)
-```javascript
-// Update the doc created at startExam — preserves all flags
-if (sessionDocId) {
-  await setDoc(doc(db, 'examSessions', sessionDocId), {
-    score, passed, timeTaken,
-    tabSwitchCount: _tabSwitchCount,
-    completedAt:    serverTimestamp(),
-    status:         passed ? 'passed' : 'failed',
-    completionType: _timedOut ? 'timeout' : 'submitted',
-    slotId:         slotId || null,
-  }, { merge: true });
-} else {
-  // Fallback if page was refreshed mid-exam and sessionDocId was lost
-  await addDoc(collection(db, 'examSessions'), { ...allFields, flags: [] });
-}
-```
-
-> **Do NOT create a new doc here.** Updating the existing doc preserves all `flags[]` entries written during the exam (tab switches, exit attempts, face events). Creating a new doc loses all of them.
-
-### Write 4 — `progress/{uid}` (Course completion — only if passed)
-```javascript
-if (passed && myCourseId) {
-  await setDoc(doc(db, 'progress', currentUser.uid), {
-    [`course_${myCourseId}`]: true,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-}
-```
-Unlocks the course completion badge on the candidate's hub. Only write if the candidate passed.
-
-### Write 5 — `examSlots/{slotId}` (Status update — REQUIRED to clear "Exam In Progress")
-```javascript
-if (slotId) {
-  await setDoc(doc(db, 'examSlots', slotId), {
-    status:         _timedOut ? 'abandoned' : 'completed',
-    completionType: _timedOut ? 'timeout'   : 'submitted',
-    completedAt:    serverTimestamp(),
-    finalScore:     score,
-    finalPassed:    passed,
-  }, { merge: true });
-}
-```
-
-> **Critical:** Without this write, the proctor dashboard will show "Exam In Progress" indefinitely for past slots. `'completed'` and `'abandoned'` are the two valid terminal statuses. `_timedOut` must be set to `true` by the timer before calling `submitExam()`.
+> **Critical:** Use `examDocId` (from URL param) as the key. Never hardcode a string.
 
 ---
 
-## 7. Timer — Mark Timeout Before Calling submitExam
+## 6. Shared Exam Integrity Module — Copy Verbatim
 
+The block between `/* ══ SHARED EXAM INTEGRITY MODULE ══ */` and
+`/* ══ END SHARED EXAM INTEGRITY MODULE ══ */` in `grafana-evaluation.html` must be
+copied verbatim into every new exam page. Do not rename functions.
+
+It provides:
+- `_logExamEvent(type, extra)` — writes to `examSessions.flags[]` and `auditLog`
+- `_onVisibilityChange()` — tab switch detection
+- `_onBeforeUnload(e)` — exit warning + logging
+- `_removeExamListeners()` — cleanup at submit
+
+Attach listeners at `startExam()` after creating the session doc:
 ```javascript
-if (timeLeft <= 0) {
-  clearInterval(timerInt);
-  _timedOut = true;             // MUST be set before submitExam()
-  showToast('Time is up! Submitting…', 'error');
-  submitExam();
-}
+document.addEventListener('visibilitychange', _onVisibilityChange);
+window.addEventListener('beforeunload', _onBeforeUnload);
 ```
 
-When the candidate clicks the Submit button manually, `_timedOut` remains `false`. This distinction propagates to Write 3 (`completionType: 'submitted'`) and Write 5 (`status: 'completed'`).
-
----
-
-## 8. Hub Tab Signal — localStorage
-
-After all five writes succeed, signal `index.html` to clear its navigation lock:
-
+Remove at top of `submitExam()`:
 ```javascript
-try {
-  localStorage.setItem('sf_exam_done', JSON.stringify({
-    slotId,
-    status: _timedOut ? 'abandoned' : 'completed',
-    examId: myExamId || null,
-    ts:     Date.now()
-  }));
-} catch(e) { console.warn('localStorage signal failed:', e.message); }
+_removeExamListeners();
 ```
 
-`index.html` listens for this via `window.addEventListener('storage', ...)`. When received, it:
-- Removes the `beforeunload` warning from the hub tab
-- Writes an `exam_completed_signal` entry to `auditLog`
-- Calls `loadStudentExams()` to refresh the candidate's exam card
+---
+
+## 7. The localStorage Signal — Triggers index.html Writes 3/4/5
+
+After Writes 1 and 2 succeed, send this signal:
+
+```javascript
+localStorage.setItem('sf_exam_done', JSON.stringify({
+  slotId,
+  examId:         examDocId || null,
+  courseId:       examCourseId || null,
+  sessionDocId:   sessionDocId || null,
+  candidateUid:   currentUser.uid,
+  candidateEmail: currentUser.email,
+  candidateName:  currentUser.displayName || currentUser.email,
+  score,
+  passed,
+  timeTaken,
+  timedOut:         _timedOut,          // true = abandoned, false = completed
+  tabSwitchCount:   _tabSwitchCount,
+  ts: Date.now()
+}));
+```
+
+`index.html` receives this via `window.addEventListener('storage')` and executes:
+
+| Write | Collection | Trigger |
+|---|---|---|
+| 3 | `examSessions/{sessionDocId}` | Always — updates flags + final score |
+| 4 | `progress/{uid}` | Only if `passed === true` and `courseId` set |
+| 5 | `examSlots/{slotId}` | Always — `completed` or `abandoned` based on `timedOut` |
 
 ---
 
-## 9. Abandoned Exam Detection — How `index.html` Handles It
+## 8. Back to Hub and Retry Links
 
-`index.html` does **not** run its own timeout timer for abandon detection. Instead:
+All "Back to Hub" links and the Retry Exam button must point to the hub:
 
-- Write 5 marks the slot `abandoned` when `_timedOut = true` in the exam page
-- The exam page's own timer is the authoritative source — it sets `_timedOut` before calling `submitExam()`
+```
+https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html
+```
 
-If the candidate closes the exam tab without submitting and without the timer firing (e.g. browser crash), the slot remains `inProgress`. This is an edge case with no clean resolution in a static GitHub Pages architecture without a Cloud Function.
+**Never use `location.reload()` for Retry** — it reloads the exam page instead of returning
+to the hub. Use `window.location.href = HUB_URL` instead.
 
 ---
 
-## 10. Checklist for a New Exam Page
+## 9. Checklist for a New Exam Page
 
-- [ ] Read `slotId` from URL params after auth
-- [ ] Resolve exam doc ID from `exams` collection by title at init (`findMyExamId()`)
-- [ ] Resolve course doc ID from `courses` collection by title at init (`findMyCourseId()`)
+- [ ] Read `slotId`, `examId`, `courseId`, `duration` from URL params after auth
 - [ ] Create `examSessions` doc at `startExam()`, store `sessionDocId`
-- [ ] Attach `visibilitychange` and `beforeunload` listeners at `startExam()`
+- [ ] Copy Shared Exam Integrity Module verbatim
+- [ ] Attach `visibilitychange` + `beforeunload` listeners at `startExam()`
 - [ ] Set `_timedOut = true` in timer **before** calling `submitExam()`
 - [ ] Call `_removeExamListeners()` at top of `submitExam()`
-- [ ] Write 1: `results/{uid}` — legacy
-- [ ] Write 2: `examResults/{uid}` — keyed by exam doc ID (NOT a hardcoded string)
-- [ ] Write 3: update `examSessions/{sessionDocId}` with final result
-- [ ] Write 4: `progress/{uid}` — only if passed
-- [ ] Write 5: `examSlots/{slotId}` — `completed` or `abandoned`
-- [ ] Signal hub: `localStorage.setItem('sf_exam_done', ...)`
-- [ ] Console logs: prefix with `[your-exam-eval]` for easier debugging
+- [ ] Write 1: `results/{uid}` (legacy)
+- [ ] Write 2: `examResults/{uid}` keyed by `examDocId` URL param
+- [ ] Send `localStorage.setItem('sf_exam_done', ...)` with full payload
+- [ ] "Back to Hub" link → `sf-knowledge-hub/index.html`
+- [ ] "Retry Exam" → `window.location.href = HUB_URL` (NOT `location.reload()`)
+- [ ] Console prefix: `[your-exam-eval]`
 
 ---
 
-## 11. Firestore Collections Reference
+## 10. Firestore Collections Reference
 
 | Collection | Written by | Read by | Notes |
 |---|---|---|---|
-| `examSlots/{slotId}` | `index.html`, exam page (Write 5) | `sf-certs-hub.html` proctor/admin | Terminal statuses: `completed`, `abandoned` |
-| `examResults/{uid}` | exam page (Write 2) | `sf-certs-hub.html` Test Results | Key is exam doc ID from `exams` collection |
-| `examSessions/{id}` | exam page (Write 3) | `sf-certs-hub.html` Reports, Live Monitor | Create at start, update at end |
-| `results/{uid}` | exam page (Write 1) | Not read by hub | Legacy only |
-| `progress/{uid}` | exam page (Write 4) | `index.html` course unlock | Only write on pass |
-| `auditLog/{id}` | exam page `_logExamEvent`, `index.html` hub lock | `sf-certs-hub.html` Audit Log tab | Permanent. Admin-only read. |
+| `examSlots/{slotId}` | `index.html` Write 5 | `sf-certs-hub.html` | `completed` / `abandoned` terminal statuses |
+| `examResults/{uid}` | Exam page Write 2 | `sf-certs-hub.html` Reports | Key = `examId` URL param |
+| `examSessions/{id}` | Exam page (create) + `index.html` (update) | Reports, Live Monitor | Create at start, update via hub signal |
+| `results/{uid}` | Exam page Write 1 | Legacy only | Not read by hub |
+| `progress/{uid}` | `index.html` Write 4 | `index.html` course unlock | Only on pass |
+| `auditLog/{id}` | Exam page + `index.html` | Audit Log tab | Permanent, admin-only read |
 
 ---
 
-## 12. Debugging Tips
+## 11. Debugging Tips
 
-- **Version log:** Add `console.log('[your-exam] v<version> loaded')` at the top of your script
-- **slotId check:** Log `slotId` immediately after auth — if null, Write 5 will be silently skipped
-- **examId check:** Log `myExamId` after `findMyExamId()` — if null, Write 2 will be skipped and results won't appear in hub reports
-- **sessionDocId check:** Log `sessionDocId` after session doc creation — if null, flags won't be saved
-- **Firebase SDK version:** Use `12.10.0` (same as hub) to avoid SDK mismatch errors
-- **Rules:** Confirm `examSessions`, `examResults`, `examSlots`, `auditLog`, `progress` all allow writes from `isSF()` in Firestore rules v1.8+
+- Log `slotId`, `examDocId`, `examCourseId` right after auth — if any are null, related writes will silently skip
+- Check `sessionDocId` after session doc creation
+- Use Firebase SDK `12.10.0` to avoid mismatch errors
+- Confirm Firestore rules v1.8+ allow `isSF()` writes to `examSessions`, `examResults`, `examSlots`, `auditLog`, `progress`
+- "Abandoned" not showing? Check `_timedOut = true` is set in the timer before `submitExam()` is called
+- Results not in hub Test Results? Check `examDocId` matches the doc ID in the `exams` Firestore collection
