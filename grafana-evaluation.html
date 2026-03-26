@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603241001 -->
+  <!-- Cache busting v202603241002 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -380,7 +380,6 @@
         <div class="stat-card neutral"><div class="stat-value">30</div><div class="stat-label">Questions</div></div>
         <div class="stat-card neutral"><div class="stat-value">45</div><div class="stat-label">Minutes</div></div>
         <div class="stat-card neutral"><div class="stat-value">70%</div><div class="stat-label">Pass Score</div></div>
-        <div class="stat-card neutral"><div class="stat-value" id="attemptsLeft">—</div><div class="stat-label">Attempts Left</div></div>
       </div>
       <div style="background:var(--navy-mid);border:1px solid var(--navy-border);border-radius:10px;padding:18px;margin-bottom:24px;">
         <p style="font-size:13px;line-height:1.7;color:var(--muted);">
@@ -390,7 +389,6 @@
           • Results are saved automatically upon submission or timeout.
         </p>
       </div>
-      <div id="prevResultInfo" style="display:none;margin-bottom:20px;"></div>
       <button class="btn btn-primary" id="startBtn" onclick="startExam()" style="width:100%;justify-content:center;font-size:16px;padding:16px;">
         Start Exam →
       </button>
@@ -477,7 +475,7 @@ let timerInt      = null;
 let timeLeft      = 45 * 60;
 let examStarted   = false;
 let examSubmitted = false;
-let attemptNumber = 1;
+// attemptNumber removed — attempt tracking is exam-agnostic, handled by index.html
 let slotId        = null;  // passed via URL param from index.html Begin Exam button
 let _timedOut     = false; // true when timer fires submitExam, false when candidate clicks Submit
 let sessionDocId  = null;  // examSessions doc ID — created at startExam, updated at submitExam
@@ -657,34 +655,8 @@ async function initForUser() {
     // findGrafanaCourseId() / findGrafanaExamId() are no longer used.
     // examDocId and examCourseId are already set from URL params in onAuthStateChanged.
 
-    // 2) Load attempt history from results/{uid} (legacy) and examResults/{uid} (hub-compatible)
-    const resRef  = doc(db, 'results', currentUser.uid);
-    const resSnap = await getDoc(resRef);
-    const resData = resSnap.exists() ? resSnap.data() : {};
-
-    const attemptsUsed = resData.attemptCount || 0;
-    attemptNumber      = attemptsUsed + 1;
-    const left         = MAX_ATTEMPTS - attemptsUsed;
-
-    document.getElementById('attemptsLeft').textContent = left;
-
-    if (left <= 0) {
-      renderResultScreen(resData, false);
-      return;
-    }
-
-    if (attemptsUsed > 0 && resData.lastScore !== undefined) {
-      const info = document.getElementById('prevResultInfo');
-      const pass = resData.lastScore >= PASS_SCORE;
-      info.style.display = 'block';
-      info.innerHTML = `<div style="background:var(--navy-mid);border:1px solid var(--navy-border);
-        border-radius:10px;padding:16px;font-size:14px;color:var(--muted);">
-        Last attempt: <strong style="color:${pass?'var(--green)':'var(--red)'}">
-        ${resData.lastScore}%</strong> — ${pass ? '✓ Passed' : '✗ Failed'}
-        &nbsp;|&nbsp; Attempt ${attemptsUsed} of ${MAX_ATTEMPTS}
-      </div>`;
-    }
-
+    // Attempt tracking is handled by index.html (exam-agnostic).
+    // Exam page does not need to read or display attempt count.
     showScreen('screenIntro');
   } catch(e) {
     console.error(e);
@@ -1021,15 +993,15 @@ window.submitExam = async function() {
     showToast('Could not save results: ' + e.message, 'error');
   }
 
-  renderResultScreen({ score, passed, attemptCount: attemptNumber }, true, reviewItems);
+  renderResultScreen({ score, passed }, true, reviewItems);
 };
 
 /* ── Result screen ── */
 function renderResultScreen(data, fromSubmit, reviewItems = []) {
   const score   = data.lastScore !== undefined ? data.lastScore : data.score;
   const passed  = data.lastPassed !== undefined ? data.lastPassed : data.passed;
-  const attempts = data.attemptCount || attemptNumber;
-  const left     = MAX_ATTEMPTS - attempts;
+  const attempts = data.attemptCount || 0;
+  const left     = Math.max(0, MAX_ATTEMPTS - attempts);
 
   const banner = document.getElementById('resultBanner');
   banner.className = `result-banner ${passed ? 'pass' : 'fail'}`;
