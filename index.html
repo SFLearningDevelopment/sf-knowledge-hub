@@ -101,6 +101,11 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 .chip-admin{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);color:#fbbf24;}
 .chip-reviewer{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.25);color:#a78bfa;}
 .chip-proctor{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#34d399;}
+.role-toggle{display:none;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:3px 4px;}
+.role-toggle-btn{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 12px;border-radius:50px;border:none;cursor:pointer;transition:all .2s;background:none;color:var(--muted);font-family:'Syne',sans-serif;}
+.role-toggle-btn.active{background:var(--accent);color:#fff;}
+.role-toggle-btn.active-reviewer{background:#7c3aed;color:#fff;}
+.role-toggle-btn.active-proctor{background:#059669;color:#fff;}
 .nav-right{display:flex;align-items:center;gap:12px;}
 .nav-link{font-size:13px;color:var(--muted);text-decoration:none;padding:6px 14px;border-radius:7px;border:1px solid var(--border);transition:all .2s;display:none;}
 .nav-link:hover{color:var(--accent);border-color:var(--accent);}
@@ -423,6 +428,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
     </div>
     <div class="nav-right">
       <button class="nav-link" id="learner-view-btn" onclick="toggleLearnerView()" style="cursor:pointer;background:none;">📚 Learner View</button>
+      <div class="role-toggle" id="role-toggle">
+        <button class="role-toggle-btn" id="toggle-learner-btn" onclick="switchRoleView('learner')">👤 Learner</button>
+        <button class="role-toggle-btn" id="toggle-role-btn"    onclick="switchRoleView('role')">📋 Role</button>
+      </div>
       <button class="nav-link" id="admin-console-btn" onclick="backToAdminConsole()" style="cursor:pointer;background:none;">⚙ Admin Console</button>
       <div class="notif-bell" id="notif-bell" onclick="toggleNotifPanel()" style="position:relative;">
         🔔
@@ -921,7 +930,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604061001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604061002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1065,8 +1074,45 @@ onAuthStateChanged(auth, async user => {
       $('admin-choice-screen').style.display = 'flex';
       return;
     }
-    if (myRole === 'reviewer') { window.location.href = 'reviewer.html'; return; }
-    if (myRole === 'proctor')  { window.location.href = 'sf-certs-hub.html'; return; }
+
+    // ── Dual-role check ──
+    // If user is reviewer or proctor, check if they are also nominated as a learner.
+    // If yes: show the hub with a role toggle pill instead of redirecting away.
+    // If no: redirect as normal (pure reviewer → reviewer.html, pure proctor → sf-certs-hub.html)
+    if (myRole === 'reviewer' || myRole === 'proctor') {
+      let isAlsoLearner = false;
+      try {
+        // Check course nominations
+        const cSnap = await getDocs(collection(db,'courses'));
+        for (const cd of cSnap.docs) {
+          const nSnap = await getDoc(doc(db,'courses',cd.id,'nominations',meEmail));
+          if (nSnap.exists() && nSnap.data().nominated !== false) { isAlsoLearner = true; break; }
+        }
+        // Check exam nominations if not already found
+        if (!isAlsoLearner) {
+          const eSnap = await getDocs(collection(db,'exams'));
+          for (const ed of eSnap.docs) {
+            const nSnap = await getDoc(doc(db,'exams',ed.id,'nominations',meEmail));
+            if (nSnap.exists() && (nSnap.data().nominated !== false || nSnap.data().examEligible)) { isAlsoLearner = true; break; }
+          }
+        }
+      } catch(e) { console.warn('[SF Hub] Dual-role check failed:', e.message); }
+
+      if (isAlsoLearner) {
+        // Load hub with role toggle — default to their assigned role view
+        $('choice-screen').style.display = 'none';
+        $('app').style.display = 'block';
+        showChips();
+        setupRoleToggle(myRole);
+        startNotifListener();
+        // Default: show their assigned role view
+        switchRoleView('role');
+        return;
+      }
+      // Pure role — no learner nominations — redirect as before
+      if (myRole === 'reviewer') { window.location.href = 'reviewer.html'; return; }
+      if (myRole === 'proctor')  { window.location.href = 'sf-certs-hub.html'; return; }
+    }
 
     $('choice-screen').style.display = 'none';
     $('app').style.display = 'block'; showChips(); route(); startNotifListener();
@@ -1127,6 +1173,44 @@ function showChips() {
   $('learner-view-btn').style.display  = (myRole==='admin'||myRole==='reviewer') ? 'inline-flex' : 'none';
   $('admin-console-btn').style.display = myRole==='admin' ? 'inline-flex' : 'none';
 }
+
+// ── Role Toggle (dual-role users: reviewer+learner or proctor+learner) ──
+function setupRoleToggle(role) {
+  const toggle = $('role-toggle');
+  const roleBtn = $('toggle-role-btn');
+  if (!toggle || !roleBtn) return;
+  // Label the role button based on actual role
+  roleBtn.textContent = role === 'reviewer' ? '📋 Reviewer' : '🛡 Proctor';
+  toggle.style.display = 'flex';
+  // Hide the old separate learner-view-btn since toggle handles it
+  $('learner-view-btn').style.display = 'none';
+}
+
+window.switchRoleView = function(view) {
+  const learnerBtn = $('toggle-learner-btn');
+  const roleBtn    = $('toggle-role-btn');
+  if (view === 'learner') {
+    // Show learner dashboard
+    hide('reviewer-view'); hide('admin-view');
+    show('student-view');
+    loadStudentCourses();
+    if (learnerBtn) { learnerBtn.className='role-toggle-btn active'; }
+    if (roleBtn)    { roleBtn.className='role-toggle-btn'; }
+  } else {
+    // Show assigned role view
+    hide('student-view'); hide('admin-view');
+    if (myRole === 'reviewer') {
+      show('reviewer-view');
+      loadReviewerQueue();
+      if (roleBtn) { roleBtn.className='role-toggle-btn active-reviewer'; }
+    } else if (myRole === 'proctor') {
+      // Proctor view is sf-certs-hub — open it in same tab
+      window.location.href = 'sf-certs-hub.html';
+      return;
+    }
+    if (learnerBtn) { learnerBtn.className='role-toggle-btn'; }
+  }
+};
 
 function route() {
   hide('student-view'); hide('admin-view'); hide('reviewer-view'); inLearnerView=false;
