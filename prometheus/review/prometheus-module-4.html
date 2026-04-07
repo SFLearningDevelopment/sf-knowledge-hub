@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>[Reviewer] Module 4: Exporters & Instrumentation — Prometheus</title>
+<style>
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#e6522c;--accent2:#f47c3c;--text:#e8eaf0;--text2:#9da3bd;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--red:#e74c3c;--grafana:#f46800;--radius:12px;}
+  [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f8;--border:#d0d5e8;--text:#1a1d27;--text2:#555b7a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);}
+  .reviewer-topbanner{background:rgba(230,82,44,0.12);border-bottom:2px solid var(--accent);padding:10px 26px;font-size:12px;font-family:monospace;color:var(--accent);display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200;}
+  .sf-signin-overlay{position:fixed;inset:0;background:rgba(10,12,20,.9);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px);}
+  .sf-signin-overlay.hidden{display:none;}
+  .sf-signin-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center;}
+  .sf-signin-logo{font-size:32px;margin-bottom:12px;}
+  .sf-signin-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;}
+  .sf-signin-sub{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:24px;}
+  .sf-google-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #d0dae8;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;color:#1a2332;width:100%;justify-content:center;transition:box-shadow .15s;}
+  .sf-google-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,.2);}
+  .sf-google-btn img{width:20px;height:20px;}
+  .sf-signin-divider{font-size:11px;color:var(--text2);text-align:center;margin:14px 0 10px;display:flex;align-items:center;gap:8px;font-family:monospace;}
+  .sf-signin-divider::before,.sf-signin-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+  .sf-fallback-input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text);background:var(--surface2);margin-bottom:10px;outline:none;}
+  .sf-fallback-input:focus{border-color:var(--accent);}
+  .sf-fallback-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+  .sf-signin-error{margin-top:14px;font-size:12.5px;color:#e74c3c;font-family:monospace;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:6px;padding:10px 12px;display:none;text-align:left;}
+  .sf-signin-error.visible{display:block;}
+  .sf-signed-in-bar{background:rgba(46,204,113,.1);border-bottom:1px solid rgba(46,204,113,.3);padding:7px 26px;font-size:11px;font-family:monospace;color:var(--green);display:flex;align-items:center;justify-content:space-between;}
+  .sf-signed-in-bar.hidden{display:none;}
+  .sf-signout-btn{font-size:10px;font-family:monospace;color:var(--accent);background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .header-left{display:flex;align-items:center;gap:10px;font-size:0.88rem;color:var(--text2);}
+  .header-left a{color:var(--accent);font-weight:600;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.8rem;text-decoration:none;display:inline-block;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 94px);}
+  .sidebar{width:275px;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;overflow-y:auto;position:sticky;top:94px;height:calc(100vh - 94px);flex-shrink:0;}
+  .sidebar-title{padding:0 18px 10px;font-size:0.73rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .sidebar-progress{padding:10px 18px;background:var(--surface2);margin:0 10px 10px;border-radius:8px;}
+  .sidebar-progress-bar{background:var(--border);border-radius:99px;height:4px;margin-top:5px;}
+  .sidebar-progress-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.3s;}
+  .nav-item{padding:9px 18px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:9px;font-size:0.85rem;}
+  .nav-item:hover{background:var(--surface2);}
+  .nav-item.reviewed{color:var(--green);}
+  .nav-badge{font-size:0.63rem;padding:2px 6px;border-radius:3px;font-weight:700;}
+  .badge-foundation{background:rgba(46,204,113,0.15);color:var(--green);}
+  .badge-essential{background:rgba(52,152,219,0.15);color:var(--blue);}
+  .badge-important{background:rgba(230,82,44,0.15);color:var(--accent);}
+  .content{flex:1;padding:30px 38px;max-width:840px;}
+  .module-hero{margin-bottom:28px;}
+  .module-hero h1{font-size:1.7rem;font-weight:800;margin-bottom:7px;}
+  .module-hero p{color:var(--text2);font-size:0.97rem;}
+  .module-meta{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .meta-chip{font-size:0.76rem;padding:4px 10px;border-radius:6px;font-weight:600;}
+  .chip-weight{background:rgba(52,152,219,0.15);color:var(--blue);border:1px solid rgba(52,152,219,0.3);}
+  .chip-sections{background:rgba(46,204,113,0.15);color:var(--green);border:1px solid rgba(46,204,113,0.3);}
+  .chip-reviewer{background:rgba(230,82,44,0.15);color:var(--accent);border:1px solid rgba(230,82,44,0.3);}
+  .section-block{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);user-select:none;}
+  .section-header:hover{background:var(--surface2);}
+  .section-num{font-size:0.73rem;font-weight:700;color:var(--text2);min-width:26px;}
+  .section-title{font-weight:600;font-size:0.93rem;flex:1;}
+  .section-toggle{font-size:0.78rem;color:var(--text2);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{display:none;padding:20px 22px 10px;border-top:1px solid var(--border);}
+  .section-body.open{display:block;}
+  h3{font-size:1.05rem;font-weight:700;margin:18px 0 10px;}
+  p{margin-bottom:12px;font-size:0.92rem;line-height:1.7;color:var(--text);}
+  ul,ol{margin:10px 0 14px 20px;font-size:0.92rem;line-height:1.8;}
+  li{margin-bottom:4px;}
+  code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:0.83rem;font-family:monospace;}
+  pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:0.82rem;font-family:monospace;overflow-x:auto;margin:12px 0;position:relative;white-space:pre-wrap;}
+  .copy-btn{position:absolute;top:8px;right:8px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:3px 8px;font-size:0.72rem;cursor:pointer;}
+  .copy-btn:hover{color:var(--accent);}
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:0.88rem;line-height:1.7;}
+  .callout h4{font-size:0.85rem;margin-bottom:6px;}
+  .callout-info{background:rgba(52,152,219,0.1);border-left:3px solid var(--blue);}
+  .callout-warn{background:rgba(231,76,60,0.1);border-left:3px solid var(--red);}
+  .callout-tip{background:rgba(155,89,182,0.1);border-left:3px solid var(--purple);}
+  .callout-grafana{background:rgba(244,104,0,0.1);border-left:3px solid var(--grafana);}
+  .test-questions{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:0.86rem;}
+  .test-questions h4{font-size:0.82rem;color:var(--accent);margin-bottom:8px;}
+  .analogy-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin:12px 0;}
+  .analogy-box h4{font-size:0.85rem;margin-bottom:10px;}
+  .analogy-row{display:flex;gap:12px;align-items:center;font-size:0.87rem;padding:4px 0;}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;margin:14px 0;text-align:center;}
+  .diagram-title{font-size:0.8rem;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;}
+  .diagram-row{display:flex;gap:12px;justify-content:center;align-items:center;margin:8px 0;flex-wrap:wrap;}
+  .diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.82rem;font-weight:600;min-width:100px;}
+  .diagram-box small{display:block;font-weight:400;color:var(--text2);font-size:0.72rem;margin-top:2px;}
+  .diagram-box.blue{border-color:var(--blue);color:var(--blue);}
+  .diagram-box.accent{border-color:var(--accent);color:var(--accent);}
+  .diagram-box.green{border-color:var(--green);color:var(--green);}
+  .diagram-box.grafana{border-color:var(--grafana);color:var(--grafana);}
+  .reviewer-bar{background:rgba(230,82,44,0.08);border:1px solid rgba(230,82,44,0.3);border-left:3px solid var(--accent);border-radius:8px;padding:10px 16px;margin:18px 0 6px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--accent);font-family:monospace;}
+  .reviewer-bar input[type="checkbox"]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--green);}
+  .reviewer-bar label{cursor:pointer;font-weight:600;user-select:none;}
+  .reviewer-bar.checked{background:rgba(46,204,113,0.08);border-color:rgba(46,204,113,0.4);border-left-color:var(--green);color:var(--green);}
+  .reviewer-panel{background:rgba(155,89,182,0.07);border:1px solid rgba(155,89,182,0.3);border-top:3px solid var(--purple);border-radius:12px;padding:24px 28px;margin:28px 0;}
+  .reviewer-panel-label{font-size:9px;font-family:monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);font-weight:600;margin-bottom:16px;}
+  .reviewer-q-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.65;margin-bottom:14px;}
+  .reviewer-options{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+  .reviewer-option{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--text2);line-height:1.5;transition:background .12s,border-color .12s;background:var(--surface);}
+  .reviewer-option:hover{background:var(--surface2);border-color:var(--accent);}
+  .reviewer-option.selected{background:rgba(230,82,44,0.1);border-color:var(--accent);color:var(--text);}
+  .reviewer-option.correct{background:rgba(46,204,113,0.1);border-color:var(--green);color:var(--green);}
+  .reviewer-option.wrong{background:rgba(231,76,60,0.1);border-color:var(--red);color:var(--red);}
+  .reviewer-option-key{font-family:monospace;font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0;margin-top:1px;}
+  .reviewer-reveal{font-size:12px;font-family:monospace;color:var(--purple);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;margin-bottom:14px;display:block;}
+  .reviewer-explanation{font-size:13px;color:var(--text2);line-height:1.7;padding:12px 14px;background:var(--surface2);border-radius:8px;margin-bottom:16px;display:none;border:1px solid var(--border);}
+  .reviewer-explanation.visible{display:block;}
+  .reviewer-exp-label{font-size:9px;font-family:monospace;letter-spacing:.15em;text-transform:uppercase;font-weight:700;margin-bottom:4px;}
+  .reviewer-exp-label.correct{color:var(--green);}
+  .reviewer-exp-label.wrong{color:var(--red);}
+  .reviewer-comment-label{font-size:11px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);font-weight:600;margin-bottom:6px;}
+  .reviewer-comment{width:100%;min-height:80px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;color:var(--text);background:var(--surface2);resize:vertical;line-height:1.6;}
+  .reviewer-comment:focus{outline:none;border-color:var(--purple);}
+  .reviewer-save-note{font-size:11px;font-family:monospace;color:var(--text2);margin-top:6px;}
+  .rev-complete-wrap{margin:28px 0 0;}
+  .rev-complete-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:8px;font-size:13.5px;font-family:monospace;font-weight:600;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .2s;}
+  .rev-complete-bar.disabled{opacity:.6;cursor:not-allowed;}
+  .rev-complete-bar.ready{background:rgba(230,82,44,0.1);border-color:var(--accent);border-left:3px solid var(--accent);color:var(--accent);cursor:pointer;}
+  .rev-complete-bar.done{background:rgba(46,204,113,0.1);border-color:var(--green);border-left:3px solid var(--green);color:var(--green);cursor:default;}
+  .rev-complete-bar input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--green);}
+  .rev-complete-bar.disabled input{cursor:not-allowed;}
+  .rev-complete-hint{font-size:11px;font-family:monospace;color:var(--text2);margin-top:6px;min-height:16px;}
+  .bottom-nav{display:flex;justify-content:space-between;align-items:center;padding:24px 0 0;border-top:1px solid var(--border);margin-top:32px;}
+</style>
+</head>
+<body>
+<script>
+function sfShowError(msg){const el=document.getElementById('sfSigninError');if(el){el.textContent=msg;el.classList.add('visible');}}
+function sfHideOverlay(user){window.sfReviewerEmail=user.email||user;window.sfReviewerUid=user.uid||'email_'+btoa(window.sfReviewerEmail).replace(/=/g,'');const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+window.sfReviewerEmail;sfInitSession();if(window._sfFirebaseReady&&typeof window.sfDb!=='undefined')sfFetchAndMerge();}
+function sfInitSession(){const local=revLoad();if(!local.startedAt){local.startedAt=new Date().toISOString();localStorage.setItem(REV_KEY,JSON.stringify(local));}if(!window._sfFirebaseReady||typeof window.sfDb==='undefined'||!window.sfReviewerUid)return;window.sfDb.collection('reviewerSessions').doc(window.sfReviewerUid).collection('prometheus').doc(MODULE_ID).set({email:window.sfReviewerEmail,moduleId:MODULE_ID,courseId:'MeaaMFZcTTDCbyZJdlnF',startedAt:local.startedAt,lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),reviewComplete:local.reviewComplete||false,attemptCount:local.attemptCount||0},{merge:true}).then(()=>console.log('[SF Reviewer] Session init OK')).catch(e=>console.warn('[SF Reviewer] Init failed:',e.message));}
+function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim();if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
+async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{const r=await firebase.auth().signInWithPopup(provider);clearTimeout(t);sfHideOverlay(r.user);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
+function sfSignOut(){window.sfReviewerEmail=null;window.sfReviewerUid=null;const bar=document.getElementById('sfSignedInBar');const ov=document.getElementById('sfSigninOverlay');if(bar)bar.classList.add('hidden');if(ov)ov.classList.remove('hidden');if(typeof firebase!=='undefined'&&window._sfFirebaseReady)firebase.auth().signOut();}
+document.addEventListener('DOMContentLoaded',function(){const gb=document.getElementById('sfGoogleSignInBtn');const eb=document.getElementById('sfEmailSignInBtn');const so=document.getElementById('sfSignoutLink');if(gb)gb.addEventListener('click',sfSignInWithGoogle);if(eb)eb.addEventListener('click',sfSignInWithEmail);if(so)so.addEventListener('click',sfSignOut);});
+</script>
+
+<div class="sf-signin-overlay" id="sfSigninOverlay">
+  <div class="sf-signin-card">
+    <div class="sf-signin-logo">🔐</div>
+    <div class="sf-signin-title">Sign in to save your progress</div>
+    <div class="sf-signin-sub">Sign in with your SourceFuse Gmail. Review progress, checkboxes, and question attempts are saved and restored across devices.</div>
+    <button class="sf-google-btn" id="sfGoogleSignInBtn"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"> Sign in with Google</button>
+    <div class="sf-signin-divider">or</div>
+    <input type="text" class="sf-fallback-input" id="sfEmailInput" placeholder="your.name@sourcefuse.com" autocomplete="off" inputmode="email">
+    <button class="sf-fallback-btn" id="sfEmailSignInBtn">Continue with SF email</button>
+    <div class="sf-signin-error" id="sfSigninError"></div>
+  </div>
+</div>
+<div class="sf-signed-in-bar hidden" id="sfSignedInBar"><span id="sfSignedInEmail">Signed in as …</span><button class="sf-signout-btn" id="sfSignoutLink">Sign out</button></div>
+
+<div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Mode</strong> — Prometheus · Module 4 · Exporters & Instrumentation</div>
+<div class="header">
+  <div class="header-left"><a href="index.html">← Reviewer Hub</a><span style="color:var(--text2);">/</span><span>Module 4: Exporters & Instrumentation</span></div>
+  <div class="header-right"><a href="prometheus-module-3.html" class="btn-sm">← Module 3</a><a href="prometheus-module-5.html" class="btn-sm">Module 5 →</a><button class="btn-sm" onclick="toggleTheme()">🌙 Theme</button></div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-title">Module 4 · 6 Sections</div>
+    <div class="sidebar-progress">
+      <div style="display:flex;justify-content:space-between;font-size:0.75rem;"><span>Review progress</span><span id="sidebar-pct">0%</span></div>
+      <div class="sidebar-progress-bar"><div class="sidebar-progress-fill" id="sidebar-bar" style="width:0%"></div></div>
+    </div>
+    <div id="nav-items"></div>
+  </div>
+  <div class="content">
+    <div class="module-hero">
+      <h1>🔌 Module 4: Exporters & Instrumentation</h1>
+      <p>Learn the key exporters used in production, how to instrument your own applications, and how to use the Pushgateway for batch jobs.</p>
+      <div class="module-meta"><span class="meta-chip chip-weight">Intermediate</span><span class="meta-chip chip-sections">6 Sections</span><span class="meta-chip chip-reviewer">👁 Reviewer Mode</span></div>
+    </div>
+    <div id="sections-container"></div>
+    <div class="reviewer-panel">
+      <div class="reviewer-panel-label">🔍 Reviewer Question — Module 4</div>
+      <div class="reviewer-q-text" id="rev-q-text"></div>
+      <div class="reviewer-options" id="rev-options"></div>
+      <button class="reviewer-reveal" id="rev-reveal-btn">Check answer</button>
+      <div class="reviewer-explanation" id="rev-explanation"><div class="reviewer-exp-label" id="rev-exp-label"></div><div id="rev-exp-text"></div></div>
+      <div class="reviewer-comment-label">Reviewer notes for this module</div>
+      <textarea class="reviewer-comment" id="rev-comment" placeholder="Add your review notes…"></textarea>
+      <div class="reviewer-save-note">Notes are auto-saved.</div>
+    </div>
+    <div class="rev-complete-wrap">
+      <div class="rev-complete-bar disabled" id="rev-complete-bar"><input type="checkbox" id="rev-complete-cb" disabled><label for="rev-complete-cb" id="rev-complete-label">Complete all sections and answer the question correctly to unlock</label></div>
+      <div class="rev-complete-hint" id="rev-complete-hint"></div>
+    </div>
+    <div class="bottom-nav"><div><a href="prometheus-module-3.html" class="btn-sm">← Module 3</a></div><div><a href="prometheus-module-5.html" class="btn-sm">Module 5 →</a></div></div>
+  </div>
+</div>
+
+<script>
+const REV_KEY='reviewer_prometheus_module-4';
+const MODULE_ID='module-4';
+const COURSE_ID='MeaaMFZcTTDCbyZJdlnF';
+const MODULE_NUM=4;
+const BADGES={foundation:'Foundation',essential:'Essential',important:'Important'};
+const BADGE_CLASSES={foundation:'badge-foundation',essential:'badge-essential',important:'badge-important'};
+const REV_QUESTION={text:'Pushgateway metrics persist until explicitly deleted. What is the risk of this behaviour?',options:["Metrics consume too much disk space","A failed batch job's last metrics remain visible, giving a false impression of a successful run","Prometheus can't distinguish between multiple jobs","The Pushgateway becomes a bottleneck"],correct:1,explanation:'Unlike scraped targets where a down target produces no data, Pushgateway metrics persist indefinitely. If a batch job fails midway, its last successfully pushed metrics remain visible with a stale timestamp — dashboards and alerts may show a "successful" last run when the job actually failed. Always delete metrics after a job completes.'};
+</script>
+<script id="sections-data">
+// Sections content is loaded from the original module file via inline script below
+</script>
+
+<script>
+const SECTIONS = [
+  {id:1, title:'What are Exporters?', badge:'foundation', content:`
+    <h3>🔌 Exporters — The Translation Layer</h3>
+    <p>An <strong>exporter</strong> is a small agent that sits alongside a service that doesn't natively expose Prometheus metrics (e.g. MySQL, Redis, Linux OS, hardware) and <strong>translates its metrics into the Prometheus exposition format</strong>.</p>
+    <p>Exporters expose a <code>/metrics</code> HTTP endpoint that Prometheus scrapes. They are the bridge between the existing monitoring world and the Prometheus ecosystem.</p>
+    <div class="analogy-box"><h4>🌍 Real-World Analogy</h4>
+      <div class="analogy-row"><strong>Exporter</strong><span>→</span><span>A translator at a UN meeting — takes what someone says in French and converts it to English for others</span></div>
+      <div class="analogy-row"><strong>node_exporter</strong><span>→</span><span>Translates Linux kernel stats into Prometheus metrics</span></div>
+      <div class="analogy-row"><strong>mysqld_exporter</strong><span>→</span><span>Translates MySQL SHOW STATUS into Prometheus metrics</span></div>
+    </div>
+    <h3>🏗️ Exporter Deployment Pattern</h3>
+    <div class="diagram">
+      <div class="diagram-title">Exporter Architecture</div>
+      <div class="diagram-row">
+        <div class="diagram-box blue">MySQL<br/><small>native metrics</small></div>
+        <span style="color:var(--text2)">→</span>
+        <div class="diagram-box accent">mysqld_exporter<br/><small>:9104/metrics</small></div>
+        <span style="color:var(--text2)">←scrape</span>
+        <div class="diagram-box green">Prometheus</div>
+      </div>
+    </div>
+    <div class="callout callout-info"><h4>ℹ️ Official vs Third-Party Exporters</h4>
+      <p>Prometheus maintains a list of official exporters. The most widely used are node_exporter, blackbox_exporter, and mysqld_exporter. Third-party exporters exist for almost every system. Always check <a href="https://prometheus.io/docs/instrumenting/exporters/" target="_blank">prometheus.io/docs/instrumenting/exporters</a> first before building your own.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What is the purpose of a Prometheus exporter?</li>
+        <li>An exporter that can't reach its target will expose what kind of metrics?</li>
+      </ul>
+    </div>
+  `},
+  {id:2, title:'node_exporter — OS & Hardware Metrics', badge:'essential', content:`
+    <h3>🖥️ node_exporter</h3>
+    <p>The <strong>node_exporter</strong> is the most widely deployed Prometheus exporter. It exposes hundreds of metrics about the Linux operating system and hardware — CPU, memory, disk, network, filesystem, and more.</p>
+    <h3>📦 Deployment in Kubernetes</h3>
+    <p>In the kube-prometheus-stack, node_exporter runs as a <strong>DaemonSet</strong> — one pod per node — so every node is monitored automatically.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Verify node_exporter is running on all nodes
+kubectl get daemonset -n monitoring kube-prometheus-stack-prometheus-node-exporter
+
+# Check a node_exporter /metrics endpoint
+kubectl port-forward -n monitoring daemonset/node-exporter 9100:9100
+curl localhost:9100/metrics | grep node_cpu</pre>
+    <h3>🔑 Key Metrics Exposed</h3>
+    <table>
+      <tr><th>Metric</th><th>What it measures</th></tr>
+      <tr><td><code>node_cpu_seconds_total</code></td><td>CPU time by mode (idle, user, system, iowait…)</td></tr>
+      <tr><td><code>node_memory_MemAvailable_bytes</code></td><td>Available memory (more accurate than MemFree)</td></tr>
+      <tr><td><code>node_filesystem_free_bytes</code></td><td>Free disk space per filesystem</td></tr>
+      <tr><td><code>node_network_receive_bytes_total</code></td><td>Network bytes received per interface</td></tr>
+      <tr><td><code>node_load1</code></td><td>1-minute load average</td></tr>
+      <tr><td><code>node_disk_io_time_seconds_total</code></td><td>Disk I/O time</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 Most Useful node_exporter Queries</h4>
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># CPU usage % (all modes except idle)
+(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100
+
+# Memory pressure
+1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+
+# Disk filling up alert
+predict_linear(node_filesystem_free_bytes[6h], 24*3600) < 0</pre>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The kube-prometheus-stack ships with a "Node Exporter Full" Grafana dashboard (ID 1860) that covers all node_exporter metrics. When a customer asks about host-level metrics in Grafana, this dashboard is the starting point. Always check if the node_exporter DaemonSet is healthy before debugging dashboard issues.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What Kubernetes workload type does node_exporter run as in kube-prometheus-stack?</li>
+        <li>Which node_exporter metric is most accurate for available memory?</li>
+        <li>On which port does node_exporter expose metrics by default?</li>
+      </ul>
+    </div>
+  `},
+  {id:3, title:'blackbox_exporter — Probing Endpoints', badge:'essential', content:`
+    <h3>🕵️ blackbox_exporter — External Probing</h3>
+    <p>The <strong>blackbox_exporter</strong> allows Prometheus to <strong>probe external endpoints</strong> over HTTP, HTTPS, TCP, DNS, and ICMP. Unlike other exporters that monitor internal system state, blackbox_exporter tests what a user would experience — is the endpoint reachable? Does it return the right status code? How long does it take?</p>
+    <h3>🔧 How it Works</h3>
+    <div class="diagram">
+      <div class="diagram-title">Blackbox Probe Flow</div>
+      <div class="diagram-row">
+        <div class="diagram-box accent">Prometheus</div>
+        <span style="color:var(--text2)">→ scrape with target param</span>
+        <div class="diagram-box blue">blackbox_exporter</div>
+        <span style="color:var(--text2)">→ probe</span>
+        <div class="diagram-box green">https://api.example.com</div>
+      </div>
+    </div>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># prometheus.yml — scraping via blackbox
+scrape_configs:
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]   # probe module defined in blackbox config
+    static_configs:
+      - targets:
+          - https://api.example.com/health
+          - https://app.example.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115</pre>
+    <h3>🔑 Key Metrics</h3>
+    <table>
+      <tr><th>Metric</th><th>Description</th></tr>
+      <tr><td><code>probe_success</code></td><td>1 if probe succeeded, 0 if failed</td></tr>
+      <tr><td><code>probe_duration_seconds</code></td><td>Total probe duration</td></tr>
+      <tr><td><code>probe_http_status_code</code></td><td>HTTP status code returned</td></tr>
+      <tr><td><code>probe_ssl_earliest_cert_expiry</code></td><td>SSL certificate expiry time (Unix timestamp)</td></tr>
+      <tr><td><code>probe_dns_lookup_time_seconds</code></td><td>DNS resolution time</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 SSL Certificate Expiry Alert</h4>
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Alert when SSL cert expires in less than 30 days
+(probe_ssl_earliest_cert_expiry - time()) / 86400 < 30</pre>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, blackbox_exporter powers "uptime" and "synthetic monitoring" dashboards. The community Grafana dashboard ID 7587 is specifically for blackbox_exporter. When a customer asks "can Prometheus tell me if my website is up?", blackbox_exporter is the answer.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does a probe_success value of 0 indicate?</li>
+        <li>Which blackbox_exporter metric would you use to alert on expiring SSL certificates?</li>
+        <li>What HTTP path does blackbox_exporter expose for probes?</li>
+      </ul>
+    </div>
+  `},
+  {id:4, title:'kube-state-metrics & cAdvisor', badge:'essential', content:`
+    <h3>☸️ Two Essential Kubernetes Exporters</h3>
+    <p>In any Kubernetes monitoring setup you will encounter two exporters that are not optional — they provide the metrics that make Kubernetes dashboards work.</p>
+    <h3>📊 kube-state-metrics</h3>
+    <p><strong>kube-state-metrics</strong> watches the Kubernetes API server and exposes metrics about the <strong>state of Kubernetes objects</strong> — not resource usage, but whether objects exist and what state they're in.</p>
+    <ul>
+      <li><code>kube_pod_status_phase</code> — Pod phase (Running, Pending, Failed…)</li>
+      <li><code>kube_deployment_status_replicas_available</code> — Available replicas</li>
+      <li><code>kube_pod_container_status_restarts_total</code> — Container restart count</li>
+      <li><code>kube_node_status_condition</code> — Node conditions (Ready, MemoryPressure…)</li>
+      <li><code>kube_persistentvolumeclaim_status_phase</code> — PVC status</li>
+    </ul>
+    <h3>📊 cAdvisor (Container Advisor)</h3>
+    <p><strong>cAdvisor</strong> is embedded in the kubelet on every node and exposes <strong>resource usage metrics for containers</strong> — actual CPU, memory, network, and disk I/O consumed by each container.</p>
+    <ul>
+      <li><code>container_cpu_usage_seconds_total</code> — Container CPU usage</li>
+      <li><code>container_memory_working_set_bytes</code> — Container memory usage</li>
+      <li><code>container_network_receive_bytes_total</code> — Container network I/O</li>
+      <li><code>container_fs_writes_bytes_total</code> — Container filesystem writes</li>
+    </ul>
+    <div class="analogy-box"><h4>🌍 Analogy: kube-state-metrics vs cAdvisor</h4>
+      <div class="analogy-row"><strong>kube-state-metrics</strong><span>→</span><span>"Is the pod running? How many replicas exist?" — Administrative view</span></div>
+      <div class="analogy-row"><strong>cAdvisor</strong><span>→</span><span>"How much CPU is the pod consuming right now?" — Resource view</span></div>
+    </div>
+    <div class="callout callout-warn"><h4>⚠️ container!="" Filter</h4>
+      <p>cAdvisor metrics include entries with an empty <code>container</code> label (representing the pod sandbox). Always filter with <code>container!=""</code> to exclude these from your queries, otherwise you'll double-count resource usage.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The "Kubernetes / Compute Resources / Pod" dashboard in kube-prometheus-stack uses both exporters simultaneously — cAdvisor for actual CPU/memory usage and kube-state-metrics for replica counts and pod status. If one exporter is down, specific panels on this dashboard will show "No data" while others still work.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which exporter would you query to find out how many pod restarts occurred?</li>
+        <li>Where does cAdvisor run in a Kubernetes cluster?</li>
+        <li>Why should you filter container!="" when using cAdvisor metrics?</li>
+      </ul>
+    </div>
+  `},
+  {id:5, title:'Client Libraries & Custom Instrumentation', badge:'important', content:`
+    <h3>⚙️ Instrumenting Your Own Code</h3>
+    <p>When you control the application source code, you can add Prometheus metrics directly using an official <strong>client library</strong>. This gives you application-level metrics that no exporter can provide — business metrics, queue depths, custom latencies.</p>
+    <h3>📦 Official Client Libraries</h3>
+    <table>
+      <tr><th>Language</th><th>Library</th></tr>
+      <tr><td>Go</td><td><code>github.com/prometheus/client_golang</code></td></tr>
+      <tr><td>Java / JVM</td><td><code>io.prometheus:simpleclient</code></td></tr>
+      <tr><td>Python</td><td><code>prometheus-client</code></td></tr>
+      <tr><td>Node.js</td><td><code>prom-client</code></td></tr>
+      <tr><td>Ruby</td><td><code>prometheus-client</code></td></tr>
+    </table>
+    <h3>🐍 Python Example</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">from prometheus_client import Counter, Histogram, start_http_server
+import time
+
+# Define metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'status']
+)
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request latency',
+    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+)
+
+# Use in your request handler
+def handle_request(method, status_code):
+    with REQUEST_LATENCY.time():   # automatically records duration
+        # ... your logic ...
+        REQUEST_COUNT.labels(method=method, status=str(status_code)).inc()
+
+# Expose /metrics on port 8000
+start_http_server(8000)</pre>
+    <h3>🏷️ Best Practices for Custom Metrics</h3>
+    <ul>
+      <li>Follow naming conventions: <code>namespace_subsystem_name_unit</code></li>
+      <li>Add a HELP string that explains what the metric measures</li>
+      <li>Keep cardinality low — no user IDs in labels</li>
+      <li>Use histograms for latency, not summaries, in distributed systems</li>
+      <li>Document your metrics alongside your API documentation</li>
+    </ul>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Custom business metrics are where Grafana delivers the most value for application teams. Once an app is instrumented with order counts, payment latencies, or queue depths, these flow automatically into Grafana via Prometheus. When a customer says "we want to track our business KPIs in Grafana," the first step is instrumenting the application with a client library.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which official Prometheus library would you use to instrument a Python application?</li>
+        <li>What function automatically measures and records request duration in a histogram?</li>
+        <li>An application team wants to track the number of orders processed — which metric type should they use?</li>
+      </ul>
+    </div>
+  `},
+  {id:6, title:'Pushgateway — Batch Job Metrics', badge:'essential', content:`
+    <h3>🚀 The Problem with Batch Jobs</h3>
+    <p>Prometheus's pull model assumes targets are long-running and available to be scraped. But <strong>batch jobs</strong> (cron jobs, ETL pipelines, one-off scripts) may finish in seconds — before Prometheus can scrape them. The <strong>Pushgateway</strong> solves this.</p>
+    <h3>🔄 How Pushgateway Works</h3>
+    <div class="diagram">
+      <div class="diagram-title">Pushgateway Flow</div>
+      <div class="diagram-row">
+        <div class="diagram-box blue">Batch Job<br/><small>runs for 30s</small></div>
+        <span style="color:var(--text2)">→ push metrics</span>
+        <div class="diagram-box accent">Pushgateway<br/><small>:9091/metrics (buffered)</small></div>
+        <span style="color:var(--text2)">← scrape</span>
+        <div class="diagram-box green">Prometheus</div>
+      </div>
+    </div>
+    <h3>📤 Pushing Metrics</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Push metrics via curl
+cat <<EOF | curl --data-binary @- http://pushgateway:9091/metrics/job/batch_job/instance/my_instance
+# TYPE batch_job_duration_seconds gauge
+batch_job_duration_seconds 42.5
+# TYPE batch_records_processed_total counter
+batch_records_processed_total 15000
+EOF
+
+# Python with prometheus_client
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+registry = CollectorRegistry()
+g = Gauge('batch_job_duration_seconds', 'Batch duration', registry=registry)
+g.set(42.5)
+push_to_gateway('pushgateway:9091', job='batch_job', registry=registry)</pre>
+    <div class="callout callout-warn"><h4>⚠️ Pushgateway Caveats</h4>
+      <ul>
+        <li>Metrics <strong>persist</strong> in Pushgateway until explicitly deleted — a failed job's metrics remain until the next run or manual delete</li>
+        <li>Pushgateway has no concept of instance liveness — <code>up</code> metric is always 1</li>
+        <li>Use Pushgateway only for batch jobs — not for long-running services</li>
+        <li>Pushgateway is a <strong>single point of failure</strong> — consider HA if critical</li>
+      </ul>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, Pushgateway metrics appear just like any other Prometheus metric — they are scraped and stored the same way. A common pattern is a Grafana dashboard showing "Last successful batch run" using the timestamp from a Pushgateway metric, and alerting if the metric is older than the expected batch interval.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Why can't Prometheus scrape a cron job directly?</li>
+        <li>What happens to Pushgateway metrics when a batch job fails?</li>
+        <li>On which port does the Pushgateway expose its /metrics endpoint by default?</li>
+      </ul>
+    </div>
+  `}
+];
+
+// ── Shared reviewer JS (injected into each module) ──
+function revLoad(){try{return JSON.parse(localStorage.getItem(REV_KEY))||{};}catch(e){return {};}}
+function revSave(s){localStorage.setItem(REV_KEY,JSON.stringify(s));if(typeof sfWrite==='function')sfWrite(s);}
+
+function allSectionsChecked(){
+  const items=document.querySelectorAll('.rev-checkbox');
+  for(let i=0;i<items.length;i++){if(!items[i].checked)return false;}
+  return true;
+}
+function questionAnsweredCorrectly(){return revLoad().questionCorrect===true;}
+
+function updateCompleteBar(){
+  const bar=document.getElementById('rev-complete-bar');const cb=document.getElementById('rev-complete-cb');
+  const label=document.getElementById('rev-complete-label');const hint=document.getElementById('rev-complete-hint');
+  if(!bar)return;
+  const s=revLoad();
+  if(s.reviewComplete){bar.className='rev-complete-bar done';cb.disabled=false;cb.checked=true;label.textContent='✓ Review complete';hint.textContent='';return;}
+  const stepsOk=allSectionsChecked();const qOk=questionAnsweredCorrectly();
+  const missing=[];if(!stepsOk)missing.push('all sections checked');if(!qOk)missing.push('question answered correctly');
+  if(stepsOk&&qOk){bar.className='rev-complete-bar ready';cb.disabled=false;label.textContent='Mark review as complete';hint.textContent='';}
+  else{bar.className='rev-complete-bar disabled';cb.disabled=true;label.textContent='Complete all sections and answer the question correctly to unlock';hint.textContent=missing.length?'Still needed: '+missing.join(' · '):'';}
+}
+
+function renderProgress(){
+  let done=0;document.querySelectorAll('.rev-checkbox').forEach(c=>{if(c.checked)done++;});
+  const total=SECTIONS.length;const pct=Math.round((done/total)*100);
+  const pctEl=document.getElementById('sidebar-pct');const barEl=document.getElementById('sidebar-bar');
+  if(pctEl)pctEl.textContent=pct+'%';if(barEl)barEl.style.width=pct+'%';
+}
+
+function renderAll(){
+  const nav=document.getElementById('nav-items');nav.innerHTML='';
+  const sec=document.getElementById('sections-container');sec.innerHTML='';
+  const s0=revLoad();
+  SECTIONS.forEach(s=>{
+    const reviewed=s0['cb_'+s.id]||false;
+    const nd=document.createElement('div');nd.id='nav-'+s.id;nd.className='nav-item'+(reviewed?' reviewed':'');
+    nd.innerHTML='<span>'+s.id+'.</span><span style="flex:1;font-size:0.83rem">'+s.title+'</span><span class="nav-badge '+BADGE_CLASSES[s.badge]+'">'+BADGES[s.badge]+'</span>'+(reviewed?'<span style="font-size:0.72rem">✅</span>':'');
+    nd.onclick=()=>toggleSection(s.id);nav.appendChild(nd);
+    const sd=document.createElement('div');sd.className='section-block';
+    sd.innerHTML=`<div class="section-header" onclick="toggleSection(${s.id})"><span class="section-num">${MODULE_NUM}.${s.id}</span><span class="section-title">${s.title}</span><span class="nav-badge ${BADGE_CLASSES[s.badge]}">${BADGES[s.badge]}</span>${reviewed?'<span style="color:var(--green);font-size:0.83rem;">✅</span>':''}<span class="section-toggle" id="toggle-${s.id}">▼</span></div><div class="section-body" id="body-${s.id}">${s.content}<div class="reviewer-bar ${reviewed?'checked':''}" id="rev-bar-${s.id}"><input type="checkbox" class="rev-checkbox" id="rev-cb-${s.id}" data-step="${s.id}" ${reviewed?'checked':''}><label for="rev-cb-${s.id}">${reviewed?'✓ Section reviewed':'Mark section as reviewed'}</label></div></div>`;
+    sec.appendChild(sd);
+  });
+  document.querySelectorAll('.rev-checkbox').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const st=revLoad();st['cb_'+cb.dataset.step]=cb.checked;revSave(st);
+      const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.toggle('checked',cb.checked);bar.querySelector('label').textContent=cb.checked?'✓ Section reviewed':'Mark section as reviewed';}
+      const navItem=document.getElementById('nav-'+cb.dataset.step);if(navItem)navItem.classList.toggle('reviewed',cb.checked);
+      renderProgress();updateCompleteBar();
+    });
+  });
+  renderProgress();updateCompleteBar();
+}
+
+window.toggleSection=(id)=>{
+  const body=document.getElementById('body-'+id);const toggle=document.getElementById('toggle-'+id);
+  const isOpen=body.classList.contains('open');
+  document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));
+  if(!isOpen){body.classList.add('open');toggle.classList.add('open');}
+};
+
+// ── Reviewer question ──
+let revAnswer=null;let revSubmitted=false;
+
+function renderReviewerQ(){
+  const q=REV_QUESTION;
+  document.getElementById('rev-q-text').textContent=q.text;
+  const opts=document.getElementById('rev-options');opts.innerHTML='';
+  const keys=['A','B','C','D'];
+  q.options.forEach((o,i)=>{
+    const d=document.createElement('div');d.className='reviewer-option';d.dataset.key=keys[i];
+    d.innerHTML='<span class="reviewer-option-key">'+keys[i]+'</span><span>'+o+'</span>';
+    d.addEventListener('click',()=>selectRevOption(keys[i],d));
+    opts.appendChild(d);
+  });
+  const s=revLoad();
+  if(s.revAnswer!=null){revAnswer=s.revAnswer;revSubmitted=s.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}
+}
+
+function selectRevOption(key){
+  if(revSubmitted)return;
+  revAnswer=key;
+  document.querySelectorAll('.reviewer-option').forEach(o=>o.classList.toggle('selected',o.dataset.key===key));
+  const s=revLoad();s.revAnswer=key;revSave(s);
+}
+
+document.getElementById('rev-reveal-btn').addEventListener('click',()=>{
+  if(revAnswer===null){alert('Please select an answer first.');return;}
+  const s0=revLoad();s0.attemptCount=(s0.attemptCount||0)+1;if(!s0.startedAt)s0.startedAt=new Date().toISOString();revSave(s0);
+  revSubmitted=true;const s=revLoad();s.revSubmitted=true;revSave(s);
+  applyRevAnswer(revAnswer,true);
+});
+
+function applyRevAnswer(ans,showResult){
+  const correctKey=['A','B','C','D'][REV_QUESTION.correct];
+  const isCorrect=(ans===correctKey);
+  document.querySelectorAll('.reviewer-option').forEach(o=>{
+    o.classList.remove('selected','correct','wrong');
+    if(showResult){if(o.dataset.key===correctKey)o.classList.add('correct');else if(o.dataset.key===ans&&o.dataset.key!==correctKey)o.classList.add('wrong');}
+    else{if(o.dataset.key===ans)o.classList.add('selected');}
+  });
+  if(showResult){
+    const expEl=document.getElementById('rev-explanation');const lbl=document.getElementById('rev-exp-label');const txt=document.getElementById('rev-exp-text');const btn=document.getElementById('rev-reveal-btn');
+    if(expEl)expEl.classList.add('visible');if(lbl){lbl.textContent=isCorrect?'✓ Correct':'✗ Incorrect';lbl.className='reviewer-exp-label '+(isCorrect?'correct':'wrong');}
+    if(txt)txt.textContent=REV_QUESTION.explanation;if(btn)btn.style.display='none';
+    if(isCorrect){const s=revLoad();s.questionCorrect=true;revSave(s);}
+    updateCompleteBar();
+  }
+}
+
+const commentEl=document.getElementById('rev-comment');
+if(commentEl){const s=revLoad();if(s.comment)commentEl.value=s.comment;commentEl.addEventListener('input',()=>{const s=revLoad();s.comment=commentEl.value;revSave(s);});}
+
+document.getElementById('rev-complete-cb').addEventListener('change',()=>{
+  if(!document.getElementById('rev-complete-cb').checked)return;
+  const s=revLoad();s.reviewComplete=true;s.completedAt=new Date().toISOString();revSave(s);updateCompleteBar();
+});
+
+window.toggleTheme=()=>{const h=document.documentElement;h.setAttribute('data-theme',h.getAttribute('data-theme')==='dark'?'light':'dark');};
+window.copyCode=(btn)=>{const text=btn.parentElement.innerText.replace('Copy','').trim();navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);});};
+
+renderAll();renderReviewerQ();
+
+</script>
+<script>
+(function(){
+  var scripts=['https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js'];
+  function loadNext(i){if(i>=scripts.length){window._sfFirebaseReady=true;initFirebase();return;}var s=document.createElement('script');s.src=scripts[i];s.onload=function(){loadNext(i+1);};s.onerror=function(){console.warn('Firebase SDK failed:',scripts[i]);window._sfFirebaseReady=false;};document.head.appendChild(s);}
+  loadNext(0);
+})();
+</script>
+<script>
+function initFirebase(){
+  const SF_CONFIG={apiKey:"AIzaSyC-I-IOCq2fCwa471fsD5xOn6SYQSBDp7Q",authDomain:"sfcertification-grafana.firebaseapp.com",projectId:"sfcertification-grafana",storageBucket:"sfcertification-grafana.firebasestorage.app",messagingSenderId:"227322696511",appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"};
+  firebase.initializeApp(SF_CONFIG);
+  window.sfAuth=firebase.auth();window.sfDb=firebase.firestore();
+  const sfAuth=window.sfAuth;const sfDb=window.sfDb;
+
+  function sfDocRef(){if(!window.sfReviewerUid)return null;return sfDb.collection('reviewerSessions').doc(window.sfReviewerUid).collection('prometheus').doc(MODULE_ID);}
+
+  window.sfFetchAndMerge=async function(){
+    const ref=sfDocRef();if(!ref)return;
+    try{const snap=await ref.get();if(!snap.exists)return;const remote=snap.data();const local=revLoad();const merged=Object.assign({},local,remote);delete merged.email;delete merged.lastUpdated;localStorage.setItem(REV_KEY,JSON.stringify(merged));applyRestoredState(merged);}
+    catch(e){console.warn('Firestore fetch failed:',e.message);}
+  };
+
+  window.sfWrite=function(extraFields){
+    if(!window._sfFirebaseReady||typeof sfDb==='undefined'||!window.sfReviewerUid)return;
+    const ref=sfDocRef();if(!ref)return;
+    const local=revLoad();
+    const payload=Object.assign({},local,extraFields,{email:window.sfReviewerEmail,moduleId:MODULE_ID,courseId:COURSE_ID,lastUpdated:firebase.firestore.FieldValue.serverTimestamp()});
+    ref.set(payload,{merge:true}).catch(e=>console.warn('Firestore write failed:',e.message));
+  };
+
+  function applyRestoredState(state){
+    document.querySelectorAll('.rev-checkbox').forEach(cb=>{
+      if(state['cb_'+cb.dataset.step]){cb.checked=true;const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.add('checked');const lbl=bar.querySelector('label');if(lbl)lbl.textContent='✓ Section reviewed';}
+      const navItem=document.getElementById('nav-'+cb.dataset.step);if(navItem)navItem.classList.add('reviewed');}
+    });
+    const commentEl=document.getElementById('rev-comment');if(commentEl&&state.comment)commentEl.value=state.comment;
+    if(state.revAnswer!=null){revAnswer=state.revAnswer;revSubmitted=state.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}
+    if(state.reviewComplete){const cb=document.getElementById('rev-complete-cb');if(cb){cb.checked=true;cb.disabled=false;}}
+    renderProgress();updateCompleteBar();
+  }
+
+  function sfHideOverlayFirebase(user){
+    window.sfReviewerEmail=user.email;window.sfReviewerUid=user.uid;
+    const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');
+    const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');
+    if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+user.email;
+    window.sfFetchAndMerge();
+  }
+  sfAuth.onAuthStateChanged(user=>{if(user){sfHideOverlayFirebase(user);}else{document.getElementById('sfSigninOverlay').classList.remove('hidden');}});
+}
+</script>
+</body>
+</html>
