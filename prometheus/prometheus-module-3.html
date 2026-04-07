@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>Module 3: PromQL — Prometheus</title>
+<style>
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#e6522c;--accent2:#f47c3c;--text:#e8eaf0;--text2:#9da3bd;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--red:#e74c3c;--grafana:#f46800;--radius:12px;}
+  [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f8;--border:#d0d5e8;--text:#1a1d27;--text2:#555b7a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);}
+  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;max-width:380px;width:90%;}
+  .auth-card img{height:38px;margin-bottom:20px;}
+  .auth-card h2{font-size:1.2rem;font-weight:800;margin-bottom:8px;}
+  .auth-card p{color:var(--text2);font-size:0.87rem;margin-bottom:22px;}
+  .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:white;color:#333;border:1px solid #ddd;border-radius:8px;padding:11px 20px;font-size:0.9rem;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;}
+  .google-btn:hover{box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+  .google-btn svg{width:18px;height:18px;flex-shrink:0;}
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;align-items:center;justify-content:center;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .header-left{display:flex;align-items:center;gap:10px;font-size:0.88rem;color:var(--text2);}
+  .header-left img{height:28px;}
+  .header-left a{color:var(--accent);font-weight:600;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .user-chip{display:flex;align-items:center;gap:7px;font-size:0.82rem;}
+  .user-chip img{width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.8rem;transition:all 0.2s;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 54px);}
+  .sidebar{width:275px;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;overflow-y:auto;position:sticky;top:54px;height:calc(100vh - 54px);flex-shrink:0;}
+  .sidebar-title{padding:0 18px 10px;font-size:0.73rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .sidebar-progress{padding:10px 18px;background:var(--surface2);margin:0 10px 10px;border-radius:8px;}
+  .sidebar-progress-bar{background:var(--border);border-radius:99px;height:4px;margin-top:5px;}
+  .sidebar-progress-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.3s;}
+  .nav-item{padding:9px 18px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:9px;font-size:0.85rem;}
+  .nav-item:hover{background:var(--surface2);}
+  .nav-item.active{border-left-color:var(--accent);background:rgba(230,82,44,0.07);color:var(--accent);font-weight:600;}
+  .nav-item.completed{color:var(--green);}
+  .nav-badge{font-size:0.63rem;padding:2px 6px;border-radius:3px;font-weight:700;}
+  .badge-foundation{background:rgba(46,204,113,0.15);color:var(--green);}
+  .badge-essential{background:rgba(52,152,219,0.15);color:var(--blue);}
+  .badge-important{background:rgba(230,82,44,0.15);color:var(--accent);}
+  .content{flex:1;padding:30px 38px;max-width:840px;}
+  .module-hero{margin-bottom:28px;}
+  .module-hero h1{font-size:1.7rem;font-weight:800;margin-bottom:7px;}
+  .module-hero p{color:var(--text2);font-size:0.97rem;}
+  .module-meta{display:flex;gap:10px;margin-top:10px;}
+  .meta-chip{font-size:0.76rem;padding:4px 10px;border-radius:6px;font-weight:600;}
+  .chip-weight{background:rgba(52,152,219,0.15);color:var(--blue);border:1px solid rgba(52,152,219,0.3);}
+  .chip-sections{background:rgba(46,204,113,0.15);color:var(--green);border:1px solid rgba(46,204,113,0.3);}
+  .section-block{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);user-select:none;}
+  .section-header:hover{background:var(--surface2);}
+  .section-num{font-size:0.73rem;font-weight:700;color:var(--text2);min-width:26px;}
+  .section-title{font-weight:600;font-size:0.93rem;flex:1;}
+  .section-toggle{font-size:0.78rem;color:var(--text2);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{padding:22px 26px;background:var(--surface);border-top:1px solid var(--border);display:none;}
+  .section-body.open{display:block;}
+  h3{font-size:0.97rem;font-weight:700;margin:18px 0 9px;}
+  h3:first-child{margin-top:0;}
+  p{font-size:0.88rem;color:var(--text2);line-height:1.7;margin-bottom:11px;}
+  strong{color:var(--text);}
+  ul,ol{padding-left:18px;margin-bottom:11px;}
+  li{font-size:0.86rem;color:var(--text2);line-height:1.7;}
+  pre{background:#0d0f18;border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:0.8rem;overflow-x:auto;margin:11px 0;color:#a8d8a8;font-family:'Courier New',monospace;position:relative;}
+  .copy-btn{position:absolute;top:7px;right:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:3px 9px;border-radius:4px;cursor:pointer;font-size:0.7rem;}
+  .copy-btn:hover{background:var(--accent);color:white;}
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;font-size:0.85rem;}
+  .callout-warn{background:rgba(231,76,60,0.08);border-left:3px solid var(--red);}
+  .callout-tip{background:rgba(46,204,113,0.08);border-left:3px solid var(--green);}
+  .callout-info{background:rgba(52,152,219,0.08);border-left:3px solid var(--blue);}
+  .callout-grafana{background:rgba(244,104,0,0.08);border-left:3px solid var(--grafana);}
+  .callout h4{font-size:0.83rem;font-weight:700;margin-bottom:5px;}
+  .analogy-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;}
+  .analogy-box h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:8px;}
+  .analogy-row{display:flex;align-items:center;gap:9px;font-size:0.83rem;margin-bottom:5px;color:var(--text2);}
+  .analogy-row strong{color:var(--text);min-width:110px;}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px;margin:12px 0;text-align:center;}
+  .diagram-title{font-size:0.76rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+  .diagram-row{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:7px;flex-wrap:wrap;}
+  .diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:600;}
+  .diagram-box.accent{border-color:var(--accent);color:var(--accent);}
+  .diagram-box.blue{border-color:var(--blue);color:var(--blue);}
+  .diagram-box.green{border-color:var(--green);color:var(--green);}
+  .diagram-box.grafana{border-color:var(--grafana);color:var(--grafana);}
+  .test-questions{background:rgba(230,82,44,0.06);border:1px solid rgba(230,82,44,0.2);border-radius:8px;padding:12px 16px;margin-top:16px;}
+  .test-questions h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:7px;}
+  .test-questions li{font-size:0.81rem;color:var(--text2);}
+  .complete-btn{margin-top:18px;background:var(--accent);color:white;border:none;padding:9px 22px;border-radius:8px;font-size:0.86rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .complete-btn:hover{background:var(--accent2);}
+  .complete-btn.done{background:var(--green);cursor:default;}
+  .nav-footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:22px;border-top:1px solid var(--border);}
+  .nav-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;text-decoration:none;font-size:0.86rem;font-weight:600;transition:all 0.2s;}
+  .nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .nav-btn.primary{background:var(--accent);color:white;border-color:var(--accent);}
+  .nav-btn.primary:hover{background:var(--accent2);}
+  .save-indicator{font-size:0.75rem;color:var(--green);margin-left:10px;opacity:0;transition:opacity 0.3s;}
+  .save-indicator.show{opacity:1;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.83rem;}
+  th{background:var(--surface2);color:var(--text);font-weight:700;padding:8px 12px;text-align:left;border:1px solid var(--border);}
+  td{padding:7px 12px;border:1px solid var(--border);color:var(--text2);}
+  td code{color:var(--accent);font-family:'Courier New',monospace;font-size:0.8rem;}
+</style>
+</head>
+<body>
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <h2>Sign In Required</h2>
+    <p>Sign in with your SourceFuse Google account to access this module.</p>
+    <button class="google-btn" id="signin-btn">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
+<div id="app" style="display:none;">
+<header class="header">
+  <div class="header-left">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <a href="prometheus-dashboard.html">← Dashboard</a> / Module 3
+  </div>
+  <div class="header-right">
+    <div class="user-chip"><img id="user-avatar" src="" alt=""/><span id="user-name" style="font-size:0.82rem;"></span></div>
+    <button class="btn-sm" onclick="toggleTheme()">🌓 Theme</button>
+    <button class="btn-sm" id="signout-btn">Sign Out</button>
+  </div>
+</header>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-title">Module 3 — 8 Sections</div>
+    <div class="sidebar-progress">
+      <div style="font-size:0.78rem;color:var(--text2);display:flex;justify-content:space-between;"><span>Progress</span><span id="sidebar-pct">0%</span></div>
+      <div class="sidebar-progress-bar"><div class="sidebar-progress-fill" id="sidebar-bar" style="width:0%"></div></div>
+    </div>
+    <div id="nav-items"></div>
+  </nav>
+  <div class="content">
+    <div class="module-hero">
+      <h1>🔍 Module 3: PromQL</h1>
+      <p>Master Prometheus Query Language — selectors, operators, aggregations, functions, and real-world query patterns used in production dashboards and alerts.</p>
+      <div class="module-meta">
+        <span class="meta-chip chip-weight">25% Exam Weight</span>
+        <span class="meta-chip chip-sections">8 Sections</span>
+      </div>
+    </div>
+    <div id="sections-container"></div>
+    <div class="nav-footer">
+      <a href="prometheus-module-2.html" class="nav-btn">← Module 2: Metrics & Data Model</a>
+      <a href="prometheus-module-4.html" class="nav-btn primary">Module 4: Exporters →</a>
+    </div>
+  </div>
+</div>
+</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC-I-IOCq2fCwa471fsD5xOn6SYQSBDp7Q",
+  authDomain: "sfcertification-grafana.firebaseapp.com",
+  projectId: "sfcertification-grafana",
+  storageBucket: "sfcertification-grafana.firebasestorage.app",
+  messagingSenderId: "227322696511",
+  appId: "1:227322696511:web:12e7ced7dd3d45fa06798a"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const MODULE_KEY = 'pm3';
+const MODULE_NUM = 3;
+const BADGES = { foundation:'Foundation', essential:'Essential', important:'Important' };
+const BADGE_CLASSES = { foundation:'badge-foundation', essential:'badge-essential', important:'badge-important' };
+
+const SECTIONS = [
+  {id:1, title:'PromQL Basics & Data Types', badge:'foundation', content:`
+    <h3>🔍 What is PromQL?</h3>
+    <p>PromQL (Prometheus Query Language) is a <strong>functional query language</strong> purpose-built for time-series data. Every Grafana panel backed by Prometheus executes a PromQL expression. Understanding PromQL is the single most important skill for a Grafana Support Engineer.</p>
+    <h3>📐 Four Data Types</h3>
+    <table>
+      <tr><th>Type</th><th>Description</th><th>Example</th></tr>
+      <tr><td><strong>Instant vector</strong></td><td>Set of time series, each with one value at a point in time</td><td><code>http_requests_total</code></td></tr>
+      <tr><td><strong>Range vector</strong></td><td>Set of time series, each with a range of values over a time window</td><td><code>http_requests_total[5m]</code></td></tr>
+      <tr><td><strong>Scalar</strong></td><td>A single floating-point number</td><td><code>1.5</code></td></tr>
+      <tr><td><strong>String</strong></td><td>A simple string value (rarely used)</td><td><code>"hello"</code></td></tr>
+    </table>
+    <div class="callout callout-info"><h4>ℹ️ Instant vs Range Vector</h4>
+      <p>Most queries start as instant vectors. Range vectors (using <code>[5m]</code> syntax) are only used as input to functions like <code>rate()</code>, <code>increase()</code>, and <code>avg_over_time()</code> — you can't directly graph a range vector.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana's query editor, you write PromQL expressions. The result must be an instant vector or scalar to be graphable. If your query returns a range vector, Grafana will show an error — you need to wrap it in a function like <code>rate()</code> first.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What PromQL data type does <code>http_requests_total[5m]</code> return?</li>
+        <li>Which functions require a range vector as input?</li>
+      </ul>
+    </div>
+  `},
+  {id:2, title:'Selectors & Label Matchers', badge:'essential', content:`
+    <h3>🎯 Selecting Time Series</h3>
+    <p>A <strong>selector</strong> is a metric name plus optional label matchers enclosed in <code>{}</code>. It filters which time series are returned.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button># All series for this metric
+http_requests_total
+
+# Filter to only GET requests with 200 status
+http_requests_total{method="GET", status="200"}
+
+# All series with job label starting with "api"
+http_requests_total{job=~"api.*"}</pre>
+    <h3>🔧 Four Label Matcher Operators</h3>
+    <table>
+      <tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+      <tr><td><code>=</code></td><td>Exact match</td><td><code>status="200"</code></td></tr>
+      <tr><td><code>!=</code></td><td>Not equal</td><td><code>status!="200"</code></td></tr>
+      <tr><td><code>=~</code></td><td>Regex match</td><td><code>status=~"5.."</code></td></tr>
+      <tr><td><code>!~</code></td><td>Regex does not match</td><td><code>method!~"GET|HEAD"</code></td></tr>
+    </table>
+    <h3>💡 Practical Examples</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button># All 5xx errors
+http_requests_total{status=~"5.."}
+
+# Everything except the "test" namespace
+kube_pod_info{namespace!="test"}
+
+# Specific pod from multiple namespaces
+container_cpu_usage_seconds_total{pod=~"my-app-.*", namespace=~"prod|staging"}</pre>
+    <div class="callout callout-warn"><h4>⚠️ Regex Anchoring</h4>
+      <p>Prometheus regex matchers are <strong>fully anchored</strong> — <code>status=~"5"</code> only matches the string "5", not "500". Use <code>status=~"5.."</code> for 3-digit 5xx codes. The <code>.</code> matches any single character in regex.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Grafana template variables use label matchers heavily. A common pattern is <code>namespace=~"$namespace"</code> where <code>$namespace</code> is a dashboard variable. When a customer says "my dashboard variable isn't filtering correctly," check the label matcher operator — <code>=</code> vs <code>=~</code> makes a big difference for multi-select variables.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which operator matches a label value against a regular expression?</li>
+        <li>Does <code>status=~"5"</code> match "500"? Why or why not?</li>
+        <li>Write a selector that matches all 4xx and 5xx status codes.</li>
+      </ul>
+    </div>
+  `},
+  {id:3, title:'rate(), irate() & increase()', badge:'important', content:`
+    <h3>📈 Working with Counters</h3>
+    <p>Since counters only go up, the raw value is rarely useful. Three functions compute meaningful rates from counters — and choosing the right one matters.</p>
+    <h3>⚡ rate() — The Workhorse</h3>
+    <p><code>rate(counter[window])</code> calculates the <strong>per-second average rate</strong> over the time window. It handles counter resets automatically. This is the standard function for most use cases.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># HTTP requests per second, averaged over 5 minutes
+rate(http_requests_total[5m])
+
+# Error rate per second
+rate(http_requests_total{status=~"5.."}[5m])</pre>
+    <h3>⚡ irate() — Instantaneous Rate</h3>
+    <p><code>irate()</code> uses only the <strong>last two data points</strong> in the window to calculate the rate. It is more sensitive to sudden spikes but noisier for slow-moving metrics.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Instantaneous CPU usage — good for seeing sudden spikes
+irate(node_cpu_seconds_total[5m])</pre>
+    <h3>📊 increase() — Total Count Over Window</h3>
+    <p><code>increase(counter[window])</code> returns the <strong>total increase</strong> over the window — not per-second rate. Useful for "how many requests in the last hour?"</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Total HTTP requests in the last hour
+increase(http_requests_total[1h])
+
+# Total errors in last 5 minutes
+increase(http_requests_total{status=~"5.."}[5m])</pre>
+    <div class="callout callout-info"><h4>ℹ️ Choosing the Right Function</h4>
+      <ul>
+        <li>Use <strong>rate()</strong> for dashboards and alert rules — smooth, handles resets, aggregatable</li>
+        <li>Use <strong>irate()</strong> for debugging sudden spikes — more reactive but noisy</li>
+        <li>Use <strong>increase()</strong> when you need a total count over a period, not a rate</li>
+      </ul>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, a "Requests per Second" Stat panel uses <code>rate()</code>. A "Total Errors Last Hour" panel uses <code>increase()</code>. When a customer asks why their "requests per second" panel shows a decimal like 1.67, it's because <code>rate()</code> returns a per-second fractional rate even for low-traffic services — this is correct behaviour.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What is the difference between rate() and irate()?</li>
+        <li>Which function returns total increase over a window rather than per-second rate?</li>
+        <li>rate() requires what type of input — instant vector or range vector?</li>
+      </ul>
+    </div>
+  `},
+  {id:4, title:'Aggregation Operators', badge:'essential', content:`
+    <h3>🔢 Aggregating Across Series</h3>
+    <p>Aggregation operators collapse multiple time series into one (or fewer). They are the equivalent of SQL GROUP BY for time-series data.</p>
+    <table>
+      <tr><th>Operator</th><th>What it does</th></tr>
+      <tr><td><code>sum()</code></td><td>Sum all values</td></tr>
+      <tr><td><code>avg()</code></td><td>Average all values</td></tr>
+      <tr><td><code>min()</code></td><td>Minimum value</td></tr>
+      <tr><td><code>max()</code></td><td>Maximum value</td></tr>
+      <tr><td><code>count()</code></td><td>Count number of series</td></tr>
+      <tr><td><code>topk(n, ...)</code></td><td>Top N series by value</td></tr>
+      <tr><td><code>bottomk(n, ...)</code></td><td>Bottom N series by value</td></tr>
+      <tr><td><code>stddev()</code></td><td>Standard deviation</td></tr>
+    </table>
+    <h3>🏷️ by() and without() Clauses</h3>
+    <p>By default, aggregation collapses all labels. Use <code>by()</code> to keep specific labels, or <code>without()</code> to drop specific labels:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Total requests per job (collapse all other labels)
+sum(rate(http_requests_total[5m])) by (job)
+
+# Total requests per job and method
+sum(rate(http_requests_total[5m])) by (job, method)
+
+# Drop only instance label, keep everything else
+sum(rate(http_requests_total[5m])) without (instance)
+
+# Top 5 pods by CPU usage
+topk(5, sum(rate(container_cpu_usage_seconds_total[5m])) by (pod))</pre>
+    <div class="callout callout-warn"><h4>⚠️ Common Mistake: Missing by()</h4>
+      <p>Writing <code>sum(http_requests_total)</code> collapses ALL labels and gives you one single number. This is usually not what you want. Always think about which dimensions you need to preserve with <code>by()</code>.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, when a legend shows only one line instead of separate lines per pod/instance, it's usually because the aggregation is missing a <code>by(pod)</code> clause. Adding <code>by (pod)</code> to the query creates separate time series per pod, which Grafana renders as separate lines with auto-generated legend entries.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does <code>sum(rate(http_requests_total[5m])) by (status)</code> return?</li>
+        <li>How do you keep only the "job" label after aggregation?</li>
+        <li>Which operator returns the top 3 series by value?</li>
+      </ul>
+    </div>
+  `},
+  {id:5, title:'Binary Operators & Arithmetic', badge:'essential', content:`
+    <h3>➕ Arithmetic Between Metrics</h3>
+    <p>PromQL supports standard arithmetic operators between metrics. The key rule: <strong>labels must match</strong> between the two sides for the operation to work.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Memory used in bytes
+node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+
+# CPU usage percentage (1 - idle)
+(1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) * 100
+
+# Error ratio as a percentage
+rate(http_requests_total{status=~"5.."}[5m])
+  / rate(http_requests_total[5m]) * 100
+
+# Disk usage percentage
+(node_filesystem_size_bytes - node_filesystem_free_bytes)
+  / node_filesystem_size_bytes * 100</pre>
+    <h3>🔗 Vector Matching</h3>
+    <p>When operating on two instant vectors, Prometheus matches series by label set. Use <code>on()</code> to specify matching labels, or <code>ignoring()</code> to exclude labels from matching:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Match on instance label only
+metric_a / on(instance) metric_b
+
+# Many-to-one matching with group_left
+metric_a * on(pod) group_left(namespace) metric_b</pre>
+    <div class="callout callout-tip"><h4>💡 Most Useful Arithmetic Queries</h4>
+      <ul>
+        <li><strong>CPU %:</strong> <code>(1 - rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100</code></li>
+        <li><strong>Memory %:</strong> <code>(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100</code></li>
+        <li><strong>Disk %:</strong> <code>(1 - node_filesystem_free_bytes / node_filesystem_size_bytes) * 100</code></li>
+        <li><strong>Error ratio:</strong> <code>rate(errors[5m]) / rate(requests[5m])</code></li>
+      </ul>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The most common "why is my panel showing no data" issue when combining two metrics is a label mismatch. If one metric has <code>instance="10.0.0.1:9100"</code> and the other has <code>instance="10.0.0.1"</code>, the binary operation returns nothing. Use <code>on()</code> or <code>ignoring()</code> to handle this.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Write a PromQL expression to calculate free disk space percentage.</li>
+        <li>What happens when you divide two metrics with non-matching labels?</li>
+        <li>What keyword restricts label matching to specific labels in a binary operation?</li>
+      </ul>
+    </div>
+  `},
+  {id:6, title:'Functions: avg_over_time, predict_linear & more', badge:'essential', content:`
+    <h3>🛠️ Key PromQL Functions</h3>
+    <p>Beyond rate() and aggregations, several functions are essential for production queries.</p>
+    <h3>📊 Over-Time Functions (for Gauges)</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Average memory usage over last hour
+avg_over_time(node_memory_MemAvailable_bytes[1h])
+
+# Maximum CPU usage over last 24 hours
+max_over_time(node_cpu_usage[24h])
+
+# Minimum free disk space over last week
+min_over_time(node_filesystem_free_bytes[7d])</pre>
+    <h3>🔮 predict_linear() — Capacity Planning</h3>
+    <p><code>predict_linear(gauge[window], seconds)</code> predicts where a gauge will be in N seconds based on linear regression over the window. Essential for disk full alerts.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Will disk fill up in next 4 hours?
+predict_linear(node_filesystem_free_bytes[1h], 4*3600) < 0
+
+# Alert: disk will fill in less than 24 hours
+ALERT DiskFillingUp
+  IF predict_linear(node_filesystem_free_bytes{job="node"}[6h], 24*3600) < 0</pre>
+    <h3>🔧 Other Important Functions</h3>
+    <table>
+      <tr><th>Function</th><th>Use case</th></tr>
+      <tr><td><code>histogram_quantile(q, buckets)</code></td><td>Calculate percentile from histogram</td></tr>
+      <tr><td><code>label_replace(v, dst, repl, src, regex)</code></td><td>Rewrite or create label values</td></tr>
+      <tr><td><code>absent(v)</code></td><td>Returns 1 if metric is missing — alert on missing data</td></tr>
+      <tr><td><code>changes(gauge[window])</code></td><td>Count how many times a gauge changed value</td></tr>
+      <tr><td><code>resets(counter[window])</code></td><td>Count counter resets (restarts)</td></tr>
+      <tr><td><code>delta(gauge[window])</code></td><td>Difference between first and last value in window</td></tr>
+      <tr><td><code>deriv(gauge[window])</code></td><td>Per-second derivative of a gauge</td></tr>
+      <tr><td><code>clamp_max(v, max)</code></td><td>Cap values at a maximum</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 absent() for Dead Man's Switch</h4>
+      <p><code>absent(up{job="critical-service"})</code> fires when no series match — i.e. when the target disappears entirely from Prometheus. This is how you alert when a whole service goes down rather than just being unhealthy.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p><code>predict_linear()</code> is often used in Grafana "time to empty" panels for disk or memory. <code>label_replace()</code> is useful for making legend entries more readable — e.g. extracting just the pod name from a longer label value.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which function predicts a future gauge value using linear regression?</li>
+        <li>What does absent() return when a metric exists?</li>
+        <li>avg_over_time() requires what type of input vector?</li>
+      </ul>
+    </div>
+  `},
+  {id:7, title:'Recording Rules', badge:'important', content:`
+    <h3>⚡ What are Recording Rules?</h3>
+    <p>Recording rules allow you to <strong>pre-compute expensive PromQL expressions</strong> and save the result as a new metric. Prometheus evaluates them on the <code>evaluation_interval</code> (default 1 minute) and stores the results as regular time series.</p>
+    <p>This dramatically speeds up dashboards and alerts that use complex queries — especially aggregations across high-cardinality metrics.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># rules/recording.yml
+groups:
+  - name: http_metrics
+    interval: 30s   # optional override of global evaluation_interval
+    rules:
+      # Pre-compute per-job request rate
+      - record: job:http_requests_total:rate5m
+        expr: sum(rate(http_requests_total[5m])) by (job)
+
+      # Pre-compute error ratio per job
+      - record: job:http_errors:ratio5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+          /
+          sum(rate(http_requests_total[5m])) by (job)</pre>
+    <h3>📋 Naming Convention</h3>
+    <p>The community convention for recording rule names is: <code>level:metric:operations</code></p>
+    <ul>
+      <li><code>level</code> — aggregation level (e.g. <code>job</code>, <code>instance</code>, <code>namespace</code>)</li>
+      <li><code>metric</code> — base metric name without type suffix</li>
+      <li><code>operations</code> — list of functions applied (e.g. <code>rate5m</code>, <code>ratio</code>)</li>
+    </ul>
+    <div class="callout callout-info"><h4>ℹ️ When to Use Recording Rules</h4>
+      <ul>
+        <li>Dashboard queries that take more than 1-2 seconds to execute</li>
+        <li>Aggregations involving high-cardinality metrics (millions of series)</li>
+        <li>Alert expressions that are computationally expensive</li>
+        <li>Metrics that need to be available across multiple dashboards consistently</li>
+      </ul>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, if a dashboard loads slowly, recording rules are the fix. You move the expensive PromQL computation into a recording rule, then reference the pre-computed metric name in Grafana — which loads near-instantly because it's just reading a gauge. The kube-prometheus-stack ships with hundreds of pre-built recording rules for exactly this reason.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What is the purpose of a recording rule?</li>
+        <li>What naming convention does the community use for recording rule metrics?</li>
+        <li>How often does Prometheus evaluate recording rules by default?</li>
+      </ul>
+    </div>
+  `},
+  {id:8, title:'Common PromQL Patterns', badge:'important', content:`
+    <h3>🎯 Production-Ready Query Patterns</h3>
+    <p>These are the query patterns you will encounter most frequently as a Grafana Support Engineer. Learn these by heart.</p>
+    <h3>🖥️ Infrastructure Monitoring</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># CPU usage % per node
+(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100
+
+# Memory usage % per node
+(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+
+# Disk usage % per device
+(1 - node_filesystem_free_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"}) * 100
+
+# Network receive rate
+rate(node_network_receive_bytes_total[5m])</pre>
+    <h3>☸️ Kubernetes Monitoring</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Pod CPU usage
+sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) by (pod, namespace)
+
+# Pod memory usage
+sum(container_memory_working_set_bytes{container!=""}) by (pod, namespace)
+
+# Pod restarts in last hour
+increase(kube_pod_container_status_restarts_total[1h]) > 0
+
+# Pods not running
+kube_pod_status_phase{phase!="Running",phase!="Succeeded"} == 1</pre>
+    <h3>📡 Application SLI/SLO Queries</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Availability (% of successful requests)
+sum(rate(http_requests_total{status!~"5.."}[5m]))
+  / sum(rate(http_requests_total[5m])) * 100
+
+# p99 latency
+histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+
+# Error budget burn rate (for SLO alerting)
+1 - (sum(rate(http_requests_total{status!~"5.."}[1h]))
+     / sum(rate(http_requests_total[1h])))</pre>
+    <div class="callout callout-tip"><h4>💡 Debugging "No Data" in Grafana</h4>
+      <ol>
+        <li>Run the query in Prometheus UI first — does it return data there?</li>
+        <li>Check the time range — is it outside Prometheus retention?</li>
+        <li>Check label matchers — are the label values correct for your environment?</li>
+        <li>Check for cardinality issues — does the metric exist at all? (<code>absent()</code>)</li>
+        <li>Check scrape status — is the target up? (<code>up == 0</code>)</li>
+      </ol>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>These patterns map directly to Grafana panel types: CPU/Memory % → Gauge or Stat panels; Rate queries → Time series graphs; p99 latency → Stat panel with threshold colouring; Pod restarts → Bar chart or Table panel. Knowing the query pattern helps you recommend the right visualisation to customers.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Write a PromQL query to calculate CPU usage percentage for all nodes.</li>
+        <li>Which query would show pods that are not in a Running or Succeeded state?</li>
+        <li>How do you calculate p95 request latency using a histogram metric?</li>
+      </ul>
+    </div>
+  `}
+];
+
+let _uid = null, _completed = [];
+document.getElementById('signin-btn').onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e) {} };
+document.getElementById('signout-btn').onclick = () => signOut(auth);
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    _uid = user.uid;
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('user-avatar').src = user.photoURL || '';
+    document.getElementById('user-name').textContent = user.displayName || '';
+    await loadCompleted();
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAll();
+  } else { _uid = null; document.getElementById('app').style.display='none'; document.getElementById('auth-overlay').style.display='flex'; }
+});
+async function loadCompleted() { const snap = await getDoc(doc(db,'progress',_uid)); _completed = snap.exists() ? (snap.data()[MODULE_KEY] || []) : []; }
+async function markComplete(id) {
+  if (_completed.includes(id)) return;
+  _completed = [..._completed, id];
+  const ref = doc(db,'progress',_uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) { await setDoc(ref, {[MODULE_KEY]: _completed, updatedAt: serverTimestamp()}); }
+  else { await updateDoc(ref, {[MODULE_KEY]: arrayUnion(id), updatedAt: serverTimestamp()}); }
+  const btn = document.getElementById(`complete-btn-${id}`);
+  if (btn) { btn.textContent = '✅ Completed'; btn.classList.add('done'); btn.disabled = true; }
+  renderProgress(); renderNavItem(id, true); showSaveIndicator(id);
+}
+function showSaveIndicator(id) { const ind = document.getElementById(`save-ind-${id}`); if (ind) { ind.classList.add('show'); setTimeout(()=>ind.classList.remove('show'),2000); } }
+function renderProgress() { const pct = Math.round((_completed.length / SECTIONS.length)*100); document.getElementById('sidebar-pct').textContent = pct+'%'; document.getElementById('sidebar-bar').style.width = pct+'%'; }
+function renderNavItem(id, done) {
+  const el = document.getElementById(`nav-${id}`); if (!el) return;
+  const sec = SECTIONS[id-1];
+  el.className = 'nav-item' + (done ? ' completed' : '');
+  el.innerHTML = `<span>${id}.</span><span style="flex:1;font-size:0.83rem">${sec.title}</span><span class="nav-badge ${BADGE_CLASSES[sec.badge]}">${BADGES[sec.badge]}</span>${done?'<span style="font-size:0.72rem">✅</span>':''}`;
+  el.onclick = () => toggleSection(id);
+}
+function renderAll() {
+  const navContainer = document.getElementById('nav-items'); navContainer.innerHTML = '';
+  SECTIONS.forEach(s => { const div = document.createElement('div'); div.id = `nav-${s.id}`; navContainer.appendChild(div); renderNavItem(s.id, _completed.includes(s.id)); });
+  const secContainer = document.getElementById('sections-container'); secContainer.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const done = _completed.includes(s.id);
+    const div = document.createElement('div'); div.className = 'section-block';
+    div.innerHTML = `<div class="section-header" onclick="toggleSection(${s.id})"><span class="section-num">${MODULE_NUM}.${s.id}</span><span class="section-title">${s.title}</span><span class="nav-badge ${BADGE_CLASSES[s.badge]}">${BADGES[s.badge]}</span>${done?'<span style="color:var(--green);font-size:0.83rem;">✅</span>':''}<span class="section-toggle" id="toggle-${s.id}">▼</span></div><div class="section-body" id="body-${s.id}">${s.content}<button class="complete-btn ${done?'done':''}" id="complete-btn-${s.id}" onclick="markComplete(${s.id})" ${done?'disabled':''}>${done?'✅ Completed':'✅ Mark section '+MODULE_NUM+'.'+s.id+' as completed'}</button><span class="save-indicator" id="save-ind-${s.id}">✓ Saved to cloud</span></div>`;
+    secContainer.appendChild(div);
+  });
+  renderProgress();
+}
+window.toggleSection = (id) => {
+  const body = document.getElementById(`body-${id}`); const toggle = document.getElementById(`toggle-${id}`);
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));
+  if (!isOpen) { body.classList.add('open'); toggle.classList.add('open'); }
+};
+window.markComplete = markComplete;
+window.toggleTheme = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme')==='dark'?'light':'dark'); };
+window.copyCode = (btn) => { const text = btn.parentElement.innerText.replace('Copy','').trim(); navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);}); };
+</script>
+</body>
+</html>
