@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>[Reviewer] Module 5: Alerting & Alertmanager — Prometheus</title>
+<style>
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#e6522c;--accent2:#f47c3c;--text:#e8eaf0;--text2:#9da3bd;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--red:#e74c3c;--grafana:#f46800;--radius:12px;}
+  [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f8;--border:#d0d5e8;--text:#1a1d27;--text2:#555b7a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);}
+  .reviewer-topbanner{background:rgba(230,82,44,0.12);border-bottom:2px solid var(--accent);padding:10px 26px;font-size:12px;font-family:monospace;color:var(--accent);display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200;}
+  .sf-signin-overlay{position:fixed;inset:0;background:rgba(10,12,20,.9);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px);}
+  .sf-signin-overlay.hidden{display:none;}
+  .sf-signin-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center;}
+  .sf-signin-logo{font-size:32px;margin-bottom:12px;}
+  .sf-signin-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;}
+  .sf-signin-sub{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:24px;}
+  .sf-google-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #d0dae8;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;color:#1a2332;width:100%;justify-content:center;transition:box-shadow .15s;}
+  .sf-google-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,.2);}
+  .sf-google-btn img{width:20px;height:20px;}
+  .sf-signin-divider{font-size:11px;color:var(--text2);text-align:center;margin:14px 0 10px;display:flex;align-items:center;gap:8px;font-family:monospace;}
+  .sf-signin-divider::before,.sf-signin-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+  .sf-fallback-input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text);background:var(--surface2);margin-bottom:10px;outline:none;}
+  .sf-fallback-input:focus{border-color:var(--accent);}
+  .sf-fallback-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+  .sf-signin-error{margin-top:14px;font-size:12.5px;color:#e74c3c;font-family:monospace;background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);border-radius:6px;padding:10px 12px;display:none;text-align:left;}
+  .sf-signin-error.visible{display:block;}
+  .sf-signed-in-bar{background:rgba(46,204,113,.1);border-bottom:1px solid rgba(46,204,113,.3);padding:7px 26px;font-size:11px;font-family:monospace;color:var(--green);display:flex;align-items:center;justify-content:space-between;}
+  .sf-signed-in-bar.hidden{display:none;}
+  .sf-signout-btn{font-size:10px;font-family:monospace;color:var(--accent);background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .header-left{display:flex;align-items:center;gap:10px;font-size:0.88rem;color:var(--text2);}
+  .header-left a{color:var(--accent);font-weight:600;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.8rem;text-decoration:none;display:inline-block;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 94px);}
+  .sidebar{width:275px;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;overflow-y:auto;position:sticky;top:94px;height:calc(100vh - 94px);flex-shrink:0;}
+  .sidebar-title{padding:0 18px 10px;font-size:0.73rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .sidebar-progress{padding:10px 18px;background:var(--surface2);margin:0 10px 10px;border-radius:8px;}
+  .sidebar-progress-bar{background:var(--border);border-radius:99px;height:4px;margin-top:5px;}
+  .sidebar-progress-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.3s;}
+  .nav-item{padding:9px 18px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:9px;font-size:0.85rem;}
+  .nav-item:hover{background:var(--surface2);}
+  .nav-item.reviewed{color:var(--green);}
+  .nav-badge{font-size:0.63rem;padding:2px 6px;border-radius:3px;font-weight:700;}
+  .badge-foundation{background:rgba(46,204,113,0.15);color:var(--green);}
+  .badge-essential{background:rgba(52,152,219,0.15);color:var(--blue);}
+  .badge-important{background:rgba(230,82,44,0.15);color:var(--accent);}
+  .content{flex:1;padding:30px 38px;max-width:840px;}
+  .module-hero{margin-bottom:28px;}
+  .module-hero h1{font-size:1.7rem;font-weight:800;margin-bottom:7px;}
+  .module-hero p{color:var(--text2);font-size:0.97rem;}
+  .module-meta{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .meta-chip{font-size:0.76rem;padding:4px 10px;border-radius:6px;font-weight:600;}
+  .chip-weight{background:rgba(52,152,219,0.15);color:var(--blue);border:1px solid rgba(52,152,219,0.3);}
+  .chip-sections{background:rgba(46,204,113,0.15);color:var(--green);border:1px solid rgba(46,204,113,0.3);}
+  .chip-reviewer{background:rgba(230,82,44,0.15);color:var(--accent);border:1px solid rgba(230,82,44,0.3);}
+  .section-block{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);user-select:none;}
+  .section-header:hover{background:var(--surface2);}
+  .section-num{font-size:0.73rem;font-weight:700;color:var(--text2);min-width:26px;}
+  .section-title{font-weight:600;font-size:0.93rem;flex:1;}
+  .section-toggle{font-size:0.78rem;color:var(--text2);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{display:none;padding:20px 22px 10px;border-top:1px solid var(--border);}
+  .section-body.open{display:block;}
+  h3{font-size:1.05rem;font-weight:700;margin:18px 0 10px;}
+  p{margin-bottom:12px;font-size:0.92rem;line-height:1.7;color:var(--text);}
+  ul,ol{margin:10px 0 14px 20px;font-size:0.92rem;line-height:1.8;}
+  li{margin-bottom:4px;}
+  code{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:0.83rem;font-family:monospace;}
+  pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:0.82rem;font-family:monospace;overflow-x:auto;margin:12px 0;position:relative;white-space:pre-wrap;}
+  .copy-btn{position:absolute;top:8px;right:8px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:3px 8px;font-size:0.72rem;cursor:pointer;}
+  .copy-btn:hover{color:var(--accent);}
+  .callout{border-radius:8px;padding:14px 16px;margin:14px 0;font-size:0.88rem;line-height:1.7;}
+  .callout h4{font-size:0.85rem;margin-bottom:6px;}
+  .callout-info{background:rgba(52,152,219,0.1);border-left:3px solid var(--blue);}
+  .callout-warn{background:rgba(231,76,60,0.1);border-left:3px solid var(--red);}
+  .callout-tip{background:rgba(155,89,182,0.1);border-left:3px solid var(--purple);}
+  .callout-grafana{background:rgba(244,104,0,0.1);border-left:3px solid var(--grafana);}
+  .test-questions{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:0.86rem;}
+  .test-questions h4{font-size:0.82rem;color:var(--accent);margin-bottom:8px;}
+  .analogy-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin:12px 0;}
+  .analogy-box h4{font-size:0.85rem;margin-bottom:10px;}
+  .analogy-row{display:flex;gap:12px;align-items:center;font-size:0.87rem;padding:4px 0;}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;margin:14px 0;text-align:center;}
+  .diagram-title{font-size:0.8rem;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;}
+  .diagram-row{display:flex;gap:12px;justify-content:center;align-items:center;margin:8px 0;flex-wrap:wrap;}
+  .diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.82rem;font-weight:600;min-width:100px;}
+  .diagram-box small{display:block;font-weight:400;color:var(--text2);font-size:0.72rem;margin-top:2px;}
+  .diagram-box.blue{border-color:var(--blue);color:var(--blue);}
+  .diagram-box.accent{border-color:var(--accent);color:var(--accent);}
+  .diagram-box.green{border-color:var(--green);color:var(--green);}
+  .diagram-box.grafana{border-color:var(--grafana);color:var(--grafana);}
+  .reviewer-bar{background:rgba(230,82,44,0.08);border:1px solid rgba(230,82,44,0.3);border-left:3px solid var(--accent);border-radius:8px;padding:10px 16px;margin:18px 0 6px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--accent);font-family:monospace;}
+  .reviewer-bar input[type="checkbox"]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--green);}
+  .reviewer-bar label{cursor:pointer;font-weight:600;user-select:none;}
+  .reviewer-bar.checked{background:rgba(46,204,113,0.08);border-color:rgba(46,204,113,0.4);border-left-color:var(--green);color:var(--green);}
+  .reviewer-panel{background:rgba(155,89,182,0.07);border:1px solid rgba(155,89,182,0.3);border-top:3px solid var(--purple);border-radius:12px;padding:24px 28px;margin:28px 0;}
+  .reviewer-panel-label{font-size:9px;font-family:monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);font-weight:600;margin-bottom:16px;}
+  .reviewer-q-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.65;margin-bottom:14px;}
+  .reviewer-options{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+  .reviewer-option{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--text2);line-height:1.5;transition:background .12s,border-color .12s;background:var(--surface);}
+  .reviewer-option:hover{background:var(--surface2);border-color:var(--accent);}
+  .reviewer-option.selected{background:rgba(230,82,44,0.1);border-color:var(--accent);color:var(--text);}
+  .reviewer-option.correct{background:rgba(46,204,113,0.1);border-color:var(--green);color:var(--green);}
+  .reviewer-option.wrong{background:rgba(231,76,60,0.1);border-color:var(--red);color:var(--red);}
+  .reviewer-option-key{font-family:monospace;font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0;margin-top:1px;}
+  .reviewer-reveal{font-size:12px;font-family:monospace;color:var(--purple);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;margin-bottom:14px;display:block;}
+  .reviewer-explanation{font-size:13px;color:var(--text2);line-height:1.7;padding:12px 14px;background:var(--surface2);border-radius:8px;margin-bottom:16px;display:none;border:1px solid var(--border);}
+  .reviewer-explanation.visible{display:block;}
+  .reviewer-exp-label{font-size:9px;font-family:monospace;letter-spacing:.15em;text-transform:uppercase;font-weight:700;margin-bottom:4px;}
+  .reviewer-exp-label.correct{color:var(--green);}
+  .reviewer-exp-label.wrong{color:var(--red);}
+  .reviewer-comment-label{font-size:11px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);font-weight:600;margin-bottom:6px;}
+  .reviewer-comment{width:100%;min-height:80px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;color:var(--text);background:var(--surface2);resize:vertical;line-height:1.6;}
+  .reviewer-comment:focus{outline:none;border-color:var(--purple);}
+  .reviewer-save-note{font-size:11px;font-family:monospace;color:var(--text2);margin-top:6px;}
+  .rev-complete-wrap{margin:28px 0 0;}
+  .rev-complete-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:8px;font-size:13.5px;font-family:monospace;font-weight:600;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);transition:all .2s;}
+  .rev-complete-bar.disabled{opacity:.6;cursor:not-allowed;}
+  .rev-complete-bar.ready{background:rgba(230,82,44,0.1);border-color:var(--accent);border-left:3px solid var(--accent);color:var(--accent);cursor:pointer;}
+  .rev-complete-bar.done{background:rgba(46,204,113,0.1);border-color:var(--green);border-left:3px solid var(--green);color:var(--green);cursor:default;}
+  .rev-complete-bar input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--green);}
+  .rev-complete-bar.disabled input{cursor:not-allowed;}
+  .rev-complete-hint{font-size:11px;font-family:monospace;color:var(--text2);margin-top:6px;min-height:16px;}
+  .bottom-nav{display:flex;justify-content:space-between;align-items:center;padding:24px 0 0;border-top:1px solid var(--border);margin-top:32px;}
+</style>
+</head>
+<body>
+<script>
+function sfShowError(msg){const el=document.getElementById('sfSigninError');if(el){el.textContent=msg;el.classList.add('visible');}}
+function sfHideOverlay(user){window.sfReviewerEmail=user.email||user;window.sfReviewerUid=user.uid||'email_'+btoa(window.sfReviewerEmail).replace(/=/g,'');const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+window.sfReviewerEmail;sfInitSession();if(window._sfFirebaseReady&&typeof window.sfDb!=='undefined')sfFetchAndMerge();}
+function sfInitSession(){const local=revLoad();if(!local.startedAt){local.startedAt=new Date().toISOString();localStorage.setItem(REV_KEY,JSON.stringify(local));}if(!window._sfFirebaseReady||typeof window.sfDb==='undefined'||!window.sfReviewerUid)return;window.sfDb.collection('reviewerSessions').doc(window.sfReviewerUid).collection('prometheus').doc(MODULE_ID).set({email:window.sfReviewerEmail,moduleId:MODULE_ID,courseId:'MeaaMFZcTTDCbyZJdlnF',startedAt:local.startedAt,lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),reviewComplete:local.reviewComplete||false,attemptCount:local.attemptCount||0},{merge:true}).then(()=>console.log('[SF Reviewer] Session init OK')).catch(e=>console.warn('[SF Reviewer] Init failed:',e.message));}
+function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim();if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
+async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{const r=await firebase.auth().signInWithPopup(provider);clearTimeout(t);sfHideOverlay(r.user);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
+function sfSignOut(){window.sfReviewerEmail=null;window.sfReviewerUid=null;const bar=document.getElementById('sfSignedInBar');const ov=document.getElementById('sfSigninOverlay');if(bar)bar.classList.add('hidden');if(ov)ov.classList.remove('hidden');if(typeof firebase!=='undefined'&&window._sfFirebaseReady)firebase.auth().signOut();}
+document.addEventListener('DOMContentLoaded',function(){const gb=document.getElementById('sfGoogleSignInBtn');const eb=document.getElementById('sfEmailSignInBtn');const so=document.getElementById('sfSignoutLink');if(gb)gb.addEventListener('click',sfSignInWithGoogle);if(eb)eb.addEventListener('click',sfSignInWithEmail);if(so)so.addEventListener('click',sfSignOut);});
+</script>
+
+<div class="sf-signin-overlay" id="sfSigninOverlay">
+  <div class="sf-signin-card">
+    <div class="sf-signin-logo">🔐</div>
+    <div class="sf-signin-title">Sign in to save your progress</div>
+    <div class="sf-signin-sub">Sign in with your SourceFuse Gmail. Review progress, checkboxes, and question attempts are saved and restored across devices.</div>
+    <button class="sf-google-btn" id="sfGoogleSignInBtn"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"> Sign in with Google</button>
+    <div class="sf-signin-divider">or</div>
+    <input type="text" class="sf-fallback-input" id="sfEmailInput" placeholder="your.name@sourcefuse.com" autocomplete="off" inputmode="email">
+    <button class="sf-fallback-btn" id="sfEmailSignInBtn">Continue with SF email</button>
+    <div class="sf-signin-error" id="sfSigninError"></div>
+  </div>
+</div>
+<div class="sf-signed-in-bar hidden" id="sfSignedInBar"><span id="sfSignedInEmail">Signed in as …</span><button class="sf-signout-btn" id="sfSignoutLink">Sign out</button></div>
+
+<div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Mode</strong> — Prometheus · Module 5 · Alerting & Alertmanager</div>
+<div class="header">
+  <div class="header-left"><a href="index.html">← Reviewer Hub</a><span style="color:var(--text2);">/</span><span>Module 5: Alerting & Alertmanager</span></div>
+  <div class="header-right"><a href="prometheus-module-4.html" class="btn-sm">← Module 4</a><a href="prometheus-module-6.html" class="btn-sm">Module 6 →</a><button class="btn-sm" onclick="toggleTheme()">🌙 Theme</button></div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-title">Module 5 · 7 Sections</div>
+    <div class="sidebar-progress">
+      <div style="display:flex;justify-content:space-between;font-size:0.75rem;"><span>Review progress</span><span id="sidebar-pct">0%</span></div>
+      <div class="sidebar-progress-bar"><div class="sidebar-progress-fill" id="sidebar-bar" style="width:0%"></div></div>
+    </div>
+    <div id="nav-items"></div>
+  </div>
+  <div class="content">
+    <div class="module-hero">
+      <h1>🔔 Module 5: Alerting & Alertmanager</h1>
+      <p>Learn how to write alerting rules in Prometheus, configure Alertmanager for routing and deduplication, and build a production-grade alerting pipeline.</p>
+      <div class="module-meta"><span class="meta-chip chip-weight">Intermediate</span><span class="meta-chip chip-sections">7 Sections</span><span class="meta-chip chip-reviewer">👁 Reviewer Mode</span></div>
+    </div>
+    <div id="sections-container"></div>
+    <div class="reviewer-panel">
+      <div class="reviewer-panel-label">🔍 Reviewer Question — Module 5</div>
+      <div class="reviewer-q-text" id="rev-q-text"></div>
+      <div class="reviewer-options" id="rev-options"></div>
+      <button class="reviewer-reveal" id="rev-reveal-btn">Check answer</button>
+      <div class="reviewer-explanation" id="rev-explanation"><div class="reviewer-exp-label" id="rev-exp-label"></div><div id="rev-exp-text"></div></div>
+      <div class="reviewer-comment-label">Reviewer notes for this module</div>
+      <textarea class="reviewer-comment" id="rev-comment" placeholder="Add your review notes…"></textarea>
+      <div class="reviewer-save-note">Notes are auto-saved.</div>
+    </div>
+    <div class="rev-complete-wrap">
+      <div class="rev-complete-bar disabled" id="rev-complete-bar"><input type="checkbox" id="rev-complete-cb" disabled><label for="rev-complete-cb" id="rev-complete-label">Complete all sections and answer the question correctly to unlock</label></div>
+      <div class="rev-complete-hint" id="rev-complete-hint"></div>
+    </div>
+    <div class="bottom-nav"><div><a href="prometheus-module-4.html" class="btn-sm">← Module 4</a></div><div><a href="prometheus-module-6.html" class="btn-sm">Module 6 →</a></div></div>
+  </div>
+</div>
+
+<script>
+const REV_KEY='reviewer_prometheus_module-5';
+const MODULE_ID='module-5';
+const COURSE_ID='MeaaMFZcTTDCbyZJdlnF';
+const MODULE_NUM=5;
+const BADGES={foundation:'Foundation',essential:'Essential',important:'Important'};
+const BADGE_CLASSES={foundation:'badge-foundation',essential:'badge-essential',important:'badge-important'};
+const REV_QUESTION={text:"What does the 'for' field in an alerting rule control?",options:["How often the rule is evaluated","How long the alert condition must be true before the alert moves from Pending to Firing","The duration after which a fired alert is automatically resolved","The cooldown period between repeat notifications"],correct:1,explanation:"The 'for' field sets the minimum duration the alert condition must be continuously true before Prometheus moves the alert from Pending to Firing. This prevents transient spikes from generating alerts. For example, 'for: 5m' means the condition must hold for 5 consecutive minutes before the alert fires."};
+</script>
+<script id="sections-data">
+// Sections content is loaded from the original module file via inline script below
+</script>
+
+<script>
+const SECTIONS = [
+  {id:1, title:'Alerting Pipeline Overview', badge:'foundation', content:`
+    <h3>🔔 How Alerting Works End-to-End</h3>
+    <p>Prometheus alerting is a two-stage pipeline. <strong>Prometheus evaluates alert rules</strong> and fires alerts to <strong>Alertmanager</strong>, which then handles deduplication, grouping, silencing, and routing to receivers like Slack, PagerDuty, or email.</p>
+    <div class="diagram">
+      <div class="diagram-title">Full Alerting Pipeline</div>
+      <div class="diagram-row">
+        <div class="diagram-box accent">Prometheus<br/><small>evaluates rules every 1m</small></div>
+        <span style="color:var(--text2)">→ fires alerts →</span>
+        <div class="diagram-box blue">Alertmanager<br/><small>dedup + group + route</small></div>
+      </div>
+      <div class="diagram-row">
+        <div class="diagram-box green">Slack</div>
+        <div class="diagram-box purple">PagerDuty</div>
+        <div class="diagram-box red">Email</div>
+        <div class="diagram-box grafana">Grafana Oncall</div>
+      </div>
+    </div>
+    <h3>📋 Alert Lifecycle</h3>
+    <ol>
+      <li><strong>Inactive:</strong> Alert rule condition is false — no alert exists</li>
+      <li><strong>Pending:</strong> Condition is true but <code>for</code> duration not yet elapsed — waiting to confirm it's not a transient spike</li>
+      <li><strong>Firing:</strong> Condition has been true for the full <code>for</code> duration — alert is sent to Alertmanager</li>
+      <li><strong>Resolved:</strong> Condition is no longer true — Alertmanager sends a resolution notification</li>
+    </ol>
+    <div class="callout callout-info"><h4>ℹ️ Why Two Components?</h4>
+      <p>Separating rule evaluation (Prometheus) from notification routing (Alertmanager) allows multiple Prometheus instances to send to a single Alertmanager, which deduplicates alerts so you don't get the same notification 3 times from 3 Prometheus replicas.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Grafana has its own alerting system (Grafana Alerting) that can also route to receivers. In the kube-prometheus-stack, both Prometheus Alertmanager and Grafana Alerting coexist. They are separate systems — Prometheus Alertmanager handles Prometheus rules, Grafana Alerting handles Grafana alert rules. They can share receivers but operate independently.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What are the four states of a Prometheus alert?</li>
+        <li>What is the difference between a Pending and a Firing alert?</li>
+        <li>Which component handles alert deduplication across multiple Prometheus replicas?</li>
+      </ul>
+    </div>
+  `},
+  {id:2, title:'Writing Alerting Rules', badge:'essential', content:`
+    <h3>📝 Alert Rule Structure</h3>
+    <p>Alerting rules are defined in YAML files and loaded by Prometheus via the <code>rule_files</code> config. Each rule has a name, a PromQL expression, a <code>for</code> duration, labels, and annotations.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>groups:
+  - name: infrastructure.alerts
+    rules:
+
+      # Instance down alert
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }}/{{ $labels.instance }} has been down for more than 2 minutes."
+          runbook_url: "https://wiki.example.com/runbooks/instance-down"
+
+      # High CPU alert
+      - alert: HighCPUUsage
+        expr: |
+          (1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}"
+
+      # Disk filling up
+      - alert: DiskWillFillIn24Hours
+        expr: predict_linear(node_filesystem_free_bytes[6h], 24*3600) < 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk will fill up on {{ $labels.instance }}"</pre>
+    <h3>🔑 Key Fields Explained</h3>
+    <table>
+      <tr><th>Field</th><th>Purpose</th></tr>
+      <tr><td><code>alert</code></td><td>Alert name — shown in Alertmanager and notifications</td></tr>
+      <tr><td><code>expr</code></td><td>PromQL expression — alert fires when this returns results</td></tr>
+      <tr><td><code>for</code></td><td>How long condition must be true before firing (prevents flapping)</td></tr>
+      <tr><td><code>labels</code></td><td>Added to alert — used by Alertmanager for routing</td></tr>
+      <tr><td><code>annotations</code></td><td>Human-readable context — not used for routing</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 Template Variables in Annotations</h4>
+      <p><code>{{ $labels.instance }}</code> inserts the value of the instance label from the firing series. <code>{{ $value }}</code> inserts the current metric value. <code>{{ $value | printf "%.1f" }}</code> formats it to 1 decimal place. Use these to make alert messages informative without being static.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In the Prometheus Operator, alerting rules are defined as <code>PrometheusRule</code> CRDs rather than raw YAML files. The operator automatically loads them into Prometheus. You can view all currently loaded rules in the Prometheus UI under Alerts tab or Status → Rules.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does the <code>for</code> field in an alerting rule control?</li>
+        <li>What is the difference between labels and annotations in an alert rule?</li>
+        <li>Write an alert rule that fires when a target has been down for 5 minutes.</li>
+      </ul>
+    </div>
+  `},
+  {id:3, title:'Alertmanager Architecture', badge:'essential', content:`
+    <h3>⚙️ What Alertmanager Does</h3>
+    <p>Alertmanager receives raw alerts from Prometheus and applies four operations before sending notifications:</p>
+    <ol>
+      <li><strong>Grouping:</strong> Combines related alerts into a single notification to avoid alert storms</li>
+      <li><strong>Deduplication:</strong> Suppresses duplicate alerts from multiple Prometheus instances</li>
+      <li><strong>Inhibition:</strong> Suppresses lower-priority alerts when a higher-priority alert is firing</li>
+      <li><strong>Silencing:</strong> Temporarily mutes alerts matching specific label matchers</li>
+    </ol>
+    <div class="analogy-box"><h4>🌍 Real-World Analogy</h4>
+      <div class="analogy-row"><strong>Grouping</strong><span>→</span><span>A hospital batching all patients from one accident into one ambulance call instead of calling for each patient separately</span></div>
+      <div class="analogy-row"><strong>Inhibition</strong><span>→</span><span>Suppressing all "room too cold" alerts when the main "building power is out" alert is firing</span></div>
+      <div class="analogy-row"><strong>Silencing</strong><span>→</span><span>Putting your phone on Do Not Disturb during a planned maintenance window</span></div>
+    </div>
+    <h3>🏗️ Alertmanager in Kubernetes</h3>
+    <p>In kube-prometheus-stack, Alertmanager runs as a StatefulSet (for HA with gossip-based clustering). It exposes a UI on port 9093 where you can view active alerts, silences, and inhibition rules.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Access Alertmanager UI
+kubectl port-forward -n monitoring svc/alertmanager-operated 9093:9093</pre>
+    <div class="callout callout-warn"><h4>⚠️ Common Alertmanager Misconception</h4>
+      <p>Alertmanager does <strong>not</strong> evaluate alert conditions — that is Prometheus's job. Alertmanager only receives already-fired alerts and decides how/when/where to send notifications. If an alert is not firing, the issue is in Prometheus rules, not Alertmanager.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which Alertmanager feature prevents alert storms by combining related alerts?</li>
+        <li>What is inhibition in Alertmanager?</li>
+        <li>On which port does Alertmanager expose its UI by default?</li>
+      </ul>
+    </div>
+  `},
+  {id:4, title:'Alertmanager Configuration', badge:'important', content:`
+    <h3>📋 alertmanager.yml Structure</h3>
+    <p>Alertmanager is configured via a single YAML file with four main sections: global defaults, templates, routing tree, and receivers.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">global:
+  resolve_timeout: 5m
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK'
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  # Default receiver for all alerts
+  receiver: 'slack-general'
+  group_by: ['alertname', 'cluster', 'namespace']
+  group_wait: 30s        # Wait before sending first notification
+  group_interval: 5m     # How often to send for ongoing groups
+  repeat_interval: 4h    # How often to resend if still firing
+
+  routes:
+    # Critical alerts go to PagerDuty
+    - match:
+        severity: critical
+      receiver: pagerduty-oncall
+      continue: false    # Stop routing after this match
+
+    # Platform team alerts go to their Slack channel
+    - match:
+        team: platform
+      receiver: slack-platform
+
+receivers:
+  - name: 'slack-general'
+    slack_configs:
+      - channel: '#alerts'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  - name: 'pagerduty-oncall'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_KEY'
+
+  - name: 'slack-platform'
+    slack_configs:
+      - channel: '#platform-alerts'</pre>
+    <h3>⏱️ Timing Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Default</th><th>Purpose</th></tr>
+      <tr><td><code>group_wait</code></td><td>30s</td><td>Wait before sending first notification for a new group — allows more alerts to arrive and be batched</td></tr>
+      <tr><td><code>group_interval</code></td><td>5m</td><td>How often to send notifications for an ongoing alert group with new additions</td></tr>
+      <tr><td><code>repeat_interval</code></td><td>4h</td><td>How often to re-notify if alert is still firing and nothing changed</td></tr>
+    </table>
+    <div class="callout callout-warn"><h4>⚠️ continue: false vs true</h4>
+      <p>By default, routing stops at the first matching route (<code>continue: false</code>). Set <code>continue: true</code> to allow an alert to match multiple routes and be sent to multiple receivers simultaneously.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In the kube-prometheus-stack, Alertmanager configuration is managed via the <code>AlertmanagerConfig</code> CRD or by setting <code>alertmanager.config</code> in Helm values. The Alertmanager UI (port 9093) shows the current routing tree under Status → Config — useful for debugging why an alert isn't reaching the right receiver.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does group_wait control in Alertmanager?</li>
+        <li>An alert matches two routes — what does setting continue: true on the first route do?</li>
+        <li>What is the difference between group_interval and repeat_interval?</li>
+      </ul>
+    </div>
+  `},
+  {id:5, title:'Silences & Inhibition', badge:'essential', content:`
+    <h3>🔕 Silences — Planned Maintenance</h3>
+    <p>A <strong>silence</strong> suppresses notifications for alerts that match a set of label matchers during a specified time window. Silences are created in the Alertmanager UI or via its API — they do not affect rule evaluation, only notifications.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Create a silence via API
+curl -X POST http://alertmanager:9093/api/v2/silences \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "matchers": [
+      {"name": "alertname", "value": "InstanceDown", "isRegex": false},
+      {"name": "instance", "value": "db-server-1:9100", "isRegex": false}
+    ],
+    "startsAt": "2026-04-07T10:00:00Z",
+    "endsAt":   "2026-04-07T14:00:00Z",
+    "comment":  "Planned maintenance window",
+    "createdBy": "jv.ravichandran@sourcefuse.com"
+  }'</pre>
+    <h3>🚫 Inhibition — Suppressing Downstream Noise</h3>
+    <p><strong>Inhibition</strong> suppresses alerts when another higher-priority alert is already firing. This prevents a flood of symptom alerts when the root cause is already being alerted on.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">inhibit_rules:
+  # If a node is down, suppress all alerts from that node
+  - source_match:
+      alertname: NodeDown
+      severity: critical
+    target_match:
+      severity: warning
+    # Inhibit only if they share the same instance label
+    equal: ['instance']
+
+  # If cluster is unreachable, suppress all pod alerts
+  - source_match:
+      alertname: ClusterUnreachable
+    target_match_re:
+      alertname: ^(PodCrashLooping|PodNotReady|DeploymentReplicasMismatch)$
+    equal: ['cluster']</pre>
+    <div class="callout callout-tip"><h4>💡 Silence vs Inhibition</h4>
+      <ul>
+        <li><strong>Silence:</strong> Time-based, manually created, suppresses specific alerts during a window. Use for maintenance.</li>
+        <li><strong>Inhibition:</strong> Rule-based, always active, suppresses alerts when another alert fires. Use for root-cause/symptom relationships.</li>
+      </ul>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What is the difference between a silence and an inhibition rule?</li>
+        <li>Does silencing an alert stop Prometheus from evaluating the rule?</li>
+        <li>The equal field in an inhibition rule does what?</li>
+      </ul>
+    </div>
+  `},
+  {id:6, title:'PrometheusRule CRD', badge:'important', content:`
+    <h3>☸️ Managing Rules in Kubernetes</h3>
+    <p>When using the Prometheus Operator, alerting and recording rules are managed as <strong>PrometheusRule</strong> Kubernetes resources — not raw YAML files. The operator automatically loads them into Prometheus when they are created or updated.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: my-app-alerts
+  namespace: monitoring
+  labels:
+    # Must match the Prometheus CR's ruleSelector
+    app: kube-prometheus-stack
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: my-app.alerts
+      rules:
+        - alert: MyAppHighErrorRate
+          expr: |
+            rate(http_requests_total{job="my-app",status=~"5.."}[5m])
+              / rate(http_requests_total{job="my-app"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "High error rate on my-app"
+            description: "Error rate is {{ $value | humanizePercentage }}"
+
+        - alert: MyAppDown
+          expr: absent(up{job="my-app"})
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "my-app is completely down"</pre>
+    <div class="callout callout-warn"><h4>⚠️ Label Selector Must Match</h4>
+      <p>The PrometheusRule must have labels that match the <code>ruleSelector</code> defined in the Prometheus CR. In kube-prometheus-stack, this is typically <code>release: kube-prometheus-stack</code>. If the labels don't match, the rule is silently ignored — check Prometheus UI → Status → Rules to verify it loaded.</p>
+    </div>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Verify a PrometheusRule was loaded
+kubectl get prometheusrule -n monitoring
+# Then check Prometheus UI → Status → Rules for your rule group name</pre>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Grafana can import Prometheus alerting rules via the Prometheus data source — they appear in Grafana's Alert Rules list as read-only. This gives operators a unified view of both Grafana-managed and Prometheus-managed alerts without duplicate configuration.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What Kubernetes CRD is used to define Prometheus alerting rules in the Operator model?</li>
+        <li>A PrometheusRule is created but doesn't appear in Prometheus — what is the likely cause?</li>
+        <li>Which Prometheus UI page shows currently loaded rule groups?</li>
+      </ul>
+    </div>
+  `},
+  {id:7, title:'Alerting Best Practices', badge:'important', content:`
+    <h3>✅ Writing Effective Alerts</h3>
+    <p>Poorly written alerts are worse than no alerts — they cause alert fatigue, get ignored, and hide real problems. These best practices separate production-grade alerting from noise.</p>
+    <h3>📐 The Four Golden Signals</h3>
+    <p>Google SRE's four golden signals define what to alert on for any service:</p>
+    <table>
+      <tr><th>Signal</th><th>What to measure</th><th>PromQL approach</th></tr>
+      <tr><td><strong>Latency</strong></td><td>Request duration (p99)</td><td><code>histogram_quantile(0.99, rate(duration_bucket[5m]))</code></td></tr>
+      <tr><td><strong>Traffic</strong></td><td>Request rate</td><td><code>rate(http_requests_total[5m])</code></td></tr>
+      <tr><td><strong>Errors</strong></td><td>Error rate or ratio</td><td><code>rate(errors[5m]) / rate(requests[5m])</code></td></tr>
+      <tr><td><strong>Saturation</strong></td><td>Resource fullness</td><td><code>memory_used / memory_total</code></td></tr>
+    </table>
+    <h3>📋 Best Practice Rules</h3>
+    <ul>
+      <li><strong>Alert on symptoms, not causes:</strong> Alert on "users can't log in", not "CPU is high". CPU being high is a cause — it may or may not matter.</li>
+      <li><strong>Use the <code>for</code> clause:</strong> Never alert on a condition that hasn't persisted. Transient spikes should not page anyone.</li>
+      <li><strong>Include a runbook URL:</strong> Every critical alert should link to a runbook describing how to investigate and resolve.</li>
+      <li><strong>Classify by severity:</strong> Use <code>critical</code> (page immediately), <code>warning</code> (investigate soon), <code>info</code> (awareness only). Route appropriately.</li>
+      <li><strong>Test your alerts:</strong> Use <code>amtool check-config</code> and Prometheus rule validation before deploying.</li>
+      <li><strong>Avoid alert fatigue:</strong> If an alert fires more than once a week without action, it's either too sensitive or not actionable — fix or remove it.</li>
+    </ul>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Validate alertmanager config
+amtool check-config alertmanager.yml
+
+# Validate Prometheus rules
+promtool check rules rules/*.yml
+
+# Test alert routing
+amtool config routes test --config.file=alertmanager.yml \
+  alertname=InstanceDown severity=critical</pre>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Grafana OnCall integrates directly with Alertmanager and Grafana Alerting to provide escalation policies, on-call schedules, and mobile push notifications. When a SourceFuse customer asks about on-call alerting with Grafana, the answer is Grafana OnCall + Alertmanager — not plain Alertmanager email receivers.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What are Google's four golden signals for monitoring?</li>
+        <li>Which command validates an Alertmanager configuration file?</li>
+        <li>Should you alert on high CPU usage directly? Why or why not?</li>
+      </ul>
+    </div>
+  `}
+];
+
+// ── Shared reviewer JS (injected into each module) ──
+function revLoad(){try{return JSON.parse(localStorage.getItem(REV_KEY))||{};}catch(e){return {};}}
+function revSave(s){localStorage.setItem(REV_KEY,JSON.stringify(s));if(typeof sfWrite==='function')sfWrite(s);}
+
+function allSectionsChecked(){
+  const items=document.querySelectorAll('.rev-checkbox');
+  for(let i=0;i<items.length;i++){if(!items[i].checked)return false;}
+  return true;
+}
+function questionAnsweredCorrectly(){return revLoad().questionCorrect===true;}
+
+function updateCompleteBar(){
+  const bar=document.getElementById('rev-complete-bar');const cb=document.getElementById('rev-complete-cb');
+  const label=document.getElementById('rev-complete-label');const hint=document.getElementById('rev-complete-hint');
+  if(!bar)return;
+  const s=revLoad();
+  if(s.reviewComplete){bar.className='rev-complete-bar done';cb.disabled=false;cb.checked=true;label.textContent='✓ Review complete';hint.textContent='';return;}
+  const stepsOk=allSectionsChecked();const qOk=questionAnsweredCorrectly();
+  const missing=[];if(!stepsOk)missing.push('all sections checked');if(!qOk)missing.push('question answered correctly');
+  if(stepsOk&&qOk){bar.className='rev-complete-bar ready';cb.disabled=false;label.textContent='Mark review as complete';hint.textContent='';}
+  else{bar.className='rev-complete-bar disabled';cb.disabled=true;label.textContent='Complete all sections and answer the question correctly to unlock';hint.textContent=missing.length?'Still needed: '+missing.join(' · '):'';}
+}
+
+function renderProgress(){
+  let done=0;document.querySelectorAll('.rev-checkbox').forEach(c=>{if(c.checked)done++;});
+  const total=SECTIONS.length;const pct=Math.round((done/total)*100);
+  const pctEl=document.getElementById('sidebar-pct');const barEl=document.getElementById('sidebar-bar');
+  if(pctEl)pctEl.textContent=pct+'%';if(barEl)barEl.style.width=pct+'%';
+}
+
+function renderAll(){
+  const nav=document.getElementById('nav-items');nav.innerHTML='';
+  const sec=document.getElementById('sections-container');sec.innerHTML='';
+  const s0=revLoad();
+  SECTIONS.forEach(s=>{
+    const reviewed=s0['cb_'+s.id]||false;
+    const nd=document.createElement('div');nd.id='nav-'+s.id;nd.className='nav-item'+(reviewed?' reviewed':'');
+    nd.innerHTML='<span>'+s.id+'.</span><span style="flex:1;font-size:0.83rem">'+s.title+'</span><span class="nav-badge '+BADGE_CLASSES[s.badge]+'">'+BADGES[s.badge]+'</span>'+(reviewed?'<span style="font-size:0.72rem">✅</span>':'');
+    nd.onclick=()=>toggleSection(s.id);nav.appendChild(nd);
+    const sd=document.createElement('div');sd.className='section-block';
+    sd.innerHTML=`<div class="section-header" onclick="toggleSection(${s.id})"><span class="section-num">${MODULE_NUM}.${s.id}</span><span class="section-title">${s.title}</span><span class="nav-badge ${BADGE_CLASSES[s.badge]}">${BADGES[s.badge]}</span>${reviewed?'<span style="color:var(--green);font-size:0.83rem;">✅</span>':''}<span class="section-toggle" id="toggle-${s.id}">▼</span></div><div class="section-body" id="body-${s.id}">${s.content}<div class="reviewer-bar ${reviewed?'checked':''}" id="rev-bar-${s.id}"><input type="checkbox" class="rev-checkbox" id="rev-cb-${s.id}" data-step="${s.id}" ${reviewed?'checked':''}><label for="rev-cb-${s.id}">${reviewed?'✓ Section reviewed':'Mark section as reviewed'}</label></div></div>`;
+    sec.appendChild(sd);
+  });
+  document.querySelectorAll('.rev-checkbox').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const st=revLoad();st['cb_'+cb.dataset.step]=cb.checked;revSave(st);
+      const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.toggle('checked',cb.checked);bar.querySelector('label').textContent=cb.checked?'✓ Section reviewed':'Mark section as reviewed';}
+      const navItem=document.getElementById('nav-'+cb.dataset.step);if(navItem)navItem.classList.toggle('reviewed',cb.checked);
+      renderProgress();updateCompleteBar();
+    });
+  });
+  renderProgress();updateCompleteBar();
+}
+
+window.toggleSection=(id)=>{
+  const body=document.getElementById('body-'+id);const toggle=document.getElementById('toggle-'+id);
+  const isOpen=body.classList.contains('open');
+  document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));
+  if(!isOpen){body.classList.add('open');toggle.classList.add('open');}
+};
+
+// ── Reviewer question ──
+let revAnswer=null;let revSubmitted=false;
+
+function renderReviewerQ(){
+  const q=REV_QUESTION;
+  document.getElementById('rev-q-text').textContent=q.text;
+  const opts=document.getElementById('rev-options');opts.innerHTML='';
+  const keys=['A','B','C','D'];
+  q.options.forEach((o,i)=>{
+    const d=document.createElement('div');d.className='reviewer-option';d.dataset.key=keys[i];
+    d.innerHTML='<span class="reviewer-option-key">'+keys[i]+'</span><span>'+o+'</span>';
+    d.addEventListener('click',()=>selectRevOption(keys[i],d));
+    opts.appendChild(d);
+  });
+  const s=revLoad();
+  if(s.revAnswer!=null){revAnswer=s.revAnswer;revSubmitted=s.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}
+}
+
+function selectRevOption(key){
+  if(revSubmitted)return;
+  revAnswer=key;
+  document.querySelectorAll('.reviewer-option').forEach(o=>o.classList.toggle('selected',o.dataset.key===key));
+  const s=revLoad();s.revAnswer=key;revSave(s);
+}
+
+document.getElementById('rev-reveal-btn').addEventListener('click',()=>{
+  if(revAnswer===null){alert('Please select an answer first.');return;}
+  const s0=revLoad();s0.attemptCount=(s0.attemptCount||0)+1;if(!s0.startedAt)s0.startedAt=new Date().toISOString();revSave(s0);
+  revSubmitted=true;const s=revLoad();s.revSubmitted=true;revSave(s);
+  applyRevAnswer(revAnswer,true);
+});
+
+function applyRevAnswer(ans,showResult){
+  const correctKey=['A','B','C','D'][REV_QUESTION.correct];
+  const isCorrect=(ans===correctKey);
+  document.querySelectorAll('.reviewer-option').forEach(o=>{
+    o.classList.remove('selected','correct','wrong');
+    if(showResult){if(o.dataset.key===correctKey)o.classList.add('correct');else if(o.dataset.key===ans&&o.dataset.key!==correctKey)o.classList.add('wrong');}
+    else{if(o.dataset.key===ans)o.classList.add('selected');}
+  });
+  if(showResult){
+    const expEl=document.getElementById('rev-explanation');const lbl=document.getElementById('rev-exp-label');const txt=document.getElementById('rev-exp-text');const btn=document.getElementById('rev-reveal-btn');
+    if(expEl)expEl.classList.add('visible');if(lbl){lbl.textContent=isCorrect?'✓ Correct':'✗ Incorrect';lbl.className='reviewer-exp-label '+(isCorrect?'correct':'wrong');}
+    if(txt)txt.textContent=REV_QUESTION.explanation;if(btn)btn.style.display='none';
+    if(isCorrect){const s=revLoad();s.questionCorrect=true;revSave(s);}
+    updateCompleteBar();
+  }
+}
+
+const commentEl=document.getElementById('rev-comment');
+if(commentEl){const s=revLoad();if(s.comment)commentEl.value=s.comment;commentEl.addEventListener('input',()=>{const s=revLoad();s.comment=commentEl.value;revSave(s);});}
+
+document.getElementById('rev-complete-cb').addEventListener('change',()=>{
+  if(!document.getElementById('rev-complete-cb').checked)return;
+  const s=revLoad();s.reviewComplete=true;s.completedAt=new Date().toISOString();revSave(s);updateCompleteBar();
+});
+
+window.toggleTheme=()=>{const h=document.documentElement;h.setAttribute('data-theme',h.getAttribute('data-theme')==='dark'?'light':'dark');};
+window.copyCode=(btn)=>{const text=btn.parentElement.innerText.replace('Copy','').trim();navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);});};
+
+renderAll();renderReviewerQ();
+
+</script>
+<script>
+(function(){
+  var scripts=['https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js'];
+  function loadNext(i){if(i>=scripts.length){window._sfFirebaseReady=true;initFirebase();return;}var s=document.createElement('script');s.src=scripts[i];s.onload=function(){loadNext(i+1);};s.onerror=function(){console.warn('Firebase SDK failed:',scripts[i]);window._sfFirebaseReady=false;};document.head.appendChild(s);}
+  loadNext(0);
+})();
+</script>
+<script>
+function initFirebase(){
+  const SF_CONFIG={apiKey:"AIzaSyC-I-IOCq2fCwa471fsD5xOn6SYQSBDp7Q",authDomain:"sfcertification-grafana.firebaseapp.com",projectId:"sfcertification-grafana",storageBucket:"sfcertification-grafana.firebasestorage.app",messagingSenderId:"227322696511",appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"};
+  firebase.initializeApp(SF_CONFIG);
+  window.sfAuth=firebase.auth();window.sfDb=firebase.firestore();
+  const sfAuth=window.sfAuth;const sfDb=window.sfDb;
+
+  function sfDocRef(){if(!window.sfReviewerUid)return null;return sfDb.collection('reviewerSessions').doc(window.sfReviewerUid).collection('prometheus').doc(MODULE_ID);}
+
+  window.sfFetchAndMerge=async function(){
+    const ref=sfDocRef();if(!ref)return;
+    try{const snap=await ref.get();if(!snap.exists)return;const remote=snap.data();const local=revLoad();const merged=Object.assign({},local,remote);delete merged.email;delete merged.lastUpdated;localStorage.setItem(REV_KEY,JSON.stringify(merged));applyRestoredState(merged);}
+    catch(e){console.warn('Firestore fetch failed:',e.message);}
+  };
+
+  window.sfWrite=function(extraFields){
+    if(!window._sfFirebaseReady||typeof sfDb==='undefined'||!window.sfReviewerUid)return;
+    const ref=sfDocRef();if(!ref)return;
+    const local=revLoad();
+    const payload=Object.assign({},local,extraFields,{email:window.sfReviewerEmail,moduleId:MODULE_ID,courseId:COURSE_ID,lastUpdated:firebase.firestore.FieldValue.serverTimestamp()});
+    ref.set(payload,{merge:true}).catch(e=>console.warn('Firestore write failed:',e.message));
+  };
+
+  function applyRestoredState(state){
+    document.querySelectorAll('.rev-checkbox').forEach(cb=>{
+      if(state['cb_'+cb.dataset.step]){cb.checked=true;const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.add('checked');const lbl=bar.querySelector('label');if(lbl)lbl.textContent='✓ Section reviewed';}
+      const navItem=document.getElementById('nav-'+cb.dataset.step);if(navItem)navItem.classList.add('reviewed');}
+    });
+    const commentEl=document.getElementById('rev-comment');if(commentEl&&state.comment)commentEl.value=state.comment;
+    if(state.revAnswer!=null){revAnswer=state.revAnswer;revSubmitted=state.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}
+    if(state.reviewComplete){const cb=document.getElementById('rev-complete-cb');if(cb){cb.checked=true;cb.disabled=false;}}
+    renderProgress();updateCompleteBar();
+  }
+
+  function sfHideOverlayFirebase(user){
+    window.sfReviewerEmail=user.email;window.sfReviewerUid=user.uid;
+    const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');
+    const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');
+    if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+user.email;
+    window.sfFetchAndMerge();
+  }
+  sfAuth.onAuthStateChanged(user=>{if(user){sfHideOverlayFirebase(user);}else{document.getElementById('sfSigninOverlay').classList.remove('hidden');}});
+}
+</script>
+</body>
+</html>
