@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>Module 6: Grafana Integration — Prometheus</title>
+<style>
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#e6522c;--accent2:#f47c3c;--text:#e8eaf0;--text2:#9da3bd;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--red:#e74c3c;--grafana:#f46800;--radius:12px;}
+  [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f8;--border:#d0d5e8;--text:#1a1d27;--text2:#555b7a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);}
+  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;max-width:380px;width:90%;}
+  .auth-card img{height:38px;margin-bottom:20px;}
+  .auth-card h2{font-size:1.2rem;font-weight:800;margin-bottom:8px;}
+  .auth-card p{color:var(--text2);font-size:0.87rem;margin-bottom:22px;}
+  .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:white;color:#333;border:1px solid #ddd;border-radius:8px;padding:11px 20px;font-size:0.9rem;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;}
+  .google-btn:hover{box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+  .google-btn svg{width:18px;height:18px;flex-shrink:0;}
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;align-items:center;justify-content:center;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .header-left{display:flex;align-items:center;gap:10px;font-size:0.88rem;color:var(--text2);}
+  .header-left img{height:28px;}
+  .header-left a{color:var(--accent);font-weight:600;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .user-chip{display:flex;align-items:center;gap:7px;font-size:0.82rem;}
+  .user-chip img{width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.8rem;transition:all 0.2s;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 54px);}
+  .sidebar{width:275px;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;overflow-y:auto;position:sticky;top:54px;height:calc(100vh - 54px);flex-shrink:0;}
+  .sidebar-title{padding:0 18px 10px;font-size:0.73rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .sidebar-progress{padding:10px 18px;background:var(--surface2);margin:0 10px 10px;border-radius:8px;}
+  .sidebar-progress-bar{background:var(--border);border-radius:99px;height:4px;margin-top:5px;}
+  .sidebar-progress-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.3s;}
+  .nav-item{padding:9px 18px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:9px;font-size:0.85rem;}
+  .nav-item:hover{background:var(--surface2);}
+  .nav-item.active{border-left-color:var(--accent);background:rgba(230,82,44,0.07);color:var(--accent);font-weight:600;}
+  .nav-item.completed{color:var(--green);}
+  .nav-badge{font-size:0.63rem;padding:2px 6px;border-radius:3px;font-weight:700;}
+  .badge-foundation{background:rgba(46,204,113,0.15);color:var(--green);}
+  .badge-essential{background:rgba(52,152,219,0.15);color:var(--blue);}
+  .badge-important{background:rgba(230,82,44,0.15);color:var(--accent);}
+  .content{flex:1;padding:30px 38px;max-width:840px;}
+  .module-hero{margin-bottom:28px;}
+  .module-hero h1{font-size:1.7rem;font-weight:800;margin-bottom:7px;}
+  .module-hero p{color:var(--text2);font-size:0.97rem;}
+  .module-meta{display:flex;gap:10px;margin-top:10px;}
+  .meta-chip{font-size:0.76rem;padding:4px 10px;border-radius:6px;font-weight:600;}
+  .chip-weight{background:rgba(52,152,219,0.15);color:var(--blue);border:1px solid rgba(52,152,219,0.3);}
+  .chip-sections{background:rgba(46,204,113,0.15);color:var(--green);border:1px solid rgba(46,204,113,0.3);}
+  .section-block{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);user-select:none;}
+  .section-header:hover{background:var(--surface2);}
+  .section-num{font-size:0.73rem;font-weight:700;color:var(--text2);min-width:26px;}
+  .section-title{font-weight:600;font-size:0.93rem;flex:1;}
+  .section-toggle{font-size:0.78rem;color:var(--text2);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{padding:22px 26px;background:var(--surface);border-top:1px solid var(--border);display:none;}
+  .section-body.open{display:block;}
+  h3{font-size:0.97rem;font-weight:700;margin:18px 0 9px;}
+  h3:first-child{margin-top:0;}
+  p{font-size:0.88rem;color:var(--text2);line-height:1.7;margin-bottom:11px;}
+  strong{color:var(--text);}
+  ul,ol{padding-left:18px;margin-bottom:11px;}
+  li{font-size:0.86rem;color:var(--text2);line-height:1.7;}
+  pre{background:#0d0f18;border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:0.8rem;overflow-x:auto;margin:11px 0;color:#a8d8a8;font-family:'Courier New',monospace;position:relative;}
+  .copy-btn{position:absolute;top:7px;right:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:3px 9px;border-radius:4px;cursor:pointer;font-size:0.7rem;}
+  .copy-btn:hover{background:var(--accent);color:white;}
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;font-size:0.85rem;}
+  .callout-warn{background:rgba(231,76,60,0.08);border-left:3px solid var(--red);}
+  .callout-tip{background:rgba(46,204,113,0.08);border-left:3px solid var(--green);}
+  .callout-info{background:rgba(52,152,219,0.08);border-left:3px solid var(--blue);}
+  .callout-grafana{background:rgba(244,104,0,0.08);border-left:3px solid var(--grafana);}
+  .callout h4{font-size:0.83rem;font-weight:700;margin-bottom:5px;}
+  .analogy-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;}
+  .analogy-box h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:8px;}
+  .analogy-row{display:flex;align-items:center;gap:9px;font-size:0.83rem;margin-bottom:5px;color:var(--text2);}
+  .analogy-row strong{color:var(--text);min-width:160px;}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px;margin:12px 0;text-align:center;}
+  .diagram-title{font-size:0.76rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+  .diagram-row{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:7px;flex-wrap:wrap;}
+  .diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:600;}
+  .diagram-box.accent{border-color:var(--accent);color:var(--accent);}
+  .diagram-box.blue{border-color:var(--blue);color:var(--blue);}
+  .diagram-box.green{border-color:var(--green);color:var(--green);}
+  .diagram-box.grafana{border-color:var(--grafana);color:var(--grafana);}
+  .test-questions{background:rgba(230,82,44,0.06);border:1px solid rgba(230,82,44,0.2);border-radius:8px;padding:12px 16px;margin-top:16px;}
+  .test-questions h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:7px;}
+  .test-questions li{font-size:0.81rem;color:var(--text2);}
+  .complete-btn{margin-top:18px;background:var(--accent);color:white;border:none;padding:9px 22px;border-radius:8px;font-size:0.86rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .complete-btn:hover{background:var(--accent2);}
+  .complete-btn.done{background:var(--green);cursor:default;}
+  .nav-footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:22px;border-top:1px solid var(--border);}
+  .nav-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;text-decoration:none;font-size:0.86rem;font-weight:600;transition:all 0.2s;}
+  .nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .nav-btn.primary{background:var(--accent);color:white;border-color:var(--accent);}
+  .nav-btn.primary:hover{background:var(--accent2);}
+  .save-indicator{font-size:0.75rem;color:var(--green);margin-left:10px;opacity:0;transition:opacity 0.3s;}
+  .save-indicator.show{opacity:1;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.83rem;}
+  th{background:var(--surface2);color:var(--text);font-weight:700;padding:8px 12px;text-align:left;border:1px solid var(--border);}
+  td{padding:7px 12px;border:1px solid var(--border);color:var(--text2);}
+  td code{color:var(--accent);font-family:'Courier New',monospace;font-size:0.8rem;}
+</style>
+</head>
+<body>
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <h2>Sign In Required</h2>
+    <p>Sign in with your SourceFuse Google account to access this module.</p>
+    <button class="google-btn" id="signin-btn">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
+<div id="app" style="display:none;">
+<header class="header">
+  <div class="header-left">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <a href="prometheus-dashboard.html">← Dashboard</a> / Module 6
+  </div>
+  <div class="header-right">
+    <div class="user-chip"><img id="user-avatar" src="" alt=""/><span id="user-name" style="font-size:0.82rem;"></span></div>
+    <button class="btn-sm" onclick="toggleTheme()">🌓 Theme</button>
+    <button class="btn-sm" id="signout-btn">Sign Out</button>
+  </div>
+</header>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-title">Module 6 — 6 Sections</div>
+    <div class="sidebar-progress">
+      <div style="font-size:0.78rem;color:var(--text2);display:flex;justify-content:space-between;"><span>Progress</span><span id="sidebar-pct">0%</span></div>
+      <div class="sidebar-progress-bar"><div class="sidebar-progress-fill" id="sidebar-bar" style="width:0%"></div></div>
+    </div>
+    <div id="nav-items"></div>
+  </nav>
+  <div class="content">
+    <div class="module-hero">
+      <h1>📊 Module 6: Grafana Integration</h1>
+      <p>Deep dive into connecting Prometheus to Grafana — data source configuration, dashboard variables, panel best practices, and troubleshooting the full stack as a support engineer.</p>
+      <div class="module-meta">
+        <span class="meta-chip chip-weight">20% Exam Weight</span>
+        <span class="meta-chip chip-sections">6 Sections</span>
+      </div>
+    </div>
+    <div id="sections-container"></div>
+    <div class="nav-footer">
+      <a href="prometheus-module-5.html" class="nav-btn">← Module 5: Alerting</a>
+      <a href="prometheus-dashboard.html" class="nav-btn primary">Back to Dashboard →</a>
+    </div>
+  </div>
+</div>
+</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyC-I-IOCq2fCwa471fsD5xOn6SYQSBDp7Q",
+  authDomain:        "sfcertification-grafana.firebaseapp.com",
+  projectId:         "sfcertification-grafana",
+  storageBucket:     "sfcertification-grafana.firebasestorage.app",
+  messagingSenderId: "227322696511",
+  appId:             "1:227322696511:web:12e7ced7dd3d45fa06798a"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const MODULE_KEY = 'pm6';
+const MODULE_NUM = 6;
+const BADGES = { foundation:'Foundation', essential:'Essential', important:'Important' };
+const BADGE_CLASSES = { foundation:'badge-foundation', essential:'badge-essential', important:'badge-important' };
+
+const SECTIONS = [
+  {id:1, title:'Prometheus as a Grafana Data Source', badge:'foundation', content:`
+    <h3>🔗 Connecting Grafana to Prometheus</h3>
+    <p>Grafana treats Prometheus as a <strong>data source</strong> — a named connection to a Prometheus HTTP API. You can have multiple Prometheus data sources pointing to different Prometheus instances (e.g. production vs staging).</p>
+    <h3>⚙️ Configuration</h3>
+    <p>In Grafana UI: <strong>Connections → Data Sources → Add data source → Prometheus</strong></p>
+    <table>
+      <tr><th>Setting</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>URL</td><td><code>http://prometheus:9090</code></td><td>Internal cluster URL when Grafana is in Kubernetes</td></tr>
+      <tr><td>Scrape interval</td><td><code>15s</code></td><td>Should match your Prometheus scrape_interval</td></tr>
+      <tr><td>Query timeout</td><td><code>60s</code></td><td>Increase for slow/complex queries</td></tr>
+      <tr><td>HTTP Method</td><td>POST</td><td>Use POST for long queries to avoid URL length limits</td></tr>
+    </table>
+    <h3>🔧 As Code (Grafana Provisioning)</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># datasources/prometheus.yml
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    url: http://prometheus-operated.monitoring.svc:9090
+    access: proxy
+    isDefault: true
+    jsonData:
+      timeInterval: '15s'
+      queryTimeout: '60s'
+      httpMethod: POST</pre>
+    <div class="callout callout-info"><h4>ℹ️ access: proxy vs direct</h4>
+      <p><code>access: proxy</code> means Grafana's backend makes the Prometheus API call — the browser never talks to Prometheus directly. This is the correct setting for production. <code>access: direct</code> (browser-side) is deprecated and should not be used.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In kube-prometheus-stack, the Prometheus data source is automatically provisioned via a ConfigMap. When a customer says "my data source disappeared after a Helm upgrade," check the ConfigMap — the provisioned data source overrides any manual UI changes on every restart.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does access: proxy mean for a Grafana data source?</li>
+        <li>Where in the Grafana UI do you add a new data source?</li>
+        <li>What scrape interval setting in Grafana should match what Prometheus setting?</li>
+      </ul>
+    </div>
+  `},
+  {id:2, title:'Dashboard Variables & Template Queries', badge:'essential', content:`
+    <h3>🔧 Variables — Dynamic Dashboards</h3>
+    <p>Dashboard variables allow a single dashboard to serve multiple namespaces, nodes, clusters, or applications. Variables are referenced in PromQL queries as <code>$variable_name</code> or <code>${variable_name}</code>.</p>
+    <h3>📋 Common Variable Types</h3>
+    <table>
+      <tr><th>Type</th><th>Use case</th><th>Example query</th></tr>
+      <tr><td><strong>Query</strong></td><td>Populated from Prometheus label values</td><td><code>label_values(kube_pod_info, namespace)</code></td></tr>
+      <tr><td><strong>Custom</strong></td><td>Fixed list of options</td><td><code>production, staging, development</code></td></tr>
+      <tr><td><strong>Constant</strong></td><td>Fixed value — use for cluster names</td><td><code>my-cluster</code></td></tr>
+      <tr><td><strong>Interval</strong></td><td>Time window options for rate()</td><td><code>1m, 5m, 15m, 1h</code></td></tr>
+      <tr><td><strong>Datasource</strong></td><td>Switch between Prometheus instances</td><td>Prometheus data sources list</td></tr>
+    </table>
+    <h3>🔍 PromQL with Variables</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Variable: namespace = label_values(kube_pod_info, namespace)
+# Variable: pod = label_values(kube_pod_info{namespace="$namespace"}, pod)
+# Variable: interval = [1m, 5m, 10m, 30m, 1h]
+
+# Query using all three variables
+sum(rate(container_cpu_usage_seconds_total{
+  namespace="$namespace",
+  pod="$pod",
+  container!=""
+}[$interval])) by (container)</pre>
+    <div class="callout callout-warn"><h4>⚠️ Variable Cardinality Warning</h4>
+      <p><code>label_values()</code> queries all unique values for a label. On a high-cardinality label (e.g. pod names with thousands of entries), this query can be slow and strain Prometheus. Use a <strong>metric selector</strong> to narrow results: <code>label_values(kube_pod_info{namespace="$namespace"}, pod)</code> instead of <code>label_values(kube_pod_info, pod)</code>.</p>
+    </div>
+    <div class="callout callout-tip"><h4>💡 Multi-Value Variables</h4>
+      <p>Enable "Multi-value" and "Include All option" on a variable to allow selecting multiple values. Use <code>=~"$namespace"</code> (regex match) instead of <code>="$namespace"</code> (exact match) in your PromQL — Grafana automatically joins multi-selected values with <code>|</code> for regex matching.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which Grafana variable type is populated by querying Prometheus label values?</li>
+        <li>Why should you use =~ instead of = when a dashboard variable is multi-value?</li>
+        <li>What label_values() query would list all pods in a selected namespace?</li>
+      </ul>
+    </div>
+  `},
+  {id:3, title:'Panel Types & Visualisation Best Practices', badge:'essential', content:`
+    <h3>📊 Choosing the Right Panel</h3>
+    <p>Grafana has many panel types. Choosing the wrong one is one of the most common mistakes in dashboard design. Match the panel type to what the data represents.</p>
+    <table>
+      <tr><th>Panel Type</th><th>Best for</th><th>Prometheus metric type</th></tr>
+      <tr><td><strong>Time series</strong></td><td>Trends over time — requests/sec, CPU usage</td><td>Any — with rate() for counters</td></tr>
+      <tr><td><strong>Stat</strong></td><td>Single current value — uptime, current error rate</td><td>Gauge or instant rate()</td></tr>
+      <tr><td><strong>Gauge</strong></td><td>Value relative to min/max — disk %, memory %</td><td>Gauge (0-100 range)</td></tr>
+      <tr><td><strong>Bar chart</strong></td><td>Comparing values across categories — errors per service</td><td>Aggregated instant vector</td></tr>
+      <tr><td><strong>Table</strong></td><td>Detailed breakdown — per-pod resource usage</td><td>Any aggregated metric</td></tr>
+      <tr><td><strong>Heatmap</strong></td><td>Distribution over time — request latency spread</td><td>Histogram buckets</td></tr>
+      <tr><td><strong>Logs</strong></td><td>Log entries — requires Loki data source</td><td>N/A (Loki)</td></tr>
+    </table>
+    <h3>🎨 Panel Best Practices</h3>
+    <ul>
+      <li><strong>Always set units:</strong> Set the unit (bytes, seconds, percent) in panel options — Grafana auto-formats large numbers when units are set</li>
+      <li><strong>Use meaningful legends:</strong> <code>{{pod}}</code> not <code>{{__name__}}</code></li>
+      <li><strong>Set thresholds:</strong> Use green/yellow/red thresholds on Stat and Gauge panels to give immediate visual context</li>
+      <li><strong>Limit series count:</strong> More than 20-30 lines on a time series panel becomes unreadable — use topk() or aggregate</li>
+      <li><strong>Use appropriate time ranges:</strong> Set sensible default time ranges — last 1h for operational dashboards, last 7d for capacity planning</li>
+    </ul>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The most common support question about panels: "Why does my Stat panel show a huge number like 1234567890 for bytes?" — always check if the unit is set. Setting the unit to "bytes (IEC)" makes Grafana display "1.15 GiB" automatically. Units are set under Standard options → Unit in the panel editor.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which panel type is best suited for displaying histogram latency distribution over time?</li>
+        <li>A Stat panel shows raw bytes instead of GB — what is the likely cause?</li>
+        <li>Which PromQL function limits the display to the top 5 pods by CPU?</li>
+      </ul>
+    </div>
+  `},
+  {id:4, title:'Troubleshooting: No Data & Errors', badge:'important', content:`
+    <h3>🔍 Systematic Debugging Approach</h3>
+    <p>When a Grafana panel shows "No data" or an error, follow this systematic approach before touching any configuration.</p>
+    <h3>🪜 Step-by-Step Debugging Ladder</h3>
+    <ol>
+      <li><strong>Check the Prometheus data source:</strong> Connections → Data Sources → Test. If it fails, Grafana can't reach Prometheus at all.</li>
+      <li><strong>Run the query in Prometheus UI:</strong> Copy the PromQL expression to Prometheus UI (port 9090) → Graph tab. If it returns data there but not in Grafana, the issue is the data source connection or time range.</li>
+      <li><strong>Check the time range:</strong> Is the Grafana time range outside Prometheus retention? Does the time range match when the metric existed?</li>
+      <li><strong>Check label matchers:</strong> Are dashboard variable values correct for this environment? Switch <code>="$namespace"</code> to <code>=~".*"</code> temporarily to see all data.</li>
+      <li><strong>Check if the target is up:</strong> Query <code>up{job="your-job"}</code> — if 0 or absent, the exporter isn't being scraped.</li>
+      <li><strong>Check if the metric exists:</strong> Type just the metric name in Prometheus UI — does it appear in autocomplete?</li>
+      <li><strong>Check for recording rules:</strong> If the query uses a recording rule metric, verify the rule is loaded (Prometheus UI → Status → Rules).</li>
+    </ol>
+    <h3>🚨 Common Error Messages</h3>
+    <table>
+      <tr><th>Error</th><th>Likely cause</th><th>Fix</th></tr>
+      <tr><td>"No data"</td><td>Label mismatch, metric doesn't exist, wrong time range</td><td>Debug step by step above</td></tr>
+      <tr><td>"Context deadline exceeded"</td><td>Query too slow, timeout too short</td><td>Increase query timeout, use recording rules</td></tr>
+      <tr><td>"Bad Gateway"</td><td>Grafana can't reach Prometheus</td><td>Check data source URL, network policy</td></tr>
+      <tr><td>"parse error"</td><td>Invalid PromQL syntax</td><td>Test in Prometheus UI, check brackets</td></tr>
+      <tr><td>"vector cannot contain metrics with the same labelset"</td><td>Duplicate label sets after aggregation</td><td>Add more labels to by() clause</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 The Inspector Tool</h4>
+      <p>In Grafana, every panel has an <strong>Inspect</strong> option (right-click panel title → Inspect → Query). This shows the exact PromQL sent to Prometheus and the raw response — invaluable for debugging what Grafana is actually asking for vs what you expect.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>A panel shows data in Prometheus UI but not in Grafana — what should you check first?</li>
+        <li>What error indicates Prometheus took too long to respond?</li>
+        <li>Where in Grafana can you see the exact PromQL query being sent to Prometheus?</li>
+      </ul>
+    </div>
+  `},
+  {id:5, title:'Grafana Provisioning & GitOps', badge:'important', content:`
+    <h3>📦 Provisioning — Configuration as Code</h3>
+    <p>Grafana supports <strong>provisioning</strong> — loading dashboards, data sources, and alert rules from files on startup. This enables GitOps workflows where all Grafana configuration is version-controlled.</p>
+    <h3>📂 Provisioning File Structure</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">/etc/grafana/provisioning/
+├── datasources/
+│   └── prometheus.yml      # Data source definitions
+├── dashboards/
+│   └── dashboards.yml      # Dashboard provider config
+└── alerting/
+    └── alerts.yml          # Alert rules and notification policies</pre>
+    <h3>📊 Dashboard Provider Configuration</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># dashboards/dashboards.yml
+apiVersion: 1
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: 'Kubernetes'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards   # Where dashboard JSON files live</pre>
+    <h3>🔄 In kube-prometheus-stack (Helm)</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># values.yaml — add a custom dashboard
+grafana:
+  dashboards:
+    default:
+      my-custom-dashboard:
+        json: |
+          { "title": "My Dashboard", ... }
+
+  # Or reference a ConfigMap
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: custom
+          folder: Custom
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/custom</pre>
+    <div class="callout callout-warn"><h4>⚠️ Provisioned Dashboards Are Read-Only</h4>
+      <p>Dashboards loaded via provisioning show a lock icon in Grafana — they cannot be saved in the UI. Any manual edits made in the browser are lost on restart. To make a provisioned dashboard editable, set <code>editable: true</code> in the provider config and <code>disableDeletion: false</code>.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The kube-prometheus-stack ships with 30+ pre-provisioned dashboards for Kubernetes, nodes, pods, and namespaces. When a customer says "my dashboards disappeared after upgrading Helm," the cause is usually that the dashboard ConfigMaps were recreated and the IDs changed — causing Grafana to treat them as new dashboards rather than updates to existing ones.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Why can't a user save edits to a provisioned Grafana dashboard?</li>
+        <li>What directory does Grafana look in for provisioned data source definitions?</li>
+        <li>In kube-prometheus-stack, how are custom dashboards typically added via Helm?</li>
+      </ul>
+    </div>
+  `},
+  {id:6, title:'Support Engineering: Common Scenarios', badge:'important', content:`
+    <h3>🛠️ Real-World Support Scenarios</h3>
+    <p>This section covers the most common support tickets a Grafana Support Engineer handles involving Prometheus. Each scenario describes the symptom, root cause, and resolution.</p>
+    <h3>📋 Scenario Library</h3>
+    <div class="analogy-box">
+      <h4>Scenario 1: "My dashboard shows No Data after migrating clusters"</h4>
+      <div style="font-size:0.83rem;color:var(--text2);margin-top:8px;">
+        <strong style="color:var(--text);">Root cause:</strong> Label values changed — old cluster had <code>instance="10.0.0.1:9090"</code>, new has <code>instance="prometheus.monitoring.svc:9090"</code>. Dashboard variable <code>$instance</code> has no match.<br/>
+        <strong style="color:var(--text);">Fix:</strong> Update the variable query or use regex matching. Check Prometheus targets for the new instance label format.
+      </div>
+    </div>
+    <div class="analogy-box">
+      <h4>Scenario 2: "Alert is firing in Prometheus but I'm not getting a Slack notification"</h4>
+      <div style="font-size:0.83rem;color:var(--text2);margin-top:8px;">
+        <strong style="color:var(--text);">Root cause:</strong> Usually one of: (a) Alert is in Pending not Firing state — <code>for</code> duration not elapsed. (b) Alertmanager routing doesn't match alert labels. (c) Alert is silenced. (d) Slack webhook URL is wrong or expired.<br/>
+        <strong style="color:var(--text);">Fix:</strong> Check Alertmanager UI → Alerts for the alert status. Check Status → Config for routing rules. Use <code>amtool config routes test</code> to verify routing.
+      </div>
+    </div>
+    <div class="analogy-box">
+      <h4>Scenario 3: "Grafana dashboard is very slow to load"</h4>
+      <div style="font-size:0.83rem;color:var(--text2);margin-top:8px;">
+        <strong style="color:var(--text);">Root cause:</strong> High-cardinality queries — one or more panels running expensive PromQL across millions of series. Common culprits: missing <code>by()</code> clauses, <code>label_values()</code> on unbounded labels, long time ranges with low-resolution data.<br/>
+        <strong style="color:var(--text);">Fix:</strong> Use Grafana Inspector to find which panel is slow. Add recording rules for expensive queries. Narrow label selectors. Reduce default time range.
+      </div>
+    </div>
+    <div class="analogy-box">
+      <h4>Scenario 4: "Container memory usage is doubling what I expect"</h4>
+      <div style="font-size:0.83rem;color:var(--text2);margin-top:8px;">
+        <strong style="color:var(--text);">Root cause:</strong> Missing <code>container!=""</code> filter in cAdvisor queries — includes pause container (pod sandbox) metrics, which double-counts usage.<br/>
+        <strong style="color:var(--text);">Fix:</strong> Add <code>container!=""</code> to all container_* metric queries.
+      </div>
+    </div>
+    <div class="analogy-box">
+      <h4>Scenario 5: "SSL certificate alert not firing even though cert expires in 10 days"</h4>
+      <div style="font-size:0.83rem;color:var(--text2);margin-top:8px;">
+        <strong style="color:var(--text);">Root cause:</strong> blackbox_exporter not scraping that target — check Prometheus Targets page. Or the alert threshold is set to days but the metric is in seconds.<br/>
+        <strong style="color:var(--text);">Fix:</strong> Verify <code>probe_ssl_earliest_cert_expiry</code> exists for that target. Check the alert expr: <code>(probe_ssl_earliest_cert_expiry - time()) / 86400 &lt; 30</code> — divide by 86400 to convert seconds to days.
+      </div>
+    </div>
+    <div class="callout callout-tip"><h4>💡 Support Engineer Toolkit</h4>
+      <ul>
+        <li><strong>Prometheus UI</strong> (port 9090): Verify targets, rules, alerts, and run queries directly</li>
+        <li><strong>Alertmanager UI</strong> (port 9093): Check active alerts, silences, routing, config</li>
+        <li><strong>Grafana Inspector</strong>: See exact PromQL, raw response, query timing</li>
+        <li><strong>kubectl logs</strong>: Check Prometheus, Alertmanager, Grafana pod logs for errors</li>
+        <li><strong>amtool</strong>: CLI for Alertmanager — test routing, manage silences, check config</li>
+        <li><strong>promtool</strong>: CLI for Prometheus — validate config and rules before applying</li>
+      </ul>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>A customer's container memory metrics are doubled — what is the most likely cause?</li>
+        <li>An alert is Firing in Prometheus but Alertmanager is not sending notifications — list three possible causes.</li>
+        <li>Which tool would you use to test Alertmanager routing for a specific alert?</li>
+      </ul>
+    </div>
+  `}
+];
+
+let _uid = null, _completed = [];
+document.getElementById('signin-btn').onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e) {} };
+document.getElementById('signout-btn').onclick = () => signOut(auth);
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    _uid = user.uid;
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('user-avatar').src = user.photoURL || '';
+    document.getElementById('user-name').textContent = user.displayName || '';
+    await loadCompleted();
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAll();
+  } else { _uid = null; document.getElementById('app').style.display='none'; document.getElementById('auth-overlay').style.display='flex'; }
+});
+async function loadCompleted() { const snap = await getDoc(doc(db,'progress',_uid)); _completed = snap.exists() ? (snap.data()[MODULE_KEY] || []) : []; }
+async function markComplete(id) {
+  if (_completed.includes(id)) return;
+  _completed = [..._completed, id];
+  const ref = doc(db,'progress',_uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) { await setDoc(ref, {[MODULE_KEY]: _completed, updatedAt: serverTimestamp()}); }
+  else { await updateDoc(ref, {[MODULE_KEY]: arrayUnion(id), updatedAt: serverTimestamp()}); }
+  const btn = document.getElementById(`complete-btn-${id}`);
+  if (btn) { btn.textContent = '✅ Completed'; btn.classList.add('done'); btn.disabled = true; }
+  renderProgress(); renderNavItem(id, true); showSaveIndicator(id);
+}
+function showSaveIndicator(id) { const ind = document.getElementById(`save-ind-${id}`); if (ind) { ind.classList.add('show'); setTimeout(()=>ind.classList.remove('show'),2000); } }
+function renderProgress() { const pct = Math.round((_completed.length / SECTIONS.length)*100); document.getElementById('sidebar-pct').textContent = pct+'%'; document.getElementById('sidebar-bar').style.width = pct+'%'; }
+function renderNavItem(id, done) {
+  const el = document.getElementById(`nav-${id}`); if (!el) return;
+  const sec = SECTIONS[id-1];
+  el.className = 'nav-item' + (done ? ' completed' : '');
+  el.innerHTML = `<span>${id}.</span><span style="flex:1;font-size:0.83rem">${sec.title}</span><span class="nav-badge ${BADGE_CLASSES[sec.badge]}">${BADGES[sec.badge]}</span>${done?'<span style="font-size:0.72rem">✅</span>':''}`;
+  el.onclick = () => toggleSection(id);
+}
+function renderAll() {
+  const navContainer = document.getElementById('nav-items'); navContainer.innerHTML = '';
+  SECTIONS.forEach(s => { const div = document.createElement('div'); div.id = `nav-${s.id}`; navContainer.appendChild(div); renderNavItem(s.id, _completed.includes(s.id)); });
+  const secContainer = document.getElementById('sections-container'); secContainer.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const done = _completed.includes(s.id);
+    const div = document.createElement('div'); div.className = 'section-block';
+    div.innerHTML = `<div class="section-header" onclick="toggleSection(${s.id})"><span class="section-num">${MODULE_NUM}.${s.id}</span><span class="section-title">${s.title}</span><span class="nav-badge ${BADGE_CLASSES[s.badge]}">${BADGES[s.badge]}</span>${done?'<span style="color:var(--green);font-size:0.83rem;">✅</span>':''}<span class="section-toggle" id="toggle-${s.id}">▼</span></div><div class="section-body" id="body-${s.id}">${s.content}<button class="complete-btn ${done?'done':''}" id="complete-btn-${s.id}" onclick="markComplete(${s.id})" ${done?'disabled':''}>${done?'✅ Completed':'✅ Mark section '+MODULE_NUM+'.'+s.id+' as completed'}</button><span class="save-indicator" id="save-ind-${s.id}">✓ Saved to cloud</span></div>`;
+    secContainer.appendChild(div);
+  });
+  renderProgress();
+}
+window.toggleSection = (id) => {
+  const body = document.getElementById(`body-${id}`); const toggle = document.getElementById(`toggle-${id}`);
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));
+  if (!isOpen) { body.classList.add('open'); toggle.classList.add('open'); }
+};
+window.markComplete = markComplete;
+window.toggleTheme = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme')==='dark'?'light':'dark'); };
+window.copyCode = (btn) => { const text = btn.parentElement.innerText.replace('Copy','').trim(); navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);}); };
+</script>
+</body>
+</html>
