@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>Module 4: Exporters & Instrumentation — Prometheus</title>
+<style>
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#e6522c;--accent2:#f47c3c;--text:#e8eaf0;--text2:#9da3bd;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--red:#e74c3c;--grafana:#f46800;--radius:12px;}
+  [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#eef0f8;--border:#d0d5e8;--text:#1a1d27;--text2:#555b7a;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  a{color:var(--accent);}
+  .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;text-align:center;max-width:380px;width:90%;}
+  .auth-card img{height:38px;margin-bottom:20px;}
+  .auth-card h2{font-size:1.2rem;font-weight:800;margin-bottom:8px;}
+  .auth-card p{color:var(--text2);font-size:0.87rem;margin-bottom:22px;}
+  .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:white;color:#333;border:1px solid #ddd;border-radius:8px;padding:11px 20px;font-size:0.9rem;font-weight:600;cursor:pointer;width:100%;transition:all 0.2s;}
+  .google-btn:hover{box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+  .google-btn svg{width:18px;height:18px;flex-shrink:0;}
+  .loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;align-items:center;justify-content:center;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .header-left{display:flex;align-items:center;gap:10px;font-size:0.88rem;color:var(--text2);}
+  .header-left img{height:28px;}
+  .header-left a{color:var(--accent);font-weight:600;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .user-chip{display:flex;align-items:center;gap:7px;font-size:0.82rem;}
+  .user-chip img{width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:0.8rem;transition:all 0.2s;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+  .layout{display:flex;min-height:calc(100vh - 54px);}
+  .sidebar{width:275px;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;overflow-y:auto;position:sticky;top:54px;height:calc(100vh - 54px);flex-shrink:0;}
+  .sidebar-title{padding:0 18px 10px;font-size:0.73rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .sidebar-progress{padding:10px 18px;background:var(--surface2);margin:0 10px 10px;border-radius:8px;}
+  .sidebar-progress-bar{background:var(--border);border-radius:99px;height:4px;margin-top:5px;}
+  .sidebar-progress-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.3s;}
+  .nav-item{padding:9px 18px;cursor:pointer;border-left:3px solid transparent;transition:all 0.15s;display:flex;align-items:center;gap:9px;font-size:0.85rem;}
+  .nav-item:hover{background:var(--surface2);}
+  .nav-item.active{border-left-color:var(--accent);background:rgba(230,82,44,0.07);color:var(--accent);font-weight:600;}
+  .nav-item.completed{color:var(--green);}
+  .nav-badge{font-size:0.63rem;padding:2px 6px;border-radius:3px;font-weight:700;}
+  .badge-foundation{background:rgba(46,204,113,0.15);color:var(--green);}
+  .badge-essential{background:rgba(52,152,219,0.15);color:var(--blue);}
+  .badge-important{background:rgba(230,82,44,0.15);color:var(--accent);}
+  .content{flex:1;padding:30px 38px;max-width:840px;}
+  .module-hero{margin-bottom:28px;}
+  .module-hero h1{font-size:1.7rem;font-weight:800;margin-bottom:7px;}
+  .module-hero p{color:var(--text2);font-size:0.97rem;}
+  .module-meta{display:flex;gap:10px;margin-top:10px;}
+  .meta-chip{font-size:0.76rem;padding:4px 10px;border-radius:6px;font-weight:600;}
+  .chip-weight{background:rgba(52,152,219,0.15);color:var(--blue);border:1px solid rgba(52,152,219,0.3);}
+  .chip-sections{background:rgba(46,204,113,0.15);color:var(--green);border:1px solid rgba(46,204,113,0.3);}
+  .section-block{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);user-select:none;}
+  .section-header:hover{background:var(--surface2);}
+  .section-num{font-size:0.73rem;font-weight:700;color:var(--text2);min-width:26px;}
+  .section-title{font-weight:600;font-size:0.93rem;flex:1;}
+  .section-toggle{font-size:0.78rem;color:var(--text2);transition:transform 0.2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{padding:22px 26px;background:var(--surface);border-top:1px solid var(--border);display:none;}
+  .section-body.open{display:block;}
+  h3{font-size:0.97rem;font-weight:700;margin:18px 0 9px;}
+  h3:first-child{margin-top:0;}
+  p{font-size:0.88rem;color:var(--text2);line-height:1.7;margin-bottom:11px;}
+  strong{color:var(--text);}
+  ul,ol{padding-left:18px;margin-bottom:11px;}
+  li{font-size:0.86rem;color:var(--text2);line-height:1.7;}
+  pre{background:#0d0f18;border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:0.8rem;overflow-x:auto;margin:11px 0;color:#a8d8a8;font-family:'Courier New',monospace;position:relative;}
+  .copy-btn{position:absolute;top:7px;right:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:3px 9px;border-radius:4px;cursor:pointer;font-size:0.7rem;}
+  .copy-btn:hover{background:var(--accent);color:white;}
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;font-size:0.85rem;}
+  .callout-warn{background:rgba(231,76,60,0.08);border-left:3px solid var(--red);}
+  .callout-tip{background:rgba(46,204,113,0.08);border-left:3px solid var(--green);}
+  .callout-info{background:rgba(52,152,219,0.08);border-left:3px solid var(--blue);}
+  .callout-grafana{background:rgba(244,104,0,0.08);border-left:3px solid var(--grafana);}
+  .callout h4{font-size:0.83rem;font-weight:700;margin-bottom:5px;}
+  .analogy-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0;}
+  .analogy-box h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:8px;}
+  .analogy-row{display:flex;align-items:center;gap:9px;font-size:0.83rem;margin-bottom:5px;color:var(--text2);}
+  .analogy-row strong{color:var(--text);min-width:140px;}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:18px;margin:12px 0;text-align:center;}
+  .diagram-title{font-size:0.76rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+  .diagram-row{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:7px;flex-wrap:wrap;}
+  .diagram-box{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:0.8rem;font-weight:600;}
+  .diagram-box.accent{border-color:var(--accent);color:var(--accent);}
+  .diagram-box.blue{border-color:var(--blue);color:var(--blue);}
+  .diagram-box.green{border-color:var(--green);color:var(--green);}
+  .diagram-box.grafana{border-color:var(--grafana);color:var(--grafana);}
+  .test-questions{background:rgba(230,82,44,0.06);border:1px solid rgba(230,82,44,0.2);border-radius:8px;padding:12px 16px;margin-top:16px;}
+  .test-questions h4{font-size:0.8rem;font-weight:700;color:var(--accent);margin-bottom:7px;}
+  .test-questions li{font-size:0.81rem;color:var(--text2);}
+  .complete-btn{margin-top:18px;background:var(--accent);color:white;border:none;padding:9px 22px;border-radius:8px;font-size:0.86rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+  .complete-btn:hover{background:var(--accent2);}
+  .complete-btn.done{background:var(--green);cursor:default;}
+  .nav-footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:22px;border-top:1px solid var(--border);}
+  .nav-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:8px;text-decoration:none;font-size:0.86rem;font-weight:600;transition:all 0.2s;}
+  .nav-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .nav-btn.primary{background:var(--accent);color:white;border-color:var(--accent);}
+  .nav-btn.primary:hover{background:var(--accent2);}
+  .save-indicator{font-size:0.75rem;color:var(--green);margin-left:10px;opacity:0;transition:opacity 0.3s;}
+  .save-indicator.show{opacity:1;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:0.83rem;}
+  th{background:var(--surface2);color:var(--text);font-weight:700;padding:8px 12px;text-align:left;border:1px solid var(--border);}
+  td{padding:7px 12px;border:1px solid var(--border);color:var(--text2);}
+  td code{color:var(--accent);font-family:'Courier New',monospace;font-size:0.8rem;}
+</style>
+</head>
+<body>
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <h2>Sign In Required</h2>
+    <p>Sign in with your SourceFuse Google account to access this module.</p>
+    <button class="google-btn" id="signin-btn">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
+<div id="app" style="display:none;">
+<header class="header">
+  <div class="header-left">
+    <img src="https://sflearningdevelopment.github.io/sf-internal-kubernetes-certification/sourcefuse-logo.png" alt="SourceFuse"/>
+    <a href="prometheus-dashboard.html">← Dashboard</a> / Module 4
+  </div>
+  <div class="header-right">
+    <div class="user-chip"><img id="user-avatar" src="" alt=""/><span id="user-name" style="font-size:0.82rem;"></span></div>
+    <button class="btn-sm" onclick="toggleTheme()">🌓 Theme</button>
+    <button class="btn-sm" id="signout-btn">Sign Out</button>
+  </div>
+</header>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-title">Module 4 — 6 Sections</div>
+    <div class="sidebar-progress">
+      <div style="font-size:0.78rem;color:var(--text2);display:flex;justify-content:space-between;"><span>Progress</span><span id="sidebar-pct">0%</span></div>
+      <div class="sidebar-progress-bar"><div class="sidebar-progress-fill" id="sidebar-bar" style="width:0%"></div></div>
+    </div>
+    <div id="nav-items"></div>
+  </nav>
+  <div class="content">
+    <div class="module-hero">
+      <h1>🔌 Module 4: Exporters & Instrumentation</h1>
+      <p>Learn the key exporters used in production, how to instrument your own applications, and how to use the Pushgateway for batch jobs.</p>
+      <div class="module-meta">
+        <span class="meta-chip chip-weight">15% Exam Weight</span>
+        <span class="meta-chip chip-sections">6 Sections</span>
+      </div>
+    </div>
+    <div id="sections-container"></div>
+    <div class="nav-footer">
+      <a href="prometheus-module-3.html" class="nav-btn">← Module 3: PromQL</a>
+      <a href="prometheus-module-5.html" class="nav-btn primary">Module 5: Alerting →</a>
+    </div>
+  </div>
+</div>
+</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC-I-IOCq2fCwa471fsD5xOn6SYQSBDp7Q",
+  authDomain: "sfcertification-grafana.firebaseapp.com",
+  projectId: "sfcertification-grafana",
+  storageBucket: "sfcertification-grafana.firebasestorage.app",
+  messagingSenderId: "227322696511",
+  appId: "1:227322696511:web:12e7ced7dd3d45fa06798a"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const MODULE_KEY = 'pm4';
+const MODULE_NUM = 4;
+const BADGES = { foundation:'Foundation', essential:'Essential', important:'Important' };
+const BADGE_CLASSES = { foundation:'badge-foundation', essential:'badge-essential', important:'badge-important' };
+
+const SECTIONS = [
+  {id:1, title:'What are Exporters?', badge:'foundation', content:`
+    <h3>🔌 Exporters — The Translation Layer</h3>
+    <p>An <strong>exporter</strong> is a small agent that sits alongside a service that doesn't natively expose Prometheus metrics (e.g. MySQL, Redis, Linux OS, hardware) and <strong>translates its metrics into the Prometheus exposition format</strong>.</p>
+    <p>Exporters expose a <code>/metrics</code> HTTP endpoint that Prometheus scrapes. They are the bridge between the existing monitoring world and the Prometheus ecosystem.</p>
+    <div class="analogy-box"><h4>🌍 Real-World Analogy</h4>
+      <div class="analogy-row"><strong>Exporter</strong><span>→</span><span>A translator at a UN meeting — takes what someone says in French and converts it to English for others</span></div>
+      <div class="analogy-row"><strong>node_exporter</strong><span>→</span><span>Translates Linux kernel stats into Prometheus metrics</span></div>
+      <div class="analogy-row"><strong>mysqld_exporter</strong><span>→</span><span>Translates MySQL SHOW STATUS into Prometheus metrics</span></div>
+    </div>
+    <h3>🏗️ Exporter Deployment Pattern</h3>
+    <div class="diagram">
+      <div class="diagram-title">Exporter Architecture</div>
+      <div class="diagram-row">
+        <div class="diagram-box blue">MySQL<br/><small>native metrics</small></div>
+        <span style="color:var(--text2)">→</span>
+        <div class="diagram-box accent">mysqld_exporter<br/><small>:9104/metrics</small></div>
+        <span style="color:var(--text2)">←scrape</span>
+        <div class="diagram-box green">Prometheus</div>
+      </div>
+    </div>
+    <div class="callout callout-info"><h4>ℹ️ Official vs Third-Party Exporters</h4>
+      <p>Prometheus maintains a list of official exporters. The most widely used are node_exporter, blackbox_exporter, and mysqld_exporter. Third-party exporters exist for almost every system. Always check <a href="https://prometheus.io/docs/instrumenting/exporters/" target="_blank">prometheus.io/docs/instrumenting/exporters</a> first before building your own.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What is the purpose of a Prometheus exporter?</li>
+        <li>An exporter that can't reach its target will expose what kind of metrics?</li>
+      </ul>
+    </div>
+  `},
+  {id:2, title:'node_exporter — OS & Hardware Metrics', badge:'essential', content:`
+    <h3>🖥️ node_exporter</h3>
+    <p>The <strong>node_exporter</strong> is the most widely deployed Prometheus exporter. It exposes hundreds of metrics about the Linux operating system and hardware — CPU, memory, disk, network, filesystem, and more.</p>
+    <h3>📦 Deployment in Kubernetes</h3>
+    <p>In the kube-prometheus-stack, node_exporter runs as a <strong>DaemonSet</strong> — one pod per node — so every node is monitored automatically.</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Verify node_exporter is running on all nodes
+kubectl get daemonset -n monitoring kube-prometheus-stack-prometheus-node-exporter
+
+# Check a node_exporter /metrics endpoint
+kubectl port-forward -n monitoring daemonset/node-exporter 9100:9100
+curl localhost:9100/metrics | grep node_cpu</pre>
+    <h3>🔑 Key Metrics Exposed</h3>
+    <table>
+      <tr><th>Metric</th><th>What it measures</th></tr>
+      <tr><td><code>node_cpu_seconds_total</code></td><td>CPU time by mode (idle, user, system, iowait…)</td></tr>
+      <tr><td><code>node_memory_MemAvailable_bytes</code></td><td>Available memory (more accurate than MemFree)</td></tr>
+      <tr><td><code>node_filesystem_free_bytes</code></td><td>Free disk space per filesystem</td></tr>
+      <tr><td><code>node_network_receive_bytes_total</code></td><td>Network bytes received per interface</td></tr>
+      <tr><td><code>node_load1</code></td><td>1-minute load average</td></tr>
+      <tr><td><code>node_disk_io_time_seconds_total</code></td><td>Disk I/O time</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 Most Useful node_exporter Queries</h4>
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># CPU usage % (all modes except idle)
+(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100
+
+# Memory pressure
+1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+
+# Disk filling up alert
+predict_linear(node_filesystem_free_bytes[6h], 24*3600) < 0</pre>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The kube-prometheus-stack ships with a "Node Exporter Full" Grafana dashboard (ID 1860) that covers all node_exporter metrics. When a customer asks about host-level metrics in Grafana, this dashboard is the starting point. Always check if the node_exporter DaemonSet is healthy before debugging dashboard issues.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What Kubernetes workload type does node_exporter run as in kube-prometheus-stack?</li>
+        <li>Which node_exporter metric is most accurate for available memory?</li>
+        <li>On which port does node_exporter expose metrics by default?</li>
+      </ul>
+    </div>
+  `},
+  {id:3, title:'blackbox_exporter — Probing Endpoints', badge:'essential', content:`
+    <h3>🕵️ blackbox_exporter — External Probing</h3>
+    <p>The <strong>blackbox_exporter</strong> allows Prometheus to <strong>probe external endpoints</strong> over HTTP, HTTPS, TCP, DNS, and ICMP. Unlike other exporters that monitor internal system state, blackbox_exporter tests what a user would experience — is the endpoint reachable? Does it return the right status code? How long does it take?</p>
+    <h3>🔧 How it Works</h3>
+    <div class="diagram">
+      <div class="diagram-title">Blackbox Probe Flow</div>
+      <div class="diagram-row">
+        <div class="diagram-box accent">Prometheus</div>
+        <span style="color:var(--text2)">→ scrape with target param</span>
+        <div class="diagram-box blue">blackbox_exporter</div>
+        <span style="color:var(--text2)">→ probe</span>
+        <div class="diagram-box green">https://api.example.com</div>
+      </div>
+    </div>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># prometheus.yml — scraping via blackbox
+scrape_configs:
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]   # probe module defined in blackbox config
+    static_configs:
+      - targets:
+          - https://api.example.com/health
+          - https://app.example.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115</pre>
+    <h3>🔑 Key Metrics</h3>
+    <table>
+      <tr><th>Metric</th><th>Description</th></tr>
+      <tr><td><code>probe_success</code></td><td>1 if probe succeeded, 0 if failed</td></tr>
+      <tr><td><code>probe_duration_seconds</code></td><td>Total probe duration</td></tr>
+      <tr><td><code>probe_http_status_code</code></td><td>HTTP status code returned</td></tr>
+      <tr><td><code>probe_ssl_earliest_cert_expiry</code></td><td>SSL certificate expiry time (Unix timestamp)</td></tr>
+      <tr><td><code>probe_dns_lookup_time_seconds</code></td><td>DNS resolution time</td></tr>
+    </table>
+    <div class="callout callout-tip"><h4>💡 SSL Certificate Expiry Alert</h4>
+      <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Alert when SSL cert expires in less than 30 days
+(probe_ssl_earliest_cert_expiry - time()) / 86400 < 30</pre>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, blackbox_exporter powers "uptime" and "synthetic monitoring" dashboards. The community Grafana dashboard ID 7587 is specifically for blackbox_exporter. When a customer asks "can Prometheus tell me if my website is up?", blackbox_exporter is the answer.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>What does a probe_success value of 0 indicate?</li>
+        <li>Which blackbox_exporter metric would you use to alert on expiring SSL certificates?</li>
+        <li>What HTTP path does blackbox_exporter expose for probes?</li>
+      </ul>
+    </div>
+  `},
+  {id:4, title:'kube-state-metrics & cAdvisor', badge:'essential', content:`
+    <h3>☸️ Two Essential Kubernetes Exporters</h3>
+    <p>In any Kubernetes monitoring setup you will encounter two exporters that are not optional — they provide the metrics that make Kubernetes dashboards work.</p>
+    <h3>📊 kube-state-metrics</h3>
+    <p><strong>kube-state-metrics</strong> watches the Kubernetes API server and exposes metrics about the <strong>state of Kubernetes objects</strong> — not resource usage, but whether objects exist and what state they're in.</p>
+    <ul>
+      <li><code>kube_pod_status_phase</code> — Pod phase (Running, Pending, Failed…)</li>
+      <li><code>kube_deployment_status_replicas_available</code> — Available replicas</li>
+      <li><code>kube_pod_container_status_restarts_total</code> — Container restart count</li>
+      <li><code>kube_node_status_condition</code> — Node conditions (Ready, MemoryPressure…)</li>
+      <li><code>kube_persistentvolumeclaim_status_phase</code> — PVC status</li>
+    </ul>
+    <h3>📊 cAdvisor (Container Advisor)</h3>
+    <p><strong>cAdvisor</strong> is embedded in the kubelet on every node and exposes <strong>resource usage metrics for containers</strong> — actual CPU, memory, network, and disk I/O consumed by each container.</p>
+    <ul>
+      <li><code>container_cpu_usage_seconds_total</code> — Container CPU usage</li>
+      <li><code>container_memory_working_set_bytes</code> — Container memory usage</li>
+      <li><code>container_network_receive_bytes_total</code> — Container network I/O</li>
+      <li><code>container_fs_writes_bytes_total</code> — Container filesystem writes</li>
+    </ul>
+    <div class="analogy-box"><h4>🌍 Analogy: kube-state-metrics vs cAdvisor</h4>
+      <div class="analogy-row"><strong>kube-state-metrics</strong><span>→</span><span>"Is the pod running? How many replicas exist?" — Administrative view</span></div>
+      <div class="analogy-row"><strong>cAdvisor</strong><span>→</span><span>"How much CPU is the pod consuming right now?" — Resource view</span></div>
+    </div>
+    <div class="callout callout-warn"><h4>⚠️ container!="" Filter</h4>
+      <p>cAdvisor metrics include entries with an empty <code>container</code> label (representing the pod sandbox). Always filter with <code>container!=""</code> to exclude these from your queries, otherwise you'll double-count resource usage.</p>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>The "Kubernetes / Compute Resources / Pod" dashboard in kube-prometheus-stack uses both exporters simultaneously — cAdvisor for actual CPU/memory usage and kube-state-metrics for replica counts and pod status. If one exporter is down, specific panels on this dashboard will show "No data" while others still work.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which exporter would you query to find out how many pod restarts occurred?</li>
+        <li>Where does cAdvisor run in a Kubernetes cluster?</li>
+        <li>Why should you filter container!="" when using cAdvisor metrics?</li>
+      </ul>
+    </div>
+  `},
+  {id:5, title:'Client Libraries & Custom Instrumentation', badge:'important', content:`
+    <h3>⚙️ Instrumenting Your Own Code</h3>
+    <p>When you control the application source code, you can add Prometheus metrics directly using an official <strong>client library</strong>. This gives you application-level metrics that no exporter can provide — business metrics, queue depths, custom latencies.</p>
+    <h3>📦 Official Client Libraries</h3>
+    <table>
+      <tr><th>Language</th><th>Library</th></tr>
+      <tr><td>Go</td><td><code>github.com/prometheus/client_golang</code></td></tr>
+      <tr><td>Java / JVM</td><td><code>io.prometheus:simpleclient</code></td></tr>
+      <tr><td>Python</td><td><code>prometheus-client</code></td></tr>
+      <tr><td>Node.js</td><td><code>prom-client</code></td></tr>
+      <tr><td>Ruby</td><td><code>prometheus-client</code></td></tr>
+    </table>
+    <h3>🐍 Python Example</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button">from prometheus_client import Counter, Histogram, start_http_server
+import time
+
+# Define metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'status']
+)
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request latency',
+    buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0]
+)
+
+# Use in your request handler
+def handle_request(method, status_code):
+    with REQUEST_LATENCY.time():   # automatically records duration
+        # ... your logic ...
+        REQUEST_COUNT.labels(method=method, status=str(status_code)).inc()
+
+# Expose /metrics on port 8000
+start_http_server(8000)</pre>
+    <h3>🏷️ Best Practices for Custom Metrics</h3>
+    <ul>
+      <li>Follow naming conventions: <code>namespace_subsystem_name_unit</code></li>
+      <li>Add a HELP string that explains what the metric measures</li>
+      <li>Keep cardinality low — no user IDs in labels</li>
+      <li>Use histograms for latency, not summaries, in distributed systems</li>
+      <li>Document your metrics alongside your API documentation</li>
+    </ul>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>Custom business metrics are where Grafana delivers the most value for application teams. Once an app is instrumented with order counts, payment latencies, or queue depths, these flow automatically into Grafana via Prometheus. When a customer says "we want to track our business KPIs in Grafana," the first step is instrumenting the application with a client library.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Which official Prometheus library would you use to instrument a Python application?</li>
+        <li>What function automatically measures and records request duration in a histogram?</li>
+        <li>An application team wants to track the number of orders processed — which metric type should they use?</li>
+      </ul>
+    </div>
+  `},
+  {id:6, title:'Pushgateway — Batch Job Metrics', badge:'essential', content:`
+    <h3>🚀 The Problem with Batch Jobs</h3>
+    <p>Prometheus's pull model assumes targets are long-running and available to be scraped. But <strong>batch jobs</strong> (cron jobs, ETL pipelines, one-off scripts) may finish in seconds — before Prometheus can scrape them. The <strong>Pushgateway</strong> solves this.</p>
+    <h3>🔄 How Pushgateway Works</h3>
+    <div class="diagram">
+      <div class="diagram-title">Pushgateway Flow</div>
+      <div class="diagram-row">
+        <div class="diagram-box blue">Batch Job<br/><small>runs for 30s</small></div>
+        <span style="color:var(--text2)">→ push metrics</span>
+        <div class="diagram-box accent">Pushgateway<br/><small>:9091/metrics (buffered)</small></div>
+        <span style="color:var(--text2)">← scrape</span>
+        <div class="diagram-box green">Prometheus</div>
+      </div>
+    </div>
+    <h3>📤 Pushing Metrics</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button"># Push metrics via curl
+cat <<EOF | curl --data-binary @- http://pushgateway:9091/metrics/job/batch_job/instance/my_instance
+# TYPE batch_job_duration_seconds gauge
+batch_job_duration_seconds 42.5
+# TYPE batch_records_processed_total counter
+batch_records_processed_total 15000
+EOF
+
+# Python with prometheus_client
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+registry = CollectorRegistry()
+g = Gauge('batch_job_duration_seconds', 'Batch duration', registry=registry)
+g.set(42.5)
+push_to_gateway('pushgateway:9091', job='batch_job', registry=registry)</pre>
+    <div class="callout callout-warn"><h4>⚠️ Pushgateway Caveats</h4>
+      <ul>
+        <li>Metrics <strong>persist</strong> in Pushgateway until explicitly deleted — a failed job's metrics remain until the next run or manual delete</li>
+        <li>Pushgateway has no concept of instance liveness — <code>up</code> metric is always 1</li>
+        <li>Use Pushgateway only for batch jobs — not for long-running services</li>
+        <li>Pushgateway is a <strong>single point of failure</strong> — consider HA if critical</li>
+      </ul>
+    </div>
+    <div class="callout callout-grafana"><h4>🔗 Grafana Context</h4>
+      <p>In Grafana, Pushgateway metrics appear just like any other Prometheus metric — they are scraped and stored the same way. A common pattern is a Grafana dashboard showing "Last successful batch run" using the timestamp from a Pushgateway metric, and alerting if the metric is older than the expected batch interval.</p>
+    </div>
+    <div class="test-questions"><h4>🎯 Likely Exam Questions</h4>
+      <ul>
+        <li>Why can't Prometheus scrape a cron job directly?</li>
+        <li>What happens to Pushgateway metrics when a batch job fails?</li>
+        <li>On which port does the Pushgateway expose its /metrics endpoint by default?</li>
+      </ul>
+    </div>
+  `}
+];
+
+let _uid = null, _completed = [];
+document.getElementById('signin-btn').onclick = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e) {} };
+document.getElementById('signout-btn').onclick = () => signOut(auth);
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    _uid = user.uid;
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('user-avatar').src = user.photoURL || '';
+    document.getElementById('user-name').textContent = user.displayName || '';
+    await loadCompleted();
+    document.getElementById('loading-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    renderAll();
+  } else { _uid = null; document.getElementById('app').style.display='none'; document.getElementById('auth-overlay').style.display='flex'; }
+});
+async function loadCompleted() { const snap = await getDoc(doc(db,'progress',_uid)); _completed = snap.exists() ? (snap.data()[MODULE_KEY] || []) : []; }
+async function markComplete(id) {
+  if (_completed.includes(id)) return;
+  _completed = [..._completed, id];
+  const ref = doc(db,'progress',_uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) { await setDoc(ref, {[MODULE_KEY]: _completed, updatedAt: serverTimestamp()}); }
+  else { await updateDoc(ref, {[MODULE_KEY]: arrayUnion(id), updatedAt: serverTimestamp()}); }
+  const btn = document.getElementById(`complete-btn-${id}`);
+  if (btn) { btn.textContent = '✅ Completed'; btn.classList.add('done'); btn.disabled = true; }
+  renderProgress(); renderNavItem(id, true); showSaveIndicator(id);
+}
+function showSaveIndicator(id) { const ind = document.getElementById(`save-ind-${id}`); if (ind) { ind.classList.add('show'); setTimeout(()=>ind.classList.remove('show'),2000); } }
+function renderProgress() { const pct = Math.round((_completed.length / SECTIONS.length)*100); document.getElementById('sidebar-pct').textContent = pct+'%'; document.getElementById('sidebar-bar').style.width = pct+'%'; }
+function renderNavItem(id, done) {
+  const el = document.getElementById(`nav-${id}`); if (!el) return;
+  const sec = SECTIONS[id-1];
+  el.className = 'nav-item' + (done ? ' completed' : '');
+  el.innerHTML = `<span>${id}.</span><span style="flex:1;font-size:0.83rem">${sec.title}</span><span class="nav-badge ${BADGE_CLASSES[sec.badge]}">${BADGES[sec.badge]}</span>${done?'<span style="font-size:0.72rem">✅</span>':''}`;
+  el.onclick = () => toggleSection(id);
+}
+function renderAll() {
+  const navContainer = document.getElementById('nav-items'); navContainer.innerHTML = '';
+  SECTIONS.forEach(s => { const div = document.createElement('div'); div.id = `nav-${s.id}`; navContainer.appendChild(div); renderNavItem(s.id, _completed.includes(s.id)); });
+  const secContainer = document.getElementById('sections-container'); secContainer.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const done = _completed.includes(s.id);
+    const div = document.createElement('div'); div.className = 'section-block';
+    div.innerHTML = `<div class="section-header" onclick="toggleSection(${s.id})"><span class="section-num">${MODULE_NUM}.${s.id}</span><span class="section-title">${s.title}</span><span class="nav-badge ${BADGE_CLASSES[s.badge]}">${BADGES[s.badge]}</span>${done?'<span style="color:var(--green);font-size:0.83rem;">✅</span>':''}<span class="section-toggle" id="toggle-${s.id}">▼</span></div><div class="section-body" id="body-${s.id}">${s.content}<button class="complete-btn ${done?'done':''}" id="complete-btn-${s.id}" onclick="markComplete(${s.id})" ${done?'disabled':''}>${done?'✅ Completed':'✅ Mark section '+MODULE_NUM+'.'+s.id+' as completed'}</button><span class="save-indicator" id="save-ind-${s.id}">✓ Saved to cloud</span></div>`;
+    secContainer.appendChild(div);
+  });
+  renderProgress();
+}
+window.toggleSection = (id) => {
+  const body = document.getElementById(`body-${id}`); const toggle = document.getElementById(`toggle-${id}`);
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));
+  if (!isOpen) { body.classList.add('open'); toggle.classList.add('open'); }
+};
+window.markComplete = markComplete;
+window.toggleTheme = () => { const h = document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme')==='dark'?'light':'dark'); };
+window.copyCode = (btn) => { const text = btn.parentElement.innerText.replace('Copy','').trim(); navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);}); };
+</script>
+</body>
+</html>
