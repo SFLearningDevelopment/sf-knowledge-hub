@@ -537,6 +537,65 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
               <button class="save-btn" onclick="addNomination()" style="padding:9px 16px;font-size:13px;">+ Nominate</button>
             </div>
           </div>
+          <!-- ══ REVIEWER PAGES SECTION ══ -->
+          <div class="p-section" id="reviewer-pages-section">
+            <div class="p-section-title">Reviewer Pages</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;">Generate reviewer HTML pages and push directly to the course GitHub repo. Available when course status is <strong>Under Review</strong> or <strong>Live</strong>.</div>
+
+            <!-- Repo selector -->
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label">Course GitHub Repo</label>
+              <select class="form-input" id="rev-repo-select">
+                <option value="">— Select repo —</option>
+                <option value="sf-knowledge-hub">SFLearningDevelopment/sf-knowledge-hub</option>
+                <option value="grafana-essentials">SFLearningDevelopment/grafana-essentials</option>
+                <option value="sfinternalcertification-grafana">SFLearningDevelopment/sfinternalcertification-grafana</option>
+                <option value="sf-internal-kubernetes-certification">SFLearningDevelopment/sf-internal-kubernetes-certification</option>
+                <option value="ai-dev-ops">SFLearningDevelopment/ai-dev-ops</option>
+                <option value="ai-dev-ops-module-1-test">SFLearningDevelopment/ai-dev-ops-module-1-test</option>
+              </select>
+            </div>
+
+            <!-- Destination folder -->
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label">Destination folder in repo</label>
+              <input class="form-input" id="rev-dest-folder" value="reviewer/" placeholder="reviewer/">
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;">Relative to repo root. Generated files will be placed here.</div>
+            </div>
+
+            <!-- Module rows -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Modules</div>
+            <div id="rev-module-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+            <button onclick="revAddModuleRow()" style="font-size:12px;padding:6px 14px;border-radius:7px;border:1px dashed var(--border);background:none;color:var(--muted);cursor:pointer;margin-bottom:18px;">+ Add Module</button>
+
+            <!-- Evaluation toggle -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+              <label style="font-size:13px;color:var(--text);font-weight:600;">Has Evaluation?</label>
+              <input type="checkbox" id="rev-has-eval" style="width:16px;height:16px;accent-color:var(--accent);" onchange="revToggleEval()">
+            </div>
+            <div id="rev-eval-row" style="display:none;margin-bottom:18px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Evaluation</div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input class="form-input" id="rev-eval-file" placeholder="e.g. prometheus-evaluation.html" style="flex:1;">
+                <div style="font-size:11px;color:var(--muted);min-width:120px;">Path in repo root</div>
+              </div>
+            </div>
+
+            <!-- Status gate message -->
+            <div id="rev-draft-notice" style="display:none;font-size:12px;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+              ⚠️ Set course status to <strong>Under Review</strong> or <strong>Live</strong> before generating reviewer pages.
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="save-btn" id="rev-gen-modules-btn" onclick="openRevGenModal('modules')" style="font-size:13px;padding:9px 18px;">
+                📄 Generate Module Reviews
+              </button>
+              <button class="save-btn" id="rev-gen-eval-btn" onclick="openRevGenModal('evaluation')" style="display:none;font-size:13px;padding:9px 18px;background:rgba(139,92,246,.8);">
+                🎯 Generate Evaluation Review
+              </button>
+            </div>
+          </div>
         </div>
         <div id="person-panel" style="display:none;">
           <div class="p-section">
@@ -930,7 +989,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604061002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604141001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1570,6 +1629,7 @@ async function selectCourse(id) {
   $('f-icon').value=c.icon||'📘'; $('f-color').value=c.accentColor||'#3b82f6';
   $('f-order').value=c.order!=null?c.order:''; $('f-status').value=c.status||'draft';
   await loadNominations(id);
+  await revPopulateCourseConfig(id);
 }
 
 $('save-course-btn').addEventListener('click', async()=>{
@@ -2853,6 +2913,759 @@ window.submitAssignProctor = async function() {
 };
 
 function showApError(msg){const el=$('ap-error');el.textContent=msg;el.style.display='block';}
-</script>
+
+// ══════════════════════════════════════════════════════════════════════════════
+// REVIEWER PAGE GENERATOR
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Module row management ──
+let revModuleCount = 0;
+
+function revAddModuleRow(num, title, file) {
+  revModuleCount++;
+  const n = revModuleCount;
+  const row = document.createElement('div');
+  row.id = 'rev-mod-row-' + n;
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  row.innerHTML = `
+    <input class="form-input" id="rev-mod-num-${n}" value="${num||n}" placeholder="1" style="width:48px;flex-shrink:0;" title="Module number">
+    <input class="form-input" id="rev-mod-title-${n}" value="${title||''}" placeholder="Module title (e.g. Introduction & Architecture)" style="flex:2;">
+    <input class="form-input" id="rev-mod-file-${n}" value="${file||''}" placeholder="module-1.html" style="flex:2;" title="Path relative to repo root">
+    <button onclick="revRemoveModuleRow(${n})" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;" title="Remove">×</button>`;
+  document.getElementById('rev-module-rows').appendChild(row);
+}
+
+function revRemoveModuleRow(n) {
+  const el = document.getElementById('rev-mod-row-' + n);
+  if (el) el.remove();
+}
+
+function revToggleEval() {
+  const on = document.getElementById('rev-has-eval').checked;
+  document.getElementById('rev-eval-row').style.display = on ? 'block' : 'none';
+  document.getElementById('rev-gen-eval-btn').style.display = on ? 'inline-flex' : 'none';
+}
+
+// ── Populate reviewer section when a course is selected ──
+async function revPopulateCourseConfig(courseId) {
+  const c = courses.find(x => x.id === courseId) || {};
+  const status = c.status || 'draft';
+  const isDraft = status === 'draft';
+
+  // Status gate
+  document.getElementById('rev-draft-notice').style.display = isDraft ? 'block' : 'none';
+  document.getElementById('rev-gen-modules-btn').disabled = isDraft;
+  document.getElementById('rev-gen-modules-btn').style.opacity = isDraft ? '0.5' : '1';
+  document.getElementById('rev-gen-modules-btn').style.cursor = isDraft ? 'not-allowed' : 'pointer';
+
+  // Load saved reviewerConfig from Firestore if exists
+  try {
+    const snap = await getDoc(doc(db, 'courses', courseId));
+    const rc = snap.exists() ? (snap.data().reviewerConfig || {}) : {};
+
+    // Populate repo
+    if (rc.repo) document.getElementById('rev-repo-select').value = rc.repo;
+
+    // Populate dest folder
+    if (rc.destFolder) document.getElementById('rev-dest-folder').value = rc.destFolder;
+
+    // Populate module rows
+    document.getElementById('rev-module-rows').innerHTML = '';
+    revModuleCount = 0;
+    if (rc.modules && rc.modules.length) {
+      rc.modules.forEach(m => revAddModuleRow(m.num, m.title, m.file));
+    }
+
+    // Populate evaluation
+    if (rc.evalFile) {
+      document.getElementById('rev-has-eval').checked = true;
+      document.getElementById('rev-eval-row').style.display = 'block';
+      document.getElementById('rev-gen-eval-btn').style.display = 'inline-flex';
+      document.getElementById('rev-eval-file').value = rc.evalFile;
+    }
+  } catch(e) { console.warn('revPopulateCourseConfig:', e.message); }
+}
+
+// ── Collect current config from UI ──
+function revCollectConfig() {
+  const repo = document.getElementById('rev-repo-select').value;
+  const destFolder = document.getElementById('rev-dest-folder').value.trim().replace(/\/?$/, '/');
+  const modules = [];
+  document.querySelectorAll('[id^="rev-mod-row-"]').forEach(row => {
+    const n = row.id.replace('rev-mod-row-', '');
+    const num = document.getElementById('rev-mod-num-' + n)?.value?.trim();
+    const title = document.getElementById('rev-mod-title-' + n)?.value?.trim();
+    const file = document.getElementById('rev-mod-file-' + n)?.value?.trim();
+    if (file) modules.push({ num: parseInt(num) || modules.length + 1, title: title || 'Module ' + num, file });
+  });
+  const hasEval = document.getElementById('rev-has-eval').checked;
+  const evalFile = hasEval ? document.getElementById('rev-eval-file').value.trim() : null;
+  return { repo, destFolder, modules, hasEval, evalFile };
+}
+
+// ── Save config to Firestore ──
+async function revSaveConfig(courseId, config) {
+  try {
+    await setDoc(doc(db, 'courses', courseId), {
+      reviewerConfig: {
+        repo: config.repo,
+        destFolder: config.destFolder,
+        modules: config.modules,
+        evalFile: config.evalFile || null,
+        updatedAt: serverTimestamp()
+      }
+    }, { merge: true });
+  } catch(e) { console.warn('revSaveConfig:', e.message); }
+}
+
+// ── Open generation modal ──
+async function openRevGenModal(mode) {
+  // mode = 'modules' or 'evaluation'
+  if (!selCourse) return;
+  const c = courses.find(x => x.id === selCourse) || {};
+  const config = revCollectConfig();
+
+  // Validate
+  if (!config.repo) { toast('Please select a GitHub repo.', 'error'); return; }
+  if (mode === 'modules' && !config.modules.length) { toast('Please add at least one module.', 'error'); return; }
+  if (mode === 'evaluation' && !config.evalFile) { toast('Please enter the evaluation file path.', 'error'); return; }
+
+  // Save config
+  await revSaveConfig(selCourse, config);
+
+  // Build file list
+  let files = [];
+  if (mode === 'modules') {
+    files = [
+      ...config.modules.map(m => ({ label: config.destFolder + 'module-' + m.num + '.html', type: 'module', module: m, config })),
+      { label: config.destFolder + 'index.html', type: 'index', config }
+    ];
+  } else {
+    files = [{ label: config.destFolder + 'evaluation.html', type: 'evaluation', config }];
+  }
+
+  // Show modal
+  const modal = document.getElementById('rev-gen-modal');
+  modal.style.display = 'block';
+  document.getElementById('rev-modal-title').textContent = mode === 'modules'
+    ? '📄 Generate Module Reviews — ' + (c.title || 'Course')
+    : '🎯 Generate Evaluation Review — ' + (c.title || 'Course');
+  document.getElementById('rev-modal-subtitle').textContent =
+    'Pushing to SFLearningDevelopment/' + config.repo + ' / ' + config.destFolder;
+
+  // Render file list
+  const list = document.getElementById('rev-file-list');
+  list.innerHTML = '';
+  files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.id = 'rev-file-row-' + i;
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-family:monospace;';
+    row.innerHTML = `<span id="rev-file-icon-${i}" style="font-size:16px;flex-shrink:0;">⬜</span><span style="flex:1;color:var(--text2);">${f.label}</span><span id="rev-file-status-${i}" style="font-size:11px;color:var(--muted);"></span>`;
+    list.appendChild(row);
+  });
+
+  document.getElementById('rev-modal-summary').style.display = 'none';
+  document.getElementById('rev-close-btn').style.display = 'none';
+  document.getElementById('rev-cancel-btn').style.display = 'inline-block';
+
+  // Start generation
+  revRunGeneration(files, config, mode);
+}
+
+// ── Main generation runner ──
+async function revRunGeneration(files, config, mode) {
+  // Fetch PAT
+  let pat = '';
+  try {
+    const snap = await getDoc(doc(db, 'adminConfig', 'githubPAT'));
+    pat = snap.exists() ? snap.data().token : '';
+  } catch(e) {}
+  if (!pat) {
+    revSetSummary('error', '❌ Could not read GitHub PAT from Firestore. Check adminConfig/githubPAT.');
+    return;
+  }
+
+  // Fetch evaluation file if needed (for question extraction)
+  let evalQuestions = [];
+  if (config.evalFile) {
+    try {
+      const evalContent = await revFetchFileFromGitHub(pat, config.repo, config.evalFile);
+      evalQuestions = revExtractQuestions(evalContent);
+    } catch(e) {
+      console.warn('Could not fetch eval file:', e.message);
+    }
+  }
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    revSetFileStatus(i, '⏳', 'generating…', '#fbbf24');
+    try {
+      let html = '';
+      if (f.type === 'module') {
+        // Fetch source module file
+        const sourceContent = await revFetchFileFromGitHub(pat, config.repo, f.module.file);
+        const sections = revExtractSections(sourceContent);
+        // Get first question for this module from eval bank
+        const modNum = f.module.num;
+        const modQuestion = evalQuestions.find(q => q.m === modNum) || null;
+        html = revGenerateModulePage(f.module, sections, modQuestion, config);
+      } else if (f.type === 'index') {
+        html = revGenerateIndexPage(config);
+      } else if (f.type === 'evaluation') {
+        const sourceContent = await revFetchFileFromGitHub(pat, config.repo, config.evalFile);
+        const questions = revExtractQuestions(sourceContent);
+        const c = courses.find(x => x.id === selCourse) || {};
+        html = revGenerateEvalPage(questions, config, c.title || 'Course');
+      }
+
+      // Push to GitHub
+      const destPath = f.label;
+      await revPushFileToGitHub(pat, config.repo, destPath, html);
+      revSetFileStatus(i, '✅', 'pushed', '#34d399');
+      successCount++;
+    } catch(e) {
+      revSetFileStatus(i, '❌', e.message.substring(0, 60), '#f87171');
+      errorCount++;
+    }
+  }
+
+  // Summary
+  if (errorCount === 0) {
+    revSetSummary('success', `✅ ${successCount} file${successCount>1?'s':''} pushed to SFLearningDevelopment/${config.repo}`);
+  } else {
+    revSetSummary('warn', `⚠️ ${successCount} succeeded, ${errorCount} failed. Check errors above.`);
+  }
+}
+
+// ── GitHub API helpers ──
+async function revFetchFileFromGitHub(pat, repo, path) {
+  const url = `https://api.github.com/repos/SFLearningDevelopment/${repo}/contents/${encodeURIComponent(path)}`;
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' } });
+  if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status} for ${path}`);
+  const data = await res.json();
+  return atob(data.content.replace(/\n/g, ''));
+}
+
+async function revPushFileToGitHub(pat, repo, path, content) {
+  const url = `https://api.github.com/repos/SFLearningDevelopment/${repo}/contents/${encodeURIComponent(path)}`;
+  // Check if file exists to get SHA
+  let sha = null;
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' } });
+    if (res.ok) { const d = await res.json(); sha = d.sha; }
+  } catch {}
+
+  const body = { message: `Add/update reviewer page: ${path}`, content: btoa(unescape(encodeURIComponent(content))) };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || `Push failed: ${res.status}`);
+  }
+}
+
+// ── Content extraction helpers ──
+function revExtractSections(html) {
+  const m = html.match(/const SECTIONS\s*=\s*(\[[\s\S]*?\]);\s*\n/);
+  if (!m) throw new Error('SECTIONS array not found in source file');
+  return m[1];
+}
+
+function revExtractQuestions(html) {
+  const m = html.match(/(?:const|var)\s+QUESTIONS\s*=\s*(\[[\s\S]*?\]);\s*\n/);
+  if (!m) return [];
+  try {
+    // Safe eval in isolated scope
+    const arr = Function('"use strict"; return (' + m[1] + ')')();
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+// ── UI helpers ──
+function revSetFileStatus(i, icon, msg, color) {
+  const iconEl = document.getElementById('rev-file-icon-' + i);
+  const statEl = document.getElementById('rev-file-status-' + i);
+  if (iconEl) iconEl.textContent = icon;
+  if (statEl) { statEl.textContent = msg; statEl.style.color = color; }
+}
+
+function revSetSummary(type, msg) {
+  const el = document.getElementById('rev-modal-summary');
+  el.style.display = 'block';
+  el.style.background = type === 'success' ? 'rgba(52,211,153,.08)' : type === 'warn' ? 'rgba(251,191,36,.08)' : 'rgba(248,113,113,.08)';
+  el.style.borderColor = type === 'success' ? 'rgba(52,211,153,.3)' : type === 'warn' ? 'rgba(251,191,36,.3)' : 'rgba(248,113,113,.3)';
+  el.style.color = type === 'success' ? '#34d399' : type === 'warn' ? '#fbbf24' : '#f87171';
+  el.textContent = msg;
+  document.getElementById('rev-close-btn').style.display = 'inline-block';
+  document.getElementById('rev-cancel-btn').style.display = 'none';
+}
+
+window.closeRevGenModal = function() {
+  document.getElementById('rev-gen-modal').style.display = 'none';
+};
+
+// ── Reviewer HTML generator — neutral AIOps-style light theme ──
+function revGenerateModulePage(module, sectionsJs, question, config) {
+  const courseId = selCourse || '';
+  const slug = (config.repo || 'course').replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  const moduleId = 'module-' + module.num;
+  const numMods = config.modules.length;
+  const prevMod = module.num > 1 ? config.modules.find(m => m.num === module.num - 1) : null;
+  const nextMod = module.num < numMods ? config.modules.find(m => m.num === module.num + 1) : null;
+  const prevLink = prevMod ? `<a href="module-${prevMod.num}.html" class="nav-btn secondary">← Module ${prevMod.num}</a>` : '<span></span>';
+  const nextLink = nextMod ? `<a href="module-${nextMod.num}.html" class="nav-btn">Module ${nextMod.num} →</a>` : '<span></span>';
+
+  const qBlock = question ? revBuildQuestionBlock(question) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<title>[Reviewer] Module ${module.num}: ${module.title}</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+${revNeutralCSS()}
+</head>
+<body>
+${revSignInOverlay()}
+${revSignedInBar()}
+<div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Mode</strong> — Module ${module.num}: ${module.title}</div>
+<nav class="topnav">
+  <a href="index.html">← Reviewer Hub</a>
+  <span class="sep">/</span>
+  <span>Module ${module.num}: ${module.title}</span>
+</nav>
+<div class="main">
+  <div class="module-hero">
+    <div class="hero-eyebrow">Module ${module.num} of ${numMods} · Reviewer Mode</div>
+    <h1>${module.title}</h1>
+  </div>
+  <div id="sections-container"></div>
+  ${qBlock}
+  <div class="rev-complete-wrap">
+    <div class="rev-complete-bar disabled" id="rev-complete-bar">
+      <input type="checkbox" id="rev-complete-cb" disabled>
+      <label for="rev-complete-cb" id="rev-complete-label">Complete all sections${question ? ' and answer the question correctly' : ''} to unlock</label>
+    </div>
+    <div class="rev-complete-hint" id="rev-complete-hint"></div>
+  </div>
+  <div class="bottom-nav">${prevLink}${nextLink}</div>
+</div>
+${revSignInScript(slug, moduleId, courseId)}
+${revReviewerScript(sectionsJs, question)}
+${revFirebaseScript(slug, moduleId, courseId)}
 </body>
-</html>
+</html>`;
+}
+
+function revBuildQuestionBlock(q) {
+  const keys = ['A','B','C','D'];
+  const opts = q.o.map((o,i) => `<div class="reviewer-option" data-key="${keys[i]}"><span class="reviewer-option-key">${keys[i]}</span><span>${o.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></div>`).join('');
+  const correctKey = keys[q.c];
+  return `
+  <div class="reviewer-panel">
+    <div class="reviewer-panel-label">🔍 Reviewer Question — Module</div>
+    <div class="reviewer-q-text">${q.q.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <div class="reviewer-options" id="rev-options">${opts}</div>
+    <button class="reviewer-reveal" id="rev-reveal-btn">Check answer</button>
+    <div class="reviewer-explanation" id="rev-explanation">
+      <div class="reviewer-exp-label" id="rev-exp-label"></div>
+      <div id="rev-exp-text"></div>
+    </div>
+    <div class="reviewer-comment-label">Reviewer notes</div>
+    <textarea class="reviewer-comment" id="rev-comment" placeholder="Add your review notes for this module…"></textarea>
+    <div class="reviewer-save-note">Notes are auto-saved.</div>
+  </div>
+  <script>window.REV_CORRECT="${correctKey}";window.REV_EXPLANATION=${JSON.stringify(q.exp||'')};window.REV_QUESTION=${JSON.stringify(q)};<\/script>`;
+}
+
+function revGenerateIndexPage(config) {
+  const rows = config.modules.map(m => `
+    <a href="module-${m.num}.html" class="module-card">
+      <div class="card-body">
+        <div class="card-title">Module ${m.num}: ${m.title}</div>
+        <div class="card-file">${m.file}</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>`).join('');
+
+  const evalRow = config.evalFile ? `
+    <a href="evaluation.html" class="module-card eval-card">
+      <div class="card-body">
+        <div class="card-title">Certification Evaluation</div>
+        <div class="card-file">${config.evalFile}</div>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reviewer Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+${revNeutralCSS()}
+<style>
+  .hub-hero{background:var(--bg2);border-bottom:2px solid var(--border);padding:40px;}
+  .hub-hero h1{font-size:1.6rem;font-weight:700;color:var(--text);margin-bottom:8px;}
+  .hub-hero p{font-size:13px;color:var(--text-dim);line-height:1.6;}
+  .module-grid{display:flex;flex-direction:column;gap:10px;padding:32px 40px;}
+  .module-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;text-decoration:none;transition:border-color .15s;}
+  .module-card:hover{border-color:var(--blue);}
+  .eval-card:hover{border-color:#5b4fcf;}
+  .card-body{flex:1;}
+  .card-title{font-size:14px;font-weight:600;color:var(--text);}
+  .card-file{font-size:11px;font-family:'Source Code Pro',monospace;color:var(--text-dimmer);margin-top:3px;}
+  .card-arrow{color:var(--text-dimmer);font-size:1rem;}
+</style>
+</head>
+<body>
+<div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Hub</strong></div>
+<div class="hub-hero">
+  <h1>Course Reviewer Hub</h1>
+  <p>Review all modules and the evaluation. Sign in with your SF Gmail to save progress across devices.</p>
+</div>
+<div class="module-grid">
+  ${rows}
+  ${evalRow}
+</div>
+</body>
+</html>`;
+}
+
+function revGenerateEvalPage(questions, config, courseTitle) {
+  const courseId = selCourse || '';
+  const slug = (config.repo || 'course').replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  const moduleGroups = {};
+  questions.forEach((q,i) => {
+    const m = q.m || 0;
+    if (!moduleGroups[m]) moduleGroups[m] = [];
+    moduleGroups[m].push({...q, idx: i});
+  });
+
+  const groupsHtml = Object.entries(moduleGroups).map(([m, qs]) => {
+    const qRows = qs.map(q => {
+      const keys = ['A','B','C','D'];
+      const opts = q.o.map((o,i) => `<div class="q-option ${i===q.c?'correct-answer':''}""><span class="q-option-key">${keys[i]}</span><span>${o.replace(/</g,'&lt;')}</span></div>`).join('');
+      return `<div class="q-block">
+        <div class="q-num">Q${q.idx+1} · Module ${m}</div>
+        <div class="q-text">${q.q.replace(/</g,'&lt;')}</div>
+        <div class="q-options">${opts}</div>
+        <div class="q-explanation"><div class="q-exp-label">Explanation</div>${(q.exp||'').replace(/</g,'&lt;')}</div>
+        <div class="q-comment-label">Reviewer comment</div>
+        <textarea class="q-comment" id="qc-${q.idx}" placeholder="Add your comment…"></textarea>
+      </div>`;
+    }).join('');
+    return `<div class="module-group"><div class="module-group-header">Module ${m}</div>${qRows}</div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>[Reviewer] Evaluation — ${courseTitle}</title>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+${revNeutralCSS()}
+<style>
+  .module-group{margin-bottom:36px;}
+  .module-group-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);font-family:'Source Code Pro',monospace;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+  .q-block{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:12px;}
+  .q-num{font-size:10px;font-family:'Source Code Pro',monospace;color:var(--text-dimmer);margin-bottom:6px;}
+  .q-text{font-size:14px;font-weight:600;color:var(--text);line-height:1.6;margin-bottom:12px;}
+  .q-options{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .q-option{display:flex;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:13px;color:var(--text-dim);}
+  .q-option.correct-answer{background:#e8f5ed;border-color:#a3d4b8;color:#1a6b3a;}
+  .q-option-key{font-family:'Source Code Pro',monospace;font-size:11px;font-weight:700;color:var(--text-dimmer);flex-shrink:0;margin-top:1px;}
+  .q-explanation{font-size:12.5px;color:var(--text-dim);background:#f0f4f9;border-radius:7px;padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--blue);line-height:1.65;}
+  .q-exp-label{font-size:9px;font-family:'Source Code Pro',monospace;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--blue);margin-bottom:4px;}
+  .q-comment-label{font-size:10px;font-family:'Source Code Pro',monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dimmer);font-weight:600;margin-bottom:5px;}
+  .q-comment{width:100%;min-height:58px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;color:var(--text);background:#fff;resize:vertical;line-height:1.5;}
+  .q-comment:focus{outline:none;border-color:#5b4fcf;}
+  .prog-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:24px;}
+  .prog-inner{background:var(--border);border-radius:99px;height:5px;margin-top:6px;}
+  .prog-fill{height:100%;border-radius:99px;background:var(--blue);transition:width .3s;}
+</style>
+</head>
+<body>
+${revSignInOverlay()}
+${revSignedInBar()}
+<div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Mode</strong> — Evaluation · ${courseTitle}</div>
+<nav class="topnav"><a href="index.html">← Reviewer Hub</a><span class="sep">/</span><span>Evaluation</span></nav>
+<div class="main">
+  <div class="module-hero"><div class="hero-eyebrow">Evaluation Review</div><h1>All ${questions.length} Questions</h1></div>
+  <div class="prog-wrap">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);"><span>Questions commented</span><span id="prog-label">0 / ${questions.length}</span></div>
+    <div class="prog-inner"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+  ${groupsHtml}
+  <div class="rev-complete-wrap">
+    <div class="rev-complete-bar disabled" id="rev-complete-bar">
+      <input type="checkbox" id="rev-complete-cb" disabled>
+      <label for="rev-complete-cb" id="rev-complete-label">Comment on all ${questions.length} questions to unlock</label>
+    </div>
+    <div class="rev-complete-hint" id="rev-complete-hint"></div>
+  </div>
+</div>
+${revSignInScript(slug, 'evaluation', courseId)}
+<script>
+const REV_KEY='reviewer_${slug}_evaluation';
+const TOTAL_Q=${questions.length};
+function revLoad(){try{return JSON.parse(localStorage.getItem(REV_KEY))||{};}catch(e){return {};}}
+function revSave(s){localStorage.setItem(REV_KEY,JSON.stringify(s));if(typeof sfWrite==='function')sfWrite(s);}
+function countCommented(){let n=0;const s=revLoad();for(let i=0;i<TOTAL_Q;i++){if(s['q_'+i]&&s['q_'+i].trim().length>0)n++;}return n;}
+function updateProgress(){
+  const done=countCommented();const pct=Math.round((done/TOTAL_Q)*100);
+  document.getElementById('prog-label').textContent=done+' / '+TOTAL_Q;
+  document.getElementById('prog-fill').style.width=pct+'%';
+  const bar=document.getElementById('rev-complete-bar');const cb=document.getElementById('rev-complete-cb');const label=document.getElementById('rev-complete-label');const hint=document.getElementById('rev-complete-hint');
+  const s=revLoad();
+  if(s.reviewComplete){bar.className='rev-complete-bar done';cb.disabled=false;cb.checked=true;label.textContent='✓ Evaluation review complete';hint.textContent='';return;}
+  if(done===TOTAL_Q){bar.className='rev-complete-bar ready';cb.disabled=false;label.textContent='Mark evaluation review as complete';hint.textContent='';}
+  else{bar.className='rev-complete-bar disabled';cb.disabled=true;label.textContent='Comment on all '+TOTAL_Q+' questions to unlock';hint.textContent='Still needed: '+(TOTAL_Q-done)+' more comment(s)';}
+}
+// Restore comments
+const s0=revLoad();for(let i=0;i<TOTAL_Q;i++){const ta=document.getElementById('qc-'+i);if(ta&&s0['q_'+i])ta.value=s0['q_'+i];}
+// Attach listeners
+for(let i=0;i<TOTAL_Q;i++){(function(idx){const ta=document.getElementById('qc-'+idx);if(ta)ta.addEventListener('input',()=>{const s=revLoad();s['q_'+idx]=ta.value;revSave(s);updateProgress();});})(i);}
+document.getElementById('rev-complete-cb').addEventListener('change',()=>{if(!document.getElementById('rev-complete-cb').checked)return;const s=revLoad();s.reviewComplete=true;s.completedAt=new Date().toISOString();revSave(s);updateProgress();});
+updateProgress();
+<\/script>
+${revFirebaseScript(slug, 'evaluation', courseId)}
+</body>
+</html>`;
+}
+
+// ── Shared HTML fragments ──
+function revNeutralCSS() {
+  return `<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#eef2f7;--bg2:#ffffff;--bg3:#f0f4f9;--border:#d0dae8;--text:#1a2332;--text-dim:#4a5568;--text-dimmer:#8fa3bc;--blue:#1a6eb5;--blue-light:#e8f1fb;--blue-mid:#b8d0ed;--green:#1a6b3a;--green-light:#e8f5ed;--coral:#c0392b;--coral-light:#fdf0ee;--radius:12px;}
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Merriweather Sans',sans-serif;font-size:15px;line-height:1.6;}
+  a{color:var(--blue);text-decoration:none;}
+  .reviewer-topbanner{background:#f5f0ff;border-bottom:2px solid #c4bdf0;padding:9px 40px;font-size:12px;font-family:'Source Code Pro',monospace;color:#5b4fcf;display:flex;align-items:center;gap:8px;}
+  .sf-signin-overlay{position:fixed;inset:0;background:rgba(20,30,50,.82);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px);}
+  .sf-signin-overlay.hidden{display:none;}
+  .sf-signin-card{background:#fff;border-radius:16px;padding:36px 40px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+  .sf-signin-logo{font-size:32px;margin-bottom:12px;}
+  .sf-signin-title{font-size:17px;font-weight:700;color:#1a2332;margin-bottom:8px;}
+  .sf-signin-sub{font-size:13px;color:#4a5568;line-height:1.6;margin-bottom:24px;}
+  .sf-google-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #d0dae8;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;color:#1a2332;width:100%;justify-content:center;transition:box-shadow .15s;}
+  .sf-google-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,.12);}
+  .sf-google-btn img{width:20px;height:20px;}
+  .sf-signin-divider{font-size:11px;color:#8fa3bc;text-align:center;margin:14px 0 10px;display:flex;align-items:center;gap:8px;font-family:'Source Code Pro',monospace;}
+  .sf-signin-divider::before,.sf-signin-divider::after{content:'';flex:1;height:1px;background:#d0dae8;}
+  .sf-fallback-input{width:100%;padding:10px 12px;border:1.5px solid #d0dae8;border-radius:8px;font-size:14px;font-family:'Merriweather Sans',sans-serif;color:#1a2332;margin-bottom:10px;outline:none;}
+  .sf-fallback-input:focus{border-color:var(--blue);}
+  .sf-fallback-btn{width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}
+  .sf-signin-error{margin-top:14px;font-size:12.5px;color:#c0392b;font-family:'Source Code Pro',monospace;background:#fdf0ee;border:1px solid #f0b8b2;border-radius:6px;padding:10px 12px;display:none;text-align:left;}
+  .sf-signin-error.visible{display:block;}
+  .sf-signed-in-bar{background:#e8f5ed;border-bottom:1px solid #a3d4b8;padding:7px 40px;font-size:11px;font-family:'Source Code Pro',monospace;color:var(--green);display:flex;align-items:center;justify-content:space-between;}
+  .sf-signed-in-bar.hidden{display:none;}
+  .sf-signout-btn{font-size:10px;color:var(--blue);background:none;border:1px solid #b8d0ed;border-radius:4px;padding:2px 8px;cursor:pointer;}
+  .topnav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 40px;height:48px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dimmer);font-family:'Source Code Pro',monospace;position:sticky;top:0;z-index:100;}
+  .topnav a{color:var(--blue);}
+  .sep{margin:0 4px;color:var(--text-dimmer);}
+  .main{max-width:860px;margin:0 auto;padding:36px 40px 80px;}
+  .module-hero{margin-bottom:28px;}
+  .hero-eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);font-weight:600;margin-bottom:8px;font-family:'Source Code Pro',monospace;}
+  .module-hero h1{font-size:clamp(18px,2.5vw,26px);font-weight:700;color:var(--text);line-height:1.25;}
+  .section-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;}
+  .section-header{padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .section-header:hover{background:var(--bg3);}
+  .section-num{font-size:10px;font-weight:700;color:var(--text-dimmer);min-width:24px;font-family:'Source Code Pro',monospace;}
+  .section-title{font-weight:600;font-size:14px;flex:1;color:var(--text);}
+  .section-toggle{font-size:11px;color:var(--text-dimmer);transition:transform .2s;}
+  .section-toggle.open{transform:rotate(180deg);}
+  .section-body{display:none;padding:20px 22px 14px;border-top:1px solid var(--border);font-size:14px;color:var(--text-dim);line-height:1.75;}
+  .section-body.open{display:block;}
+  .section-body h3{font-size:15px;font-weight:700;color:var(--text);margin:16px 0 8px;}
+  .section-body p{margin-bottom:10px;}
+  .section-body ul,.section-body ol{margin:8px 0 12px 20px;}
+  .section-body li{margin-bottom:4px;}
+  .section-body code{font-family:'Source Code Pro',monospace;font-size:12.5px;background:var(--bg3);border:1px solid var(--border);padding:1px 5px;border-radius:4px;color:#0f4a7a;}
+  .section-body pre{background:#1e2433;color:#cdd6f4;padding:16px;border-radius:8px;font-size:12.5px;font-family:'Source Code Pro',monospace;overflow-x:auto;margin:12px 0;position:relative;}
+  .copy-btn,.copy-btn-small{position:absolute;top:8px;right:8px;background:#252b3b;border:1px solid #3a4155;color:#7a8ab0;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:'Source Code Pro',monospace;}
+  .copy-btn:hover,.copy-btn-small:hover{color:#cdd6f4;}
+  .reviewer-bar{background:#fff8e6;border:1px solid #f0d4a0;border-left:3px solid #92600a;border-radius:8px;padding:10px 16px;margin:18px 0 6px;display:flex;align-items:center;gap:10px;font-size:13px;color:#92600a;font-family:'Source Code Pro',monospace;}
+  .reviewer-bar input[type="checkbox"]{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--green);}
+  .reviewer-bar label{cursor:pointer;font-weight:600;user-select:none;}
+  .reviewer-bar.checked{background:var(--green-light);border-color:#a3d4b8;border-left-color:var(--green);color:var(--green);}
+  .reviewer-panel{background:#f5f0ff;border:1px solid #c4bdf0;border-top:3px solid #5b4fcf;border-radius:12px;padding:24px 28px;margin:32px 0;}
+  .reviewer-panel-label{font-size:9px;font-family:'Source Code Pro',monospace;letter-spacing:.18em;text-transform:uppercase;color:#5b4fcf;font-weight:600;margin-bottom:16px;}
+  .reviewer-q-text{font-size:14px;font-weight:600;color:#1a2332;line-height:1.65;margin-bottom:14px;}
+  .reviewer-options{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+  .reviewer-option{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid #d0dae8;border-radius:8px;cursor:pointer;font-size:13.5px;color:#4a5568;line-height:1.5;background:#fff;transition:background .12s,border-color .12s;}
+  .reviewer-option:hover{background:#f0f4f9;border-color:#b8d0ed;}
+  .reviewer-option.selected{background:#e8f1fb;border-color:var(--blue);color:#1a2332;}
+  .reviewer-option.correct{background:var(--green-light);border-color:#a3d4b8;color:var(--green);}
+  .reviewer-option.wrong{background:var(--coral-light);border-color:#f0b8b2;color:var(--coral);}
+  .reviewer-option-key{font-family:'Source Code Pro',monospace;font-size:11px;font-weight:700;color:#8fa3bc;flex-shrink:0;margin-top:1px;}
+  .reviewer-reveal{font-size:12px;font-family:'Source Code Pro',monospace;color:#5b4fcf;cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;margin-bottom:14px;display:block;}
+  .reviewer-explanation{font-size:13px;color:#4a5568;line-height:1.7;padding:12px 14px;background:#eef2f7;border-radius:8px;margin-bottom:16px;display:none;}
+  .reviewer-explanation.visible{display:block;}
+  .reviewer-exp-label{font-size:9px;font-family:'Source Code Pro',monospace;letter-spacing:.15em;text-transform:uppercase;font-weight:700;margin-bottom:4px;}
+  .reviewer-exp-label.correct{color:var(--green);}
+  .reviewer-exp-label.wrong{color:var(--coral);}
+  .reviewer-comment-label{font-size:11px;font-family:'Source Code Pro',monospace;letter-spacing:.12em;text-transform:uppercase;color:#8fa3bc;font-weight:600;margin-bottom:6px;}
+  .reviewer-comment{width:100%;min-height:80px;padding:10px 12px;border:1px solid #c4bdf0;border-radius:8px;font-family:'Merriweather Sans',sans-serif;font-size:13.5px;color:#1a2332;background:#fff;resize:vertical;line-height:1.6;}
+  .reviewer-comment:focus{outline:none;border-color:#5b4fcf;}
+  .reviewer-save-note{font-size:11px;font-family:'Source Code Pro',monospace;color:#8fa3bc;margin-top:6px;}
+  .rev-complete-wrap{margin:28px 0 0;}
+  .rev-complete-bar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:8px;font-size:13.5px;font-family:'Source Code Pro',monospace;font-weight:600;border:1.5px solid var(--border);background:var(--bg3);color:var(--text-dimmer);transition:all .2s;}
+  .rev-complete-bar.disabled{opacity:.6;cursor:not-allowed;}
+  .rev-complete-bar.ready{background:#fff8e6;border-color:#f0d4a0;border-left:3px solid #92600a;color:#92600a;cursor:pointer;}
+  .rev-complete-bar.done{background:var(--green-light);border-color:#a3d4b8;border-left:3px solid var(--green);color:var(--green);cursor:default;}
+  .rev-complete-bar input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--green);}
+  .rev-complete-bar.disabled input{cursor:not-allowed;}
+  .rev-complete-hint{font-size:11px;font-family:'Source Code Pro',monospace;color:var(--text-dimmer);margin-top:6px;min-height:16px;}
+  .bottom-nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0 0;border-top:1px solid var(--border);margin-top:40px;}
+  .nav-btn{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-family:'Source Code Pro',monospace;color:var(--blue);text-decoration:none;padding:10px 18px;border:1px solid var(--blue-mid);border-radius:8px;background:var(--blue-light);font-weight:600;}
+  .nav-btn.secondary{background:var(--bg2);color:var(--text-dim);border-color:var(--border);}
+  .nav-btn:hover{background:var(--blue-mid);}
+</style>`;
+}
+
+function revSignInOverlay() {
+  return `<div class="sf-signin-overlay" id="sfSigninOverlay">
+  <div class="sf-signin-card">
+    <div class="sf-signin-logo">🔐</div>
+    <div class="sf-signin-title">Sign in to save your progress</div>
+    <div class="sf-signin-sub">Sign in with your SourceFuse Gmail. Review progress, checkboxes and question attempts are saved and restored across devices.</div>
+    <button class="sf-google-btn" id="sfGoogleSignInBtn"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"> Sign in with Google</button>
+    <div class="sf-signin-divider">or</div>
+    <input type="text" class="sf-fallback-input" id="sfEmailInput" placeholder="your.name@sourcefuse.com" autocomplete="off" inputmode="email">
+    <button class="sf-fallback-btn" id="sfEmailSignInBtn">Continue with SF email</button>
+    <div class="sf-signin-error" id="sfSigninError"></div>
+  </div>
+</div>`;
+}
+
+function revSignedInBar() {
+  return `<div class="sf-signed-in-bar hidden" id="sfSignedInBar"><span id="sfSignedInEmail">Signed in as …</span><button class="sf-signout-btn" id="sfSignoutLink">Sign out</button></div>`;
+}
+
+function revSignInScript(slug, moduleId, courseId) {
+  return `<script>
+function sfShowError(msg){const el=document.getElementById('sfSigninError');if(el){el.textContent=msg;el.classList.add('visible');}}
+function sfHideOverlay(user){
+  window.sfReviewerEmail=user.email||user;window.sfReviewerUid=user.uid||'email_'+btoa(window.sfReviewerEmail).replace(/=/g,'');
+  const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');
+  const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');
+  if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+window.sfReviewerEmail;
+  if(typeof sfInitSession==='function')sfInitSession();
+  if(window._sfFirebaseReady&&typeof window.sfDb!=='undefined'&&typeof sfFetchAndMerge==='function')sfFetchAndMerge();
+}
+function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim();if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
+async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{const r=await firebase.auth().signInWithPopup(provider);clearTimeout(t);sfHideOverlay(r.user);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
+function sfSignOut(){window.sfReviewerEmail=null;window.sfReviewerUid=null;const bar=document.getElementById('sfSignedInBar');const ov=document.getElementById('sfSigninOverlay');if(bar)bar.classList.add('hidden');if(ov)ov.classList.remove('hidden');if(typeof firebase!=='undefined'&&window._sfFirebaseReady)firebase.auth().signOut();}
+document.addEventListener('DOMContentLoaded',function(){const gb=document.getElementById('sfGoogleSignInBtn');const eb=document.getElementById('sfEmailSignInBtn');const so=document.getElementById('sfSignoutLink');if(gb)gb.addEventListener('click',sfSignInWithGoogle);if(eb)eb.addEventListener('click',sfSignInWithEmail);if(so)so.addEventListener('click',sfSignOut);});
+<\/script>`;
+}
+
+function revReviewerScript(sectionsJs, question) {
+  const hasQ = !!question;
+  const correctKey = hasQ ? ['A','B','C','D'][question.c] : null;
+  return `<script>
+const REV_KEY='reviewer_'+window.location.pathname.replace(/[^a-z0-9]/gi,'_');
+const BADGES={foundation:'Foundation',essential:'Essential',important:'Important'};
+const BADGE_CLASSES={foundation:'badge-foundation',essential:'badge-essential',important:'badge-important'};
+const SECTIONS=${sectionsJs};
+function revLoad(){try{return JSON.parse(localStorage.getItem(REV_KEY))||{};}catch(e){return {};}}
+function revSave(s){localStorage.setItem(REV_KEY,JSON.stringify(s));if(typeof sfWrite==='function')sfWrite(s);}
+function allSectionsChecked(){const items=document.querySelectorAll('.rev-checkbox');for(let i=0;i<items.length;i++){if(!items[i].checked)return false;}return true;}
+function questionAnsweredCorrectly(){return ${hasQ}?revLoad().questionCorrect===true:true;}
+function updateCompleteBar(){
+  const bar=document.getElementById('rev-complete-bar');const cb=document.getElementById('rev-complete-cb');const label=document.getElementById('rev-complete-label');const hint=document.getElementById('rev-complete-hint');
+  if(!bar)return;const s=revLoad();
+  if(s.reviewComplete){bar.className='rev-complete-bar done';cb.disabled=false;cb.checked=true;label.textContent='✓ Review complete';hint.textContent='';return;}
+  const stepsOk=allSectionsChecked();const qOk=questionAnsweredCorrectly();const missing=[];if(!stepsOk)missing.push('all sections checked');if(!qOk)missing.push('question answered correctly');
+  if(stepsOk&&qOk){bar.className='rev-complete-bar ready';cb.disabled=false;label.textContent='Mark review as complete';hint.textContent='';}
+  else{bar.className='rev-complete-bar disabled';cb.disabled=true;label.textContent='Complete all sections${hasQ?' and answer the question correctly':''} to unlock';hint.textContent=missing.length?'Still needed: '+missing.join(' · '):'';}
+}
+function renderProgress(total){let done=0;document.querySelectorAll('.rev-checkbox').forEach(c=>{if(c.checked)done++;});const pct=Math.round((done/total)*100);const p=document.getElementById('sidebar-pct');const b=document.getElementById('sidebar-bar');if(p)p.textContent=pct+'%';if(b)b.style.width=pct+'%';}
+window.toggleSection=(id)=>{const body=document.getElementById('body-'+id);const toggle=document.getElementById('toggle-'+id);const isOpen=body.classList.contains('open');document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));if(!isOpen){body.classList.add('open');toggle.classList.add('open');}};
+window.copyCode=(btn)=>{const text=btn.parentElement.innerText.replace('Copy','').trim();navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);});};
+function renderAll(){
+  const sec=document.getElementById('sections-container');if(!sec)return;sec.innerHTML='';
+  const s0=revLoad();
+  SECTIONS.forEach(s=>{
+    const reviewed=s0['cb_'+s.id]||false;
+    const sd=document.createElement('div');sd.className='section-block';
+    const badgeCls=BADGE_CLASSES[s.badge]||'';const badgeTxt=BADGES[s.badge]||s.badge||'';
+    sd.innerHTML='<div class="section-header" onclick="toggleSection('+s.id+')">'+'<span class="section-num">'+s.id+'.</span>'+'<span class="section-title">'+s.title+'</span>'+(badgeTxt?'<span style="font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;background:#e8f1fb;color:#1a6eb5;font-family:Source Code Pro,monospace;">'+badgeTxt+'</span>':'')+(reviewed?'<span style="font-size:12px;margin-left:4px;">✅</span>':'')+'<span class="section-toggle" id="toggle-'+s.id+'">▼</span>'+'</div>'+'<div class="section-body" id="body-'+s.id+'">'+s.content+'<div class="reviewer-bar '+(reviewed?'checked':'')+'" id="rev-bar-'+s.id+'"><input type="checkbox" class="rev-checkbox" id="rev-cb-'+s.id+'" data-step="'+s.id+'" '+(reviewed?'checked':'')+'><label for="rev-cb-'+s.id+'">'+(reviewed?'✓ Section reviewed':'Mark section as reviewed')+'</label></div></div>';
+    sec.appendChild(sd);
+  });
+  document.querySelectorAll('.rev-checkbox').forEach(cb=>{
+    cb.addEventListener('change',()=>{const st=revLoad();st['cb_'+cb.dataset.step]=cb.checked;revSave(st);const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.toggle('checked',cb.checked);bar.querySelector('label').textContent=cb.checked?'✓ Section reviewed':'Mark section as reviewed';}renderProgress(SECTIONS.length);updateCompleteBar();});
+  });
+  renderProgress(SECTIONS.length);updateCompleteBar();
+}
+${hasQ ? `
+let revAnswer=null;let revSubmitted=false;
+(function restoreQ(){const s=revLoad();if(s.revAnswer!=null){revAnswer=s.revAnswer;revSubmitted=s.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}})();
+document.querySelectorAll('.reviewer-option').forEach(opt=>{opt.addEventListener('click',()=>{if(revSubmitted)return;revAnswer=opt.dataset.key;document.querySelectorAll('.reviewer-option').forEach(o=>o.classList.toggle('selected',o.dataset.key===revAnswer));const s=revLoad();s.revAnswer=revAnswer;revSave(s);});});
+const revBtn=document.getElementById('rev-reveal-btn');if(revBtn)revBtn.addEventListener('click',()=>{if(revAnswer===null){alert('Please select an answer first.');return;}const s0=revLoad();s0.attemptCount=(s0.attemptCount||0)+1;if(!s0.startedAt)s0.startedAt=new Date().toISOString();revSave(s0);revSubmitted=true;const s=revLoad();s.revSubmitted=true;revSave(s);applyRevAnswer(revAnswer,true);});
+function applyRevAnswer(ans,showResult){const correctKey='${correctKey}';const isCorrect=(ans===correctKey);document.querySelectorAll('.reviewer-option').forEach(o=>{o.classList.remove('selected','correct','wrong');if(showResult){if(o.dataset.key===correctKey)o.classList.add('correct');else if(o.dataset.key===ans&&o.dataset.key!==correctKey)o.classList.add('wrong');}else{if(o.dataset.key===ans)o.classList.add('selected');}});if(showResult){const expEl=document.getElementById('rev-explanation');const lbl=document.getElementById('rev-exp-label');const txt=document.getElementById('rev-exp-text');const btn=document.getElementById('rev-reveal-btn');if(expEl)expEl.classList.add('visible');if(lbl){lbl.textContent=isCorrect?'✓ Correct':'✗ Incorrect';lbl.className='reviewer-exp-label '+(isCorrect?'correct':'wrong');}if(txt)txt.textContent=window.REV_EXPLANATION||'';if(btn)btn.style.display='none';if(isCorrect){const s=revLoad();s.questionCorrect=true;revSave(s);}updateCompleteBar();}}` : ''}
+const commentEl=document.getElementById('rev-comment');if(commentEl){const s=revLoad();if(s.comment)commentEl.value=s.comment;commentEl.addEventListener('input',()=>{const s=revLoad();s.comment=commentEl.value;revSave(s);});}
+const completeCb=document.getElementById('rev-complete-cb');if(completeCb)completeCb.addEventListener('change',()=>{if(!completeCb.checked)return;const s=revLoad();s.reviewComplete=true;s.completedAt=new Date().toISOString();revSave(s);updateCompleteBar();});
+renderAll();
+<\/script>`;
+}
+
+function revFirebaseScript(slug, moduleId, courseId) {
+  return `<script>
+(function(){var scripts=['https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js','https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js'];function loadNext(i){if(i>=scripts.length){window._sfFirebaseReady=true;initRevFirebase();return;}var s=document.createElement('script');s.src=scripts[i];s.onload=function(){loadNext(i+1);};s.onerror=function(){window._sfFirebaseReady=false;};document.head.appendChild(s);}loadNext(0);})();
+<\/script>
+<script>
+function initRevFirebase(){
+  const SF_CONFIG={apiKey:"AIzaSyA-8fatW5D7uR69rcuGFPH54IFqrz0PhU0",authDomain:"sfcertification-grafana.firebaseapp.com",projectId:"sfcertification-grafana",storageBucket:"sfcertification-grafana.firebasestorage.app",messagingSenderId:"227322696511",appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"};
+  if(!firebase.apps.length)firebase.initializeApp(SF_CONFIG);
+  window.sfAuth=firebase.auth();window.sfDb=firebase.firestore();
+  const REV_KEY_FB='reviewer_${slug}_${moduleId}';
+  const COURSE_ID='${courseId}';
+  function sfDocRef(){if(!window.sfReviewerUid)return null;return window.sfDb.collection('reviewerSessions').doc(window.sfReviewerUid).collection('${slug}').doc('${moduleId}');}
+  function sfInitSession(){const local=revLoad();if(!local.startedAt){local.startedAt=new Date().toISOString();localStorage.setItem(REV_KEY,JSON.stringify(local));}if(!window._sfFirebaseReady||!window.sfReviewerUid)return;sfDocRef().set({email:window.sfReviewerEmail,moduleId:'${moduleId}',courseId:COURSE_ID,startedAt:local.startedAt,lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),reviewComplete:local.reviewComplete||false,attemptCount:local.attemptCount||0},{merge:true}).catch(e=>console.warn('SF init:',e.message));}
+  window.sfInitSession=sfInitSession;
+  window.sfWrite=function(extra){if(!window._sfFirebaseReady||!window.sfReviewerUid)return;const ref=sfDocRef();if(!ref)return;const local=revLoad();const payload=Object.assign({},local,extra,{email:window.sfReviewerEmail,moduleId:'${moduleId}',courseId:COURSE_ID,lastUpdated:firebase.firestore.FieldValue.serverTimestamp()});ref.set(payload,{merge:true}).catch(e=>console.warn('SF write:',e.message));};
+  window.sfFetchAndMerge=async function(){const ref=sfDocRef();if(!ref)return;try{const snap=await ref.get();if(!snap.exists)return;const remote=snap.data();const local=revLoad();const merged=Object.assign({},local,remote);delete merged.email;delete merged.lastUpdated;localStorage.setItem(REV_KEY,JSON.stringify(merged));if(typeof renderAll==='function'){renderAll();}if(typeof updateCompleteBar==='function')updateCompleteBar();}catch(e){console.warn('SF fetch:',e.message);}};
+  function sfHideOverlayFB(user){window.sfReviewerEmail=user.email;window.sfReviewerUid=user.uid;const ov=document.getElementById('sfSigninOverlay');if(ov)ov.classList.add('hidden');const bar=document.getElementById('sfSignedInBar');const lbl=document.getElementById('sfSignedInEmail');if(bar)bar.classList.remove('hidden');if(lbl)lbl.textContent='Signed in as '+user.email;sfInitSession();window.sfFetchAndMerge();}
+  window.sfAuth.onAuthStateChanged(user=>{if(user){sfHideOverlayFB(user);}else{document.getElementById('sfSigninOverlay').classList.remove('hidden');}});
+}
+<\/script>`;
+}
+
+// ── Hook into selectCourse — revPopulateCourseConfig is called directly inside selectCourse above
+</script>
+
+<!-- ══ REVIEWER GENERATION MODAL ══ -->
+<div id="rev-gen-modal" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:700px;margin:50px auto;padding:0 20px 80px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <h2 id="rev-modal-title" style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);">Generate Reviewer Pages</h2>
+        <p id="rev-modal-subtitle" style="font-size:12px;color:var(--muted);margin-top:4px;font-family:monospace;"></p>
+      </div>
+      <button onclick="closeRevGenModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Files</div>
+      <div id="rev-file-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+      <div id="rev-modal-summary" style="display:none;padding:12px 16px;border-radius:8px;border:1px solid;font-size:13px;font-weight:600;margin-bottom:16px;font-family:monospace;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="rev-cancel-btn" onclick="closeRevGenModal()" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--muted);font-size:14px;cursor:pointer;">Cancel</button>
+        <button id="rev-close-btn" onclick="closeRevGenModal()" style="display:none;flex:1;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
