@@ -992,7 +992,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604141005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604141006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2968,7 +2968,9 @@ function revGetRepoFiles() {
   return REV_REPO_FILES[repo] || null;
 }
 
-function revAddModuleRow(num, title, file) {
+window.revAddModuleRow = function(num, title, file) {
+  const repo = document.getElementById('rev-repo-select').value;
+  if (!repo) { alert('Please select a Course GitHub Repo first.'); return; }
   revModuleCount++;
   const n = revModuleCount;
   const row = document.createElement('div');
@@ -2996,12 +2998,12 @@ function revAddModuleRow(num, title, file) {
   document.getElementById('rev-module-rows').appendChild(row);
 }
 
-function revRemoveModuleRow(n) {
+window.revRemoveModuleRow = function(n) {
   const el = document.getElementById('rev-mod-row-' + n);
   if (el) el.remove();
 }
 
-function revToggleEval() {
+window.revToggleEval = function() {
   const on = document.getElementById('rev-has-eval').checked;
   document.getElementById('rev-eval-row').style.display = on ? 'block' : 'none';
   document.getElementById('rev-gen-eval-btn').style.display = on ? 'inline-flex' : 'none';
@@ -3094,7 +3096,7 @@ async function revSaveConfig(courseId, config) {
 }
 
 // ── Open generation modal ──
-async function openRevGenModal(mode) {
+window.openRevGenModal = async function(mode) {
   // mode = 'modules' or 'evaluation'
   if (!selCourse) return;
   const c = courses.find(x => x.id === selCourse) || {};
