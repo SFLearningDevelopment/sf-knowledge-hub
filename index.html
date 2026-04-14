@@ -546,14 +546,9 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
             <div class="form-group" style="margin-bottom:14px;">
               <label class="form-label">Course GitHub Repo</label>
               <select class="form-input" id="rev-repo-select">
-                <option value="">— Select repo —</option>
-                <option value="sf-knowledge-hub">SFLearningDevelopment/sf-knowledge-hub</option>
-                <option value="grafana-essentials">SFLearningDevelopment/grafana-essentials</option>
-                <option value="sfinternalcertification-grafana">SFLearningDevelopment/sfinternalcertification-grafana</option>
-                <option value="sf-internal-kubernetes-certification">SFLearningDevelopment/sf-internal-kubernetes-certification</option>
-                <option value="ai-dev-ops">SFLearningDevelopment/ai-dev-ops</option>
-                <option value="ai-dev-ops-module-1-test">SFLearningDevelopment/ai-dev-ops-module-1-test</option>
+                <option value="">— Loading repos… —</option>
               </select>
+              <div id="rev-repo-load-status" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
             </div>
 
             <!-- Destination folder -->
@@ -1629,6 +1624,7 @@ async function selectCourse(id) {
   $('f-icon').value=c.icon||'📘'; $('f-color').value=c.accentColor||'#3b82f6';
   $('f-order').value=c.order!=null?c.order:''; $('f-status').value=c.status||'draft';
   await loadNominations(id);
+  await revLoadRepos();
   await revPopulateCourseConfig(id);
 }
 
@@ -3141,6 +3137,46 @@ async function revRunGeneration(files, config, mode) {
 }
 
 // ── GitHub API helpers ──
+async function revLoadRepos() {
+  const select = document.getElementById('rev-repo-select');
+  const status = document.getElementById('rev-repo-load-status');
+  const pat = localStorage.getItem('sf_github_pat') || '';
+  const headers = { 'Accept': 'application/vnd.github+json' };
+  if(pat) headers['Authorization'] = 'token ' + pat;
+  try {
+    let repos = [];
+    let page = 1;
+    while(true) {
+      const res = await fetch(
+        `https://api.github.com/orgs/SFLearningDevelopment/repos?per_page=100&page=${page}`,
+        { headers }
+      );
+      if(!res.ok) throw new Error('GitHub API error ' + res.status);
+      const batch = await res.json();
+      if(!batch.length) break;
+      repos = repos.concat(batch);
+      if(batch.length < 100) break;
+      page++;
+    }
+    repos.sort((a,b) => a.name.localeCompare(b.name));
+    const prev = select.value;
+    select.innerHTML = '<option value="">— Select repo —</option>';
+    repos.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.name;
+      opt.textContent = 'SFLearningDevelopment/' + r.name;
+      select.appendChild(opt);
+    });
+    if(prev) select.value = prev;
+    status.textContent = repos.length + ' repos loaded';
+    status.style.color = 'var(--muted)';
+  } catch(e) {
+    select.innerHTML = '<option value="">— Select repo —</option>';
+    status.textContent = '⚠ Could not load repos: ' + e.message;
+    status.style.color = 'var(--danger, #ef4444)';
+  }
+}
+
 async function revFetchFileFromGitHub(pat, repo, path) {
   const url = `https://api.github.com/repos/SFLearningDevelopment/${repo}/contents/${encodeURIComponent(path)}`;
   const res = await fetch(url, { headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' } });
