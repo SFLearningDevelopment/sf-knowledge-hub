@@ -545,9 +545,8 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
             <!-- Repo selector -->
             <div class="form-group" style="margin-bottom:14px;">
               <label class="form-label">Course GitHub Repo</label>
-              <select class="form-input" id="rev-repo-select">
+              <select class="form-input" id="rev-repo-select" onchange="revOnRepoChange()">
                 <option value="">— Select repo —</option>
-                <option value="sf-knowledge-hub">SFLearningDevelopment/sf-knowledge-hub</option>
                 <option value="grafana-essentials">SFLearningDevelopment/grafana-essentials</option>
                 <option value="sfinternalcertification-grafana">SFLearningDevelopment/sfinternalcertification-grafana</option>
                 <option value="sf-internal-kubernetes-certification">SFLearningDevelopment/sf-internal-kubernetes-certification</option>
@@ -992,7 +991,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604141006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604151001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -2967,6 +2966,18 @@ function revGetRepoFiles() {
   const repo = document.getElementById('rev-repo-select').value;
   return REV_REPO_FILES[repo] || null;
 }
+window.revOnRepoChange = function() {
+  document.getElementById('rev-module-rows').innerHTML = '';
+  revModuleCount = 0;
+  const repoFiles = revGetRepoFiles();
+  if (repoFiles) {
+    repoFiles.modules.forEach(m => window.revAddModuleRow(m.num, m.title, m.file));
+    document.getElementById('rev-has-eval').checked = true;
+    document.getElementById('rev-eval-row').style.display = 'block';
+    document.getElementById('rev-gen-eval-btn').style.display = 'inline-flex';
+    revPopulateEvalField();
+  }
+};
 
 window.revAddModuleRow = function(num, title, file) {
   const repo = document.getElementById('rev-repo-select').value;
@@ -3050,7 +3061,11 @@ async function revPopulateCourseConfig(courseId) {
     document.getElementById('rev-module-rows').innerHTML = '';
     revModuleCount = 0;
     if (rc.modules && rc.modules.length) {
-      rc.modules.forEach(m => revAddModuleRow(m.num, m.title, m.file));
+      const knownFiles = revGetRepoFiles();
+      rc.modules.forEach(m => {
+        const resolvedFile = knownFiles ? (knownFiles.modules.find(kf => kf.num === m.num)?.file || m.file) : m.file;
+        revAddModuleRow(m.num, m.title, resolvedFile);
+      });
     }
 
     // Populate evaluation
@@ -3220,7 +3235,7 @@ async function revRunGeneration(files, config, mode) {
 // ── GitHub API helpers ──
 async function revFetchFileFromGitHub(pat, repo, path) {
   const url = `https://api.github.com/repos/SFLearningDevelopment/${repo}/contents/${encodeURIComponent(path)}`;
-  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' } });
+  const res = await fetch(url, { headers: { Authorization: 'token ' + pat, Accept: 'application/vnd.github+json' } });
   if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status} for ${path}`);
   const data = await res.json();
   return atob(data.content.replace(/\n/g, ''));
@@ -3231,7 +3246,7 @@ async function revPushFileToGitHub(pat, repo, path, content) {
   // Check if file exists to get SHA
   let sha = null;
   try {
-    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' } });
+    const res = await fetch(url, { headers: { Authorization: 'token ' + pat, Accept: 'application/vnd.github+json' } });
     if (res.ok) { const d = await res.json(); sha = d.sha; }
   } catch {}
 
@@ -3240,7 +3255,7 @@ async function revPushFileToGitHub(pat, repo, path, content) {
 
   const res = await fetch(url, {
     method: 'PUT',
-    headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    headers: { Authorization: 'token ' + pat, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
   if (!res.ok) {
