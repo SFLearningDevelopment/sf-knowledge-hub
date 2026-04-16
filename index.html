@@ -1336,7 +1336,7 @@ async function buildCard(c) {
         ${c.duration?`<div class="card-info-item">&#8987; ${esc(c.duration)}</div>`:''}
         ${c.level?`<div class="card-info-item">&#128214; ${esc(c.level)}</div>`:''}
       </div>
-      ${nom?`<a href="${esc(c.url||'#')}" class="card-btn btn-enter">Enter Course &rarr;</a>`:`<button class="card-btn btn-locked" disabled>🔒 Access Restricted</button>`}
+      ${nom?`<a href="${esc(c.url||'#')}" target="_blank" class="card-btn btn-enter">Enter Course &rarr;</a>`:`<button class="card-btn btn-locked" disabled>🔒 Access Restricted</button>`}
     </div>`;
   return el;
 }
