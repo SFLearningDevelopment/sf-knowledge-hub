@@ -991,7 +991,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604161006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1739,11 +1739,54 @@ async function loadReviewerQueue() {
     const toReview=[]; snap.forEach(d=>{if(d.data().status==='review') toReview.push({id:d.id,...d.data()});});
     if (!toReview.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">No courses pending review.</div>'; return; }
     container.innerHTML='';
-    toReview.forEach(c=>{
+    for (const c of toReview) {
       const item=document.createElement('div'); item.className='review-queue-item';
-      item.innerHTML=`<div class="rq-title">${esc(c.title||'Untitled')}</div><div class="rq-meta">${esc(c.category||'')} &middot; ${esc(c.level||'')}</div>${c.url?`<a href="${esc(c.url)}" target="_blank" style="font-size:13px;color:var(--accent);display:block;margin-bottom:12px;">${esc(c.url)}</a>`:''}<textarea class="rq-comment" id="rq-comment-${c.id}" placeholder="Optional comment for admin..."></textarea><div class="rq-actions"><button class="approve-btn" onclick="reviewAction('${c.id}','live')">&#10003; Approve</button><button class="reject-btn" onclick="reviewAction('${c.id}','draft')">&#10007; Reject</button></div>`;
+      // Check reviewer progress for this course
+      const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
+      const modules = c.reviewerConfig?.modules || [];
+      let allComplete = false;
+      let progressHtml = '';
+      if (slug && modules.length && me) {
+        try {
+          let completedCount = 0;
+          const moduleStatuses = await Promise.all(modules.map(async m => {
+            const moduleId = 'module-' + m.num;
+            const docRef = doc(db, 'reviewerSessions', me.uid, slug, moduleId);
+            const docSnap = await getDoc(docRef);
+            const data = docSnap.exists() ? docSnap.data() : {};
+            const complete = data.completed === true && data.questionCorrect === true;
+            if (complete) completedCount++;
+            return { num: m.num, title: m.title || 'Module ' + m.num, complete };
+          }));
+          allComplete = completedCount === modules.length;
+          const statusRows = moduleStatuses.map(m =>
+            `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:${m.complete?'#34d399':'var(--muted)'};margin-bottom:4px;">
+              <span>${m.complete ? '✓' : '○'}</span>
+              <span>${esc(m.title)}</span>
+              ${m.complete ? '' : '<span style="font-size:11px;opacity:0.6;">(not completed)</span>'}
+            </div>`
+          ).join('');
+          progressHtml = `
+            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Module Review Progress (${completedCount}/${modules.length})</div>
+              ${statusRows}
+              ${!allComplete ? `<div style="font-size:12px;color:#fbbf24;margin-top:8px;">⚠ Complete all modules before approving or rejecting.</div>` : `<div style="font-size:12px;color:#34d399;margin-top:8px;">✓ All modules reviewed. You may now approve or reject.</div>`}
+            </div>`;
+        } catch(e) { console.warn('reviewer progress check failed:', e.message); }
+      }
+      const btnStyle = allComplete ? '' : 'opacity:0.35;cursor:not-allowed;pointer-events:none;';
+      item.innerHTML=`
+        <div class="rq-title">${esc(c.title||'Untitled')}</div>
+        <div class="rq-meta">${esc(c.category||'')} &middot; ${esc(c.level||'')}</div>
+        ${c.url?`<a href="${esc(c.url.replace(/\/?$/, '/') + 'reviewer/')}?v=${Date.now()}" target="_blank" style="font-size:13px;color:var(--accent);display:block;margin-bottom:12px;">📋 Open Reviewer Pages →</a>`:''}
+        ${progressHtml}
+        <textarea class="rq-comment" id="rq-comment-${c.id}" placeholder="Optional comment for admin..." ${!allComplete?'disabled':''}></textarea>
+        <div class="rq-actions">
+          <button class="approve-btn" style="${btnStyle}" onclick="reviewAction('${c.id}','live')" ${!allComplete?'disabled':''}>&#10003; Approve</button>
+          <button class="reject-btn" style="${btnStyle}" onclick="reviewAction('${c.id}','draft')" ${!allComplete?'disabled':''}>&#10007; Reject</button>
+        </div>`;
       container.appendChild(item);
-    });
+    }
   } catch { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>'; }
 }
 
