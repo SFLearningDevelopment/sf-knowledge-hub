@@ -563,6 +563,13 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
               <div style="font-size:11px;color:var(--muted);margin-top:4px;">Relative to repo root. Generated files will be placed here.</div>
             </div>
 
+            <!-- Questions per section -->
+            <div class="form-group" style="margin-bottom:18px;">
+              <label class="form-label">Questions per Section (for Reviewer)</label>
+              <input class="form-input" id="rev-questions-per-section" type="number" min="1" max="5" value="2" style="width:80px;">
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;">Claude will generate this many questions per section. Each must be answered correctly before the section can be marked complete.</div>
+            </div>
+
             <!-- Module rows -->
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Modules</div>
             <div id="rev-module-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
@@ -991,7 +998,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1733,67 +1740,93 @@ $('sb-add-person').addEventListener('click',()=>openSetRoleModal());
 
 // ══ REVIEWER VIEW ══
 async function loadReviewerQueue() {
-  const container=$('review-queue-list'); container.innerHTML='<div class="inline-loading"><div class="spinner"></div>Loading...</div>';
+  const container=$('review-queue-list');
+  container.innerHTML='<div class="inline-loading"><div class="spinner"></div>Loading...</div>';
   try {
     const snap=await getDocs(collection(db,'courses'));
     const toReview=[]; snap.forEach(d=>{if(d.data().status==='review') toReview.push({id:d.id,...d.data()});});
     if (!toReview.length) { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">No courses pending review.</div>'; return; }
     container.innerHTML='';
     for (const c of toReview) {
-      const item=document.createElement('div'); item.className='review-queue-item';
-      // Check reviewer progress for this course
       const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
       const modules = c.reviewerConfig?.modules || [];
-      let allComplete = false;
-      let progressHtml = '';
+      const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+
+      // Fetch module progress from Firestore
+      let moduleStatuses = [];
+      let completedCount = 0;
       if (slug && modules.length && me) {
         try {
-          let completedCount = 0;
-          const moduleStatuses = await Promise.all(modules.map(async m => {
+          moduleStatuses = await Promise.all(modules.map(async m => {
             const moduleId = 'module-' + m.num;
             const docRef = doc(db, 'reviewerSessions', me.uid, slug, moduleId);
             const docSnap = await getDoc(docRef);
             const data = docSnap.exists() ? docSnap.data() : {};
-            const complete = data.completed === true && data.questionCorrect === true;
+            const complete = data.completed === true;
+            const completedAt = data.completedAt || null;
+            const sectionCount = data.sectionCount || (c.reviewerConfig?.modules?.find(x=>x.num===m.num)?.sectionCount || 0);
             if (complete) completedCount++;
-            return { num: m.num, title: m.title || 'Module ' + m.num, complete };
+            return { num: m.num, title: m.title || 'Module ' + m.num, file: m.file || ('module-'+m.num+'.html'), complete, completedAt };
           }));
-          allComplete = completedCount === modules.length;
-          const statusRows = moduleStatuses.map(m =>
-            `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:${m.complete?'#34d399':'var(--muted)'};margin-bottom:4px;">
-              <span>${m.complete ? '✓' : '○'}</span>
-              <span>${esc(m.title)}</span>
-              ${m.complete ? '' : '<span style="font-size:11px;opacity:0.6;">(not completed)</span>'}
-            </div>`
-          ).join('');
-          progressHtml = `
-            <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;">Module Review Progress (${completedCount}/${modules.length})</div>
-              ${statusRows}
-              ${!allComplete ? `<div style="font-size:12px;color:#fbbf24;margin-top:8px;">⚠ Complete all modules before approving or rejecting.</div>` : `<div style="font-size:12px;color:#34d399;margin-top:8px;">✓ All modules reviewed. You may now approve or reject.</div>`}
-            </div>`;
         } catch(e) { console.warn('reviewer progress check failed:', e.message); }
       }
-      const btnStyle = allComplete ? '' : 'opacity:0.35;cursor:not-allowed;pointer-events:none;';
-      item.innerHTML=`
+      const allComplete = modules.length > 0 && completedCount === modules.length;
+
+      // Build module cards (Kubernetes style)
+      const moduleCards = moduleStatuses.map(m => {
+        const modUrl = reviewerUrl + m.file + '?v=' + Date.now();
+        const completedAtStr = m.completedAt ? new Date(m.completedAt).toLocaleString() : null;
+        return `<a href="${modUrl}" target="_blank" style="text-decoration:none;display:block;">
+          <div style="border-radius:12px;overflow:hidden;border:1px solid ${m.complete ? '#16a34a' : '#e2e8f0'};transition:box-shadow .2s;margin-bottom:12px;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+            <div style="background:${m.complete ? '#16a34a' : '#2563eb'};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="color:#fff;font-weight:700;font-size:14px;">Module ${m.num}</div>
+                <div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:2px;">${esc(m.title)}</div>
+              </div>
+              <div style="color:#fff;font-size:20px;">${m.complete ? '✓' : '→'}</div>
+            </div>
+            <div style="background:#fff;padding:12px 18px;">
+              <div style="font-size:12px;color:${m.complete ? '#16a34a' : '#64748b'};font-weight:600;">
+                ${m.complete ? '✓ Reviewed' + (completedAtStr ? ' · ' + completedAtStr : '') : 'Not yet reviewed'}
+              </div>
+            </div>
+          </div>
+        </a>`;
+      }).join('');
+
+      const btnStyle = allComplete ? '' : 'opacity:0.4;cursor:not-allowed;pointer-events:none;';
+      const item = document.createElement('div');
+      item.className = 'review-queue-item';
+      item.innerHTML = `
         <div class="rq-title">${esc(c.title||'Untitled')}</div>
         <div class="rq-meta">${esc(c.category||'')} &middot; ${esc(c.level||'')}</div>
-        ${c.url?`<a href="${esc(c.url.replace(/index\.html.*$/, '') + 'reviewer/')}?v=${Date.now()}" target="_blank" style="font-size:13px;color:var(--accent);display:block;margin-bottom:12px;">📋 Open Reviewer Pages →</a>`:''}
-        ${progressHtml}
-        <textarea class="rq-comment" id="rq-comment-${c.id}" placeholder="Optional comment for admin..." ${!allComplete?'disabled':''}></textarea>
+        <div style="margin:16px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Module Review Progress (${completedCount}/${modules.length})</div>
+        ${moduleCards}
+        ${!allComplete
+          ? '<div style="font-size:12px;color:#f59e0b;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;">⚠ Complete all module reviews before approving or requesting rework.</div>'
+          : '<div style="font-size:12px;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">✓ All modules reviewed. You may now approve or request rework.</div>'
+        }
+        <textarea class="rq-comment" id="rq-comment-${c.id}" placeholder="Add your overall review comment for the admin..." ${!allComplete?'disabled':''}></textarea>
         <div class="rq-actions">
           <button class="approve-btn" style="${btnStyle}" onclick="reviewAction('${c.id}','live')" ${!allComplete?'disabled':''}>&#10003; Approve</button>
-          <button class="reject-btn" style="${btnStyle}" onclick="reviewAction('${c.id}','draft')" ${!allComplete?'disabled':''}>&#10007; Reject</button>
+          <button class="reject-btn" style="${btnStyle};background:rgba(245,158,11,.8);" onclick="reviewAction('${c.id}','review','rework')" ${!allComplete?'disabled':''}>&#9998; Rework Required</button>
         </div>`;
       container.appendChild(item);
     }
-  } catch { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>'; }
+  } catch(e) { console.error(e); container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>'; }
 }
 
-window.reviewAction = async function(courseId,status) {
-  const comment=$('rq-comment-'+courseId)?.value?.trim()||'';
-  await setDoc(doc(db,'courses',courseId),{status,reviewComment:comment,reviewedBy:me.email,reviewedAt:serverTimestamp()},{merge:true});
-  toast(status==='live'?'Course approved and live!':'Course rejected back to draft.',status==='live'?'success':'error');
+window.reviewAction = async function(courseId, status, type) {
+  const comment = $('rq-comment-'+courseId)?.value?.trim() || '';
+  const isApprove = type !== 'rework';
+  await setDoc(doc(db,'courses',courseId), {
+    status,
+    reviewComment: comment,
+    reviewType: isApprove ? 'approved' : 'rework_required',
+    reviewedBy: me.email,
+    reviewedAt: serverTimestamp()
+  }, {merge:true});
+  toast(isApprove ? 'Course approved and set to Live!' : 'Rework required — course remains Under Review.', isApprove ? 'success' : 'error');
   loadReviewerQueue();
 };
 
@@ -3097,6 +3130,7 @@ async function revPopulateCourseConfig(courseId) {
 
     // Populate repo
     if (rc.repo) document.getElementById('rev-repo-select').value = rc.repo;
+    if (rc.questionsPerSection) document.getElementById('rev-questions-per-section').value = rc.questionsPerSection;
 
     // Populate dest folder
     if (rc.destFolder) document.getElementById('rev-dest-folder').value = rc.destFolder;
@@ -3136,7 +3170,8 @@ function revCollectConfig() {
   });
   const hasEval = document.getElementById('rev-has-eval').checked;
   const evalFile = hasEval ? document.getElementById('rev-eval-file').value.trim() : null;
-  return { repo, destFolder, modules, hasEval, evalFile };
+  const questionsPerSection = parseInt(document.getElementById('rev-questions-per-section')?.value) || 2;
+  return { repo, destFolder, modules, hasEval, evalFile, questionsPerSection };
 }
 
 // ── Save config to Firestore ──
@@ -3244,10 +3279,11 @@ async function revRunGeneration(files, config, mode) {
         // Fetch source module file
         const sourceContent = await revFetchFileFromGitHub(pat, config.repo, f.module.file);
         const sections = revExtractSections(sourceContent);
-        // Get first question for this module from eval bank
-        const modNum = f.module.num;
-        const modQuestion = evalQuestions.find(q => q.m === modNum) || null;
-        html = revGenerateModulePage(f.module, sections, modQuestion, config);
+        // Generate questions per section via Claude API
+        const questionsPerSection = config.questionsPerSection || 2;
+        revSetFileStatus(i, '⏳', `generating ${questionsPerSection} questions per section via AI…`, '#fbbf24');
+        const sectionQuestions = await revGenerateSectionQuestions(sections, questionsPerSection, f.module.title);
+        html = revGenerateModulePage(f.module, sections, sectionQuestions, config);
       } else if (f.type === 'index') {
         html = revGenerateIndexPage(config);
       } else if (f.type === 'evaluation') {
@@ -3364,17 +3400,62 @@ window.closeRevGenModal = function() {
 };
 
 // ── Reviewer HTML generator — neutral AIOps-style light theme ──
-function revGenerateModulePage(module, sectionsJs, question, config) {
+async function revGenerateSectionQuestions(sections, n, moduleTitle) {
+  const results = {};
+  for (const sec of sections) {
+    try {
+      // Strip HTML tags for clean content
+      const cleanContent = sec.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
+      const prompt = `You are an expert course reviewer creating assessment questions for internal SourceFuse reviewers.
+
+Based on this section content from the module "${moduleTitle}", section "${sec.title}":
+
+${cleanContent}
+
+Generate exactly ${n} multiple choice question(s) to test whether a reviewer has carefully read this section. Each question must:
+- Be answerable ONLY from the section content above
+- Have exactly 4 options (A, B, C, D)
+- Have exactly 1 correct answer
+- NOT reveal the correct answer in the question itself
+- Be challenging enough to require careful reading
+
+Respond with ONLY valid JSON array, no markdown, no explanation:
+[{"q":"question text","o":["option A","option B","option C","option D"],"c":0}]
+where "c" is the 0-based index of the correct answer.`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '[]';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const questions = JSON.parse(clean);
+      results[sec.id] = Array.isArray(questions) ? questions : [];
+    } catch(e) {
+      console.warn('Question generation failed for section', sec.id, e.message);
+      results[sec.id] = [];
+    }
+  }
+  return results;
+}
+
+function revGenerateModulePage(module, sectionsJs, sectionQuestions, config) {
   const courseId = selCourse || '';
   const slug = (config.repo || 'course').replace(/[^a-z0-9-]/gi, '-').toLowerCase();
   const moduleId = 'module-' + module.num;
   const numMods = config.modules.length;
-  const prevMod = module.num > 1 ? config.modules.find(m => m.num === module.num - 1) : null;
-  const nextMod = module.num < numMods ? config.modules.find(m => m.num === module.num + 1) : null;
-  const prevLink = prevMod ? `<a href="${prevMod.file}" class="nav-btn secondary">← Module ${prevMod.num}</a>` : '<span></span>';
-  const nextLink = nextMod ? `<a href="${nextMod.file}" class="nav-btn">Module ${nextMod.num} →</a>` : '<span></span>';
+  // Build hub URL for redirect after completion
+  const hubUrl = 'https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html';
 
-  const qBlock = question ? revBuildQuestionBlock(question) : '';
+  // Build sections with per-section questions
+  const sectionCount = sectionsJs ? sectionsJs.length : 0;
+  const questionsJson = JSON.stringify(sectionQuestions || {});
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -3385,35 +3466,78 @@ function revGenerateModulePage(module, sectionsJs, question, config) {
 <title>[Reviewer] Module ${module.num}: ${module.title}</title>
 <link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
 ${revNeutralCSS()}
+<style>
+.section-questions{margin-top:16px;border-top:2px solid #e2e8f0;padding-top:16px;}
+.section-question-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+.section-question-item.answered-correct{border-color:#16a34a;background:#f0fdf4;}
+.section-question-item.answered-wrong{border-color:#dc2626;background:#fef2f2;}
+.sq-text{font-size:14px;font-weight:600;color:#0f172a;margin-bottom:10px;}
+.sq-options{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.sq-option{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;background:#fff;transition:all .15s;}
+.sq-option:hover{border-color:#2563eb;background:#eff6ff;}
+.sq-option.selected{border-color:#2563eb;background:#eff6ff;}
+.sq-option.correct{border-color:#16a34a;background:#f0fdf4;color:#16a34a;font-weight:600;}
+.sq-option.wrong{border-color:#dc2626;background:#fef2f2;color:#dc2626;}
+.sq-option-key{font-family:'Source Code Pro',monospace;font-size:11px;font-weight:700;color:#94a3b8;min-width:18px;}
+.sq-feedback{font-size:12px;font-weight:700;padding:4px 0;}
+.sq-feedback.correct{color:#16a34a;}
+.sq-feedback.wrong{color:#dc2626;}
+.sq-check-btn{background:#2563eb;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
+.sq-check-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.section-complete-btn{display:flex;align-items:center;gap:8px;background:transparent;border:2px solid #e2e8f0;color:#94a3b8;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:not-allowed;margin-top:14px;transition:all .2s;}
+.section-complete-btn.unlocked{border-color:#16a34a;color:#16a34a;cursor:pointer;background:#f0fdf4;}
+.section-complete-btn.done{border-color:#16a34a;background:#16a34a;color:#fff;cursor:default;}
+.module-complete-wrap{background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:20px;margin-top:28px;text-align:center;}
+.module-complete-btn{background:#16a34a;color:#fff;border:none;border-radius:10px;padding:14px 32px;font-size:15px;font-weight:700;cursor:pointer;opacity:0.4;pointer-events:none;transition:all .2s;}
+.module-complete-btn.unlocked{opacity:1;pointer-events:auto;}
+.module-complete-hint{font-size:13px;color:#64748b;margin-top:8px;}
+.reviewer-comment-wrap{margin-top:20px;}
+.reviewer-comment-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;}
+.reviewer-comment{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;outline:none;}
+.reviewer-comment:focus{border-color:#2563eb;}
+</style>
 </head>
 <body>
 ${revSignInOverlay()}
 ${revSignedInBar()}
 <div class="reviewer-topbanner"><span>👁</span><strong>Reviewer Mode</strong> — Module ${module.num}: ${module.title}</div>
-<nav class="topnav">
-  <a href="index.html">← Reviewer Hub</a>
-  <span class="sep">/</span>
-  <span>Module ${module.num}: ${module.title}</span>
-</nav>
 <div class="main">
   <div class="module-hero">
     <div class="hero-eyebrow">Module ${module.num} of ${numMods} · Reviewer Mode</div>
     <h1>${module.title}</h1>
+    <p style="color:#64748b;font-size:14px;margin-top:8px;">Review each section carefully and answer all questions correctly to mark sections complete. Once all sections are complete, submit your module review.</p>
   </div>
   <div id="sections-container"></div>
-  ${qBlock}
-  <div class="rev-complete-wrap">
-    <div class="rev-complete-bar disabled" id="rev-complete-bar">
-      <input type="checkbox" id="rev-complete-cb" disabled>
-      <label for="rev-complete-cb" id="rev-complete-label">Complete all sections${question ? ' and answer the question correctly' : ''} to unlock</label>
+  <div class="module-complete-wrap">
+    <div class="module-complete-hint" id="module-complete-hint">Complete all sections to unlock</div>
+    <div class="reviewer-comment-wrap">
+      <div class="reviewer-comment-label">Module Review Notes</div>
+      <textarea class="reviewer-comment" id="module-comment" placeholder="Add your overall notes for this module…"></textarea>
     </div>
-    <div class="rev-complete-hint" id="rev-complete-hint"></div>
+    <button class="module-complete-btn" id="module-complete-btn" onclick="submitModuleComplete()">✓ Mark Module ${module.num} as Reviewed</button>
   </div>
-  <div class="bottom-nav">${prevLink}${nextLink}</div>
 </div>
 ${revSignInScript(slug, moduleId, courseId)}
-${revReviewerScript(sectionsJs, question)}
+${revReviewerScript(sectionsJs, sectionQuestions)}
 ${revFirebaseScript(slug, moduleId, courseId)}
+<script>
+const HUB_URL = '${hubUrl}';
+const SECTION_COUNT = ${sectionCount};
+const SECTION_QUESTIONS = ${questionsJson};
+
+function submitModuleComplete() {
+  const btn = document.getElementById('module-complete-btn');
+  if (!btn.classList.contains('unlocked')) return;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  const comment = document.getElementById('module-comment')?.value || '';
+  const completedAt = new Date().toISOString();
+  if (typeof sfWrite === 'function') {
+    sfWrite({ completed: true, comment, completedAt, sectionCount: SECTION_COUNT });
+  }
+  setTimeout(() => { window.location.href = HUB_URL; }, 1200);
+}
+<\/script>
 </body>
 </html>`;
 }
@@ -3724,52 +3848,132 @@ document.addEventListener('DOMContentLoaded',function(){const gb=document.getEle
 <\/script>`;
 }
 
-function revReviewerScript(sectionsJs, question) {
-  const hasQ = !!question;
-  const correctKey = hasQ ? ['A','B','C','D'][question.c] : null;
+function revReviewerScript(sectionsJs, sectionQuestions) {
   return `<script>
 const REV_KEY='reviewer_'+window.location.pathname.replace(/[^a-z0-9]/gi,'_');
 const BADGES={foundation:'Foundation',essential:'Essential',important:'Important'};
-const BADGE_CLASSES={foundation:'badge-foundation',essential:'badge-essential',important:'badge-important'};
 const SECTIONS=${sectionsJs};
+const SQ=typeof SECTION_QUESTIONS!=='undefined'?SECTION_QUESTIONS:{};
 function revLoad(){try{return JSON.parse(localStorage.getItem(REV_KEY))||{};}catch(e){return {};}}
 function revSave(s){localStorage.setItem(REV_KEY,JSON.stringify(s));if(typeof sfWrite==='function')sfWrite(s);}
-function allSectionsChecked(){const items=document.querySelectorAll('.rev-checkbox');for(let i=0;i<items.length;i++){if(!items[i].checked)return false;}return true;}
-function questionAnsweredCorrectly(){return ${hasQ}?revLoad().questionCorrect===true:true;}
-function updateCompleteBar(){
-  const bar=document.getElementById('rev-complete-bar');const cb=document.getElementById('rev-complete-cb');const label=document.getElementById('rev-complete-label');const hint=document.getElementById('rev-complete-hint');
-  if(!bar)return;const s=revLoad();
-  if(s.reviewComplete){bar.className='rev-complete-bar done';cb.disabled=false;cb.checked=true;label.textContent='✓ Review complete';hint.textContent='';return;}
-  const stepsOk=allSectionsChecked();const qOk=questionAnsweredCorrectly();const missing=[];if(!stepsOk)missing.push('all sections checked');if(!qOk)missing.push('question answered correctly');
-  if(stepsOk&&qOk){bar.className='rev-complete-bar ready';cb.disabled=false;label.textContent='Mark review as complete';hint.textContent='';}
-  else{bar.className='rev-complete-bar disabled';cb.disabled=true;label.textContent='Complete all sections${hasQ?' and answer the question correctly':''} to unlock';hint.textContent=missing.length?'Still needed: '+missing.join(' · '):'';}
+
+function allSectionsComplete(){
+  return SECTIONS.every(s=>revLoad()['section_complete_'+s.id]===true);
 }
-function renderProgress(total){let done=0;document.querySelectorAll('.rev-checkbox').forEach(c=>{if(c.checked)done++;});const pct=Math.round((done/total)*100);const p=document.getElementById('sidebar-pct');const b=document.getElementById('sidebar-bar');if(p)p.textContent=pct+'%';if(b)b.style.width=pct+'%';}
+
+function updateModuleCompleteBtn(){
+  const btn=document.getElementById('module-complete-btn');
+  const hint=document.getElementById('module-complete-hint');
+  if(!btn)return;
+  const state=revLoad();
+  if(state.completed){
+    btn.textContent='\u2713 Module Review Submitted';
+    btn.classList.add('unlocked');
+    btn.disabled=true;
+    if(hint)hint.textContent='Review submitted on '+new Date(state.completedAt).toLocaleString();
+    return;
+  }
+  const done=SECTIONS.filter(s=>state['section_complete_'+s.id]===true).length;
+  const total=SECTIONS.length;
+  if(done===total){
+    btn.classList.add('unlocked');
+    if(hint)hint.textContent='All '+total+' sections complete. You may now submit your module review.';
+  } else {
+    btn.classList.remove('unlocked');
+    if(hint)hint.textContent=done+' of '+total+' sections complete. Complete all sections to unlock.';
+  }
+}
+
+function buildQuestionBlock(secId,questions){
+  if(!questions||!questions.length)return '';
+  const keys=['A','B','C','D'];
+  const state=revLoad();
+  const secDone=state['section_complete_'+secId]===true;
+  let html='<div class=\"section-questions\">';
+  questions.forEach((q,qi)=>{
+    const answered=state['sq_'+secId+'_'+qi+'_correct']===true;
+    html+='<div class=\"section-question-item'+(answered?' answered-correct':'')+'\" id=\"sq-item-'+secId+'-'+qi+'\">';
+    html+='<div class=\"sq-text\">'+(qi+1)+'. '+q.q.replace(/</g,'&lt;')+'</div>';
+    html+='<div class=\"sq-options\" id=\"sq-opts-'+secId+'-'+qi+'\">';
+    q.o.forEach((opt,oi)=>{
+      html+='<div class=\"sq-option\" data-sec=\"'+secId+'\" data-q=\"'+qi+'\" data-i=\"'+oi+'\" onclick=\"sqSelect(this)\"><span class=\"sq-option-key\">'+keys[oi]+'</span><span>'+opt.replace(/</g,'&lt;')+'</span></div>';
+    });
+    html+='</div>';
+    html+='<div class=\"sq-feedback\" id=\"sq-fb-'+secId+'-'+qi+'\"></div>';
+    html+='<button class=\"sq-check-btn\" id=\"sq-btn-'+secId+'-'+qi+'\" onclick=\"sqCheck('+secId+','+qi+','+q.c+')\" '+(answered?'disabled':'')+'>Check Answer</button>';
+    html+='</div>';
+  });
+  html+='</div>';
+  const allAnswered=questions.every((_,qi)=>revLoad()['sq_'+secId+'_'+qi+'_correct']===true);
+  html+='<button class=\"section-complete-btn'+(allAnswered||secDone?' unlocked':'')+' '+(secDone?'done':'')+'\" id=\"sec-complete-btn-'+secId+'\" onclick=\"sectionComplete('+secId+')\" '+(secDone?'disabled':(allAnswered?'':'disabled'))+'>'+(secDone?'\u2713 Section Reviewed':'Mark Section as Reviewed')+'</button>';
+  return html;
+}
+
+window.sqSelect=function(el){
+  const secId=el.dataset.sec,qi=el.dataset.q;
+  document.querySelectorAll('[data-sec="'+secId+'"][data-q="'+qi+'"]').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+};
+
+window.sqCheck=function(secId,qi,correctIdx){
+  const selected=document.querySelector('[data-sec="'+secId+'"][data-q="'+qi+'"].selected');
+  if(!selected){alert('Please select an answer first.');return;}
+  const chosenIdx=parseInt(selected.dataset.i);
+  const isCorrect=(chosenIdx===correctIdx);
+  const fb=document.getElementById('sq-fb-'+secId+'-'+qi);
+  const btn=document.getElementById('sq-btn-'+secId+'-'+qi);
+  const item=document.getElementById('sq-item-'+secId+'-'+qi);
+  if(isCorrect){
+    selected.classList.add('correct');
+    if(fb){fb.textContent='\u2713 Correct!';fb.className='sq-feedback correct';}
+    if(btn)btn.disabled=true;
+    if(item)item.classList.add('answered-correct');
+    const st=revLoad();st['sq_'+secId+'_'+qi+'_correct']=true;revSave(st);
+    const secQs=SQ[secId]||[];
+    const allCorrect=secQs.every((_,i)=>revLoad()['sq_'+secId+'_'+i+'_correct']===true);
+    const secBtn=document.getElementById('sec-complete-btn-'+secId);
+    if(allCorrect&&secBtn){secBtn.classList.add('unlocked');secBtn.removeAttribute('disabled');}
+  } else {
+    selected.classList.add('wrong');
+    if(fb){fb.textContent='\u2717 Incorrect \u2014 please try again.';fb.className='sq-feedback wrong';}
+    setTimeout(()=>{
+      selected.classList.remove('wrong','selected');
+      if(fb){fb.textContent='';fb.className='sq-feedback';}
+    },1500);
+  }
+};
+
+window.sectionComplete=function(secId){
+  const btn=document.getElementById('sec-complete-btn-'+secId);
+  if(!btn||!btn.classList.contains('unlocked'))return;
+  btn.classList.add('done');btn.disabled=true;btn.textContent='\u2713 Section Reviewed';
+  const st=revLoad();st['section_complete_'+secId]=true;st['section_completed_at_'+secId]=new Date().toISOString();revSave(st);
+  updateModuleCompleteBtn();
+};
+
 window.toggleSection=(id)=>{const body=document.getElementById('body-'+id);const toggle=document.getElementById('toggle-'+id);const isOpen=body.classList.contains('open');document.querySelectorAll('.section-body').forEach(b=>b.classList.remove('open'));document.querySelectorAll('.section-toggle').forEach(t=>t.classList.remove('open'));if(!isOpen){body.classList.add('open');toggle.classList.add('open');}};
 window.copyCode=(btn)=>{const text=btn.parentElement.innerText.replace('Copy','').trim();navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',1500);});};
+
 function renderAll(){
   const sec=document.getElementById('sections-container');if(!sec)return;sec.innerHTML='';
   const s0=revLoad();
   SECTIONS.forEach(s=>{
-    const reviewed=s0['cb_'+s.id]||false;
+    const secDone=s0['section_complete_'+s.id]===true;
     const sd=document.createElement('div');sd.className='section-block';
-    const badgeCls=BADGE_CLASSES[s.badge]||'';const badgeTxt=BADGES[s.badge]||s.badge||'';
-    sd.innerHTML='<div class="section-header" onclick="toggleSection('+s.id+')">'+'<span class="section-num">'+s.id+'.</span>'+'<span class="section-title">'+s.title+'</span>'+(badgeTxt?'<span style="font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;background:#e8f1fb;color:#1a6eb5;font-family:Source Code Pro,monospace;">'+badgeTxt+'</span>':'')+(reviewed?'<span style="font-size:12px;margin-left:4px;">✅</span>':'')+'<span class="section-toggle" id="toggle-'+s.id+'">▼</span>'+'</div>'+'<div class="section-body" id="body-'+s.id+'">'+s.content+'<div class="reviewer-bar '+(reviewed?'checked':'')+'" id="rev-bar-'+s.id+'"><input type="checkbox" class="rev-checkbox" id="rev-cb-'+s.id+'" data-step="'+s.id+'" '+(reviewed?'checked':'')+'><label for="rev-cb-'+s.id+'">'+(reviewed?'✓ Section reviewed':'Mark section as reviewed')+'</label></div></div>';
+    const badgeTxt=BADGES[s.badge]||s.badge||'';
+    const questions=SQ[s.id]||[];
+    const qBlock=buildQuestionBlock(s.id,questions);
+    sd.innerHTML='<div class=\"section-header\" onclick=\"toggleSection('+s.id+')\"><span class=\"section-num\">'+s.id+'.</span><span class=\"section-title\">'+s.title+'</span>'+(badgeTxt?'<span style=\"font-size:10px;padding:2px 7px;border-radius:4px;font-weight:700;background:#e8f1fb;color:#1a6eb5;font-family:Source Code Pro,monospace;\">'+badgeTxt+'</span>':'')+(secDone?'<span style=\"font-size:12px;margin-left:4px;\">\u2705</span>':'')+'<span class=\"section-toggle\" id=\"toggle-'+s.id+'\">\u25bc</span></div><div class=\"section-body\" id=\"body-'+s.id+'\">'+s.content+qBlock+'</div>';
     sec.appendChild(sd);
   });
-  document.querySelectorAll('.rev-checkbox').forEach(cb=>{
-    cb.addEventListener('change',()=>{const st=revLoad();st['cb_'+cb.dataset.step]=cb.checked;revSave(st);const bar=cb.closest('.reviewer-bar');if(bar){bar.classList.toggle('checked',cb.checked);bar.querySelector('label').textContent=cb.checked?'✓ Section reviewed':'Mark section as reviewed';}renderProgress(SECTIONS.length);updateCompleteBar();});
-  });
-  renderProgress(SECTIONS.length);updateCompleteBar();
+  updateModuleCompleteBtn();
 }
-${hasQ ? `
-let revAnswer=null;let revSubmitted=false;
-(function restoreQ(){const s=revLoad();if(s.revAnswer!=null){revAnswer=s.revAnswer;revSubmitted=s.revSubmitted||false;if(revAnswer)applyRevAnswer(revAnswer,revSubmitted);}})();
-document.querySelectorAll('.reviewer-option').forEach(opt=>{opt.addEventListener('click',()=>{if(revSubmitted)return;revAnswer=opt.dataset.key;document.querySelectorAll('.reviewer-option').forEach(o=>o.classList.toggle('selected',o.dataset.key===revAnswer));const s=revLoad();s.revAnswer=revAnswer;revSave(s);});});
-const revBtn=document.getElementById('rev-reveal-btn');if(revBtn)revBtn.addEventListener('click',()=>{if(revAnswer===null){alert('Please select an answer first.');return;}const s0=revLoad();s0.attemptCount=(s0.attemptCount||0)+1;if(!s0.startedAt)s0.startedAt=new Date().toISOString();revSave(s0);revSubmitted=true;const s=revLoad();s.revSubmitted=true;revSave(s);applyRevAnswer(revAnswer,true);});
-function applyRevAnswer(ans,showResult){const correctKey='${correctKey}';const isCorrect=(ans===correctKey);document.querySelectorAll('.reviewer-option').forEach(o=>{o.classList.remove('selected','correct','wrong');if(showResult){if(o.dataset.key===correctKey)o.classList.add('correct');else if(o.dataset.key===ans&&o.dataset.key!==correctKey)o.classList.add('wrong');}else{if(o.dataset.key===ans)o.classList.add('selected');}});if(showResult){const expEl=document.getElementById('rev-explanation');const lbl=document.getElementById('rev-exp-label');const txt=document.getElementById('rev-exp-text');const btn=document.getElementById('rev-reveal-btn');if(expEl)expEl.classList.add('visible');if(lbl){lbl.textContent=isCorrect?'✓ Correct':'✗ Incorrect';lbl.className='reviewer-exp-label '+(isCorrect?'correct':'wrong');}if(txt)txt.textContent=window.REV_EXPLANATION||'';if(btn)btn.style.display='none';if(isCorrect){const s=revLoad();s.questionCorrect=true;revSave(s);}updateCompleteBar();}}` : ''}
-const commentEl=document.getElementById('rev-comment');if(commentEl){const s=revLoad();if(s.comment)commentEl.value=s.comment;commentEl.addEventListener('input',()=>{const s=revLoad();s.comment=commentEl.value;revSave(s);});}
-const completeCb=document.getElementById('rev-complete-cb');if(completeCb)completeCb.addEventListener('change',()=>{if(!completeCb.checked)return;const s=revLoad();s.reviewComplete=true;s.completedAt=new Date().toISOString();revSave(s);updateCompleteBar();});
+
+const moduleCommentEl=document.getElementById('module-comment');
+if(moduleCommentEl){
+  const s=revLoad();if(s.moduleComment)moduleCommentEl.value=s.moduleComment;
+  moduleCommentEl.addEventListener('input',()=>{const s=revLoad();s.moduleComment=moduleCommentEl.value;revSave(s);});
+}
 renderAll();
 <\/script>`;
 }
