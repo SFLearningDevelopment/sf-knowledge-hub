@@ -998,7 +998,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1756,19 +1756,22 @@ async function loadReviewerQueue() {
       let moduleStatuses = [];
       let completedCount = 0;
       if (slug && modules.length && me) {
-        try {
-          moduleStatuses = await Promise.all(modules.map(async m => {
-            const moduleId = 'module-' + m.num;
+        moduleStatuses = await Promise.all(modules.map(async m => {
+          const moduleId = 'module-' + m.num;
+          try {
             const docRef = doc(db, 'reviewerSessions', me.uid, slug, moduleId);
             const docSnap = await getDoc(docRef);
             const data = docSnap.exists() ? docSnap.data() : {};
             const complete = data.completed === true;
             const completedAt = data.completedAt || null;
-            const sectionCount = data.sectionCount || (c.reviewerConfig?.modules?.find(x=>x.num===m.num)?.sectionCount || 0);
             if (complete) completedCount++;
             return { num: m.num, title: m.title || 'Module ' + m.num, file: m.file || ('module-'+m.num+'.html'), complete, completedAt };
-          }));
-        } catch(e) { console.warn('reviewer progress check failed:', e.message); }
+          } catch(e) {
+            return { num: m.num, title: m.title || 'Module ' + m.num, file: m.file || ('module-'+m.num+'.html'), complete: false, completedAt: null };
+          }
+        }));
+      } else {
+        moduleStatuses = modules.map(m => ({ num: m.num, title: m.title || 'Module ' + m.num, file: m.file || ('module-'+m.num+'.html'), complete: false, completedAt: null }));
       }
       const allComplete = modules.length > 0 && completedCount === modules.length;
 
