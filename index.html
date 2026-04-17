@@ -998,7 +998,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171004 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202604171005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1967,12 +1967,54 @@ async function loadReviewerQueueForPreview(reviewer) {
     const cSnap=await getDoc(doc(db,'courses',courseId));
     if (!cSnap.exists()||cSnap.data().status!=='review') { container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">No course pending review for this reviewer.</div>'; return; }
     const c={id:cSnap.id,...cSnap.data()};
-    let existingReview=null;
-    try { const revSnap=await getDoc(doc(db,'courses',courseId,'review','data')); if(revSnap.exists()) existingReview=revSnap.data(); } catch{}
+    const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
+    const modules = c.reviewerConfig?.modules || [];
+    const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+
+    // Fetch module progress for this reviewer
+    let moduleStatuses = [];
+    let completedCount = 0;
+    if (slug && modules.length) {
+      try {
+        moduleStatuses = await Promise.all(modules.map(async m => {
+          const moduleId = 'module-' + m.num;
+          const docRef = doc(db, 'reviewerSessions', reviewer.uid || reviewer.email, slug, moduleId);
+          const docSnap = await getDoc(docRef);
+          const data = docSnap.exists() ? docSnap.data() : {};
+          const complete = data.completed === true;
+          const completedAt = data.completedAt || null;
+          if (complete) completedCount++;
+          return { num: m.num, title: m.title || 'Module ' + m.num, file: m.file || ('module-'+m.num+'.html'), complete, completedAt };
+        }));
+      } catch(e) { console.warn('preview progress check failed:', e.message); }
+    }
+
+    const moduleCards = moduleStatuses.map(m => {
+      const completedAtStr = m.completedAt ? new Date(m.completedAt).toLocaleString() : null;
+      return `<div style="border-radius:12px;overflow:hidden;border:1px solid ${m.complete ? '#16a34a' : '#e2e8f0'};margin-bottom:12px;">
+        <div style="background:${m.complete ? '#16a34a' : '#2563eb'};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="color:#fff;font-weight:700;font-size:14px;">Module ${m.num}</div>
+            <div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:2px;">${esc(m.title)}</div>
+          </div>
+          <div style="color:#fff;font-size:20px;">${m.complete ? '✓' : '○'}</div>
+        </div>
+        <div style="background:#fff;padding:12px 18px;">
+          <div style="font-size:12px;color:${m.complete ? '#16a34a' : '#64748b'};font-weight:600;">
+            ${m.complete ? '✓ Reviewed' + (completedAtStr ? ' · ' + completedAtStr : '') : 'Not yet reviewed'}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
     container.innerHTML='';
     const item=document.createElement('div'); item.className='review-queue-item';
-    const reviewerNote=existingReview?`<div style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--muted);"><strong style="color:#a78bfa;">Reviewer notes:</strong> ${esc(existingReview.overallNotes||'None yet')}</div>`:'<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">No review submitted yet.</div>';
-    item.innerHTML=`<div class="rq-title">${esc(c.title||'Untitled')}</div><div class="rq-meta">${esc(c.category||'')} &middot; Status: <strong>${esc(c.status||'')}</strong></div>${c.url?`<a href="${esc(c.url)}" target="_blank" style="font-size:13px;color:var(--accent);display:block;margin-bottom:12px;">${esc(c.url)}</a>`:''}<div style="font-size:12px;color:#fbbf24;padding:8px 12px;background:rgba(245,158,11,.06);border-radius:8px;border:1px solid rgba(245,158,11,.2);">&#128065; Admin preview mode &mdash; actions are disabled</div>`;
+    item.innerHTML=`
+      <div class="rq-title">${esc(c.title||'Untitled')}</div>
+      <div class="rq-meta">${esc(c.category||'')} &middot; Status: <strong>${esc(c.status||'')}</strong></div>
+      <div style="margin:16px 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Module Review Progress (${completedCount}/${modules.length})</div>
+      ${moduleCards}
+      <div style="font-size:12px;color:#fbbf24;padding:8px 12px;background:rgba(245,158,11,.06);border-radius:8px;border:1px solid rgba(245,158,11,.2);margin-top:8px;">👁 Admin preview mode — actions are disabled</div>`;
     container.appendChild(item);
   } catch(e) { console.error('loadReviewerQueueForPreview:',e); container.innerHTML='<div style="color:var(--muted);text-align:center;padding:40px;">Error loading.</div>'; }
 }
