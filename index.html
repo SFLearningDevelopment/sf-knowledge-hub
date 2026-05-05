@@ -606,6 +606,15 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
               </div>
             </div>
 
+            <!-- Question Bank file (for reviewer per-section MCQs) -->
+            <div style="margin-bottom:18px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Question Bank File</div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input class="form-input" id="rev-question-bank-file" placeholder="e.g. quicksight-question-bank.js" style="flex:1;">
+                <div style="font-size:11px;color:var(--muted);min-width:200px;">Path in repo root. Bank must assign to <code>window.*</code> with <code>m1.s1</code> shape. Leave empty if course has no per-section reviewer MCQs.</div>
+              </div>
+            </div>
+
             <!-- Status gate message -->
             <div id="rev-draft-notice" style="display:none;font-size:12px;color:#fbbf24;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:10px 14px;margin-bottom:14px;">
               ⚠️ Set course status to <strong>Under Review</strong> or <strong>Live</strong> before generating reviewer pages.
@@ -1014,7 +1023,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051006 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051007 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -3277,6 +3286,10 @@ async function revPopulateCourseConfig(courseId) {
       document.getElementById('rev-gen-eval-btn').style.display = 'inline-flex';
       document.getElementById('rev-eval-file').value = rc.evalFile;
     }
+
+    // Populate question bank file
+    const _qbEl = document.getElementById('rev-question-bank-file');
+    if (_qbEl) _qbEl.value = rc.questionBankFile || '';
   } catch(e) { console.warn('revPopulateCourseConfig:', e.message); }
 }
 
@@ -3297,8 +3310,9 @@ function revCollectConfig() {
   });
   const hasEval = document.getElementById('rev-has-eval').checked;
   const evalFile = hasEval ? document.getElementById('rev-eval-file').value.trim() : null;
+  const questionBankFile = (document.getElementById('rev-question-bank-file')?.value || '').trim();
   const questionsPerSection = parseInt(document.getElementById('rev-questions-per-section')?.value) || 2;
-  return { repo, destFolder, modules, hasEval, evalFile, questionsPerSection };
+  return { repo, destFolder, modules, hasEval, evalFile, questionBankFile, questionsPerSection };
 }
 
 // ── Save config to Firestore ──
@@ -3310,6 +3324,7 @@ async function revSaveConfig(courseId, config) {
         destFolder: config.destFolder,
         modules: config.modules,
         evalFile: config.evalFile || null,
+        questionBankFile: config.questionBankFile || null,
         updatedAt: serverTimestamp()
       }
     }, { merge: true });
@@ -3396,24 +3411,27 @@ async function revRunGeneration(files, config, mode) {
     }
   }
 
-  // ── Fetch question bank file (named after the repo: e.g. quicksight-question-bank.js) ──
+  // ── Fetch question bank file (path specified in reviewerConfig.questionBankFile) ──
   // Used by revGenerateSectionQuestions to look up per-section reviewer questions.
-  // If the file is missing, sections render with no MCQs (no error — generator continues).
+  // If the field is empty or the file is missing, sections render with no MCQs (no error — generator continues).
   window._revQuestionBank = null;
-  try {
-    const bankFile = config.repo + '-question-bank.js';
-    const bankContent = await revFetchFileFromGitHub(pat, config.repo, bankFile);
-    // Bank files assign to a window.* variable like: window.QS_QUESTION_BANK = {...};
-    // Execute the assignment in a sandbox to capture the object.
-    const bankMatch = bankContent.match(/window\.\w+\s*=\s*(\{[\s\S]*?\});?\s*$/m);
-    if (bankMatch) {
-      window._revQuestionBank = Function('"use strict"; return (' + bankMatch[1] + ')')();
-      console.log('[Reviewer Gen] Loaded question bank with', Object.keys(window._revQuestionBank).length, 'modules');
-    } else {
-      console.warn('[Reviewer Gen] Question bank file found but could not parse window.* assignment');
+  if (config.questionBankFile) {
+    try {
+      const bankContent = await revFetchFileFromGitHub(pat, config.repo, config.questionBankFile);
+      // Bank files assign to a window.* variable like: window.QS_QUESTION_BANK = {...};
+      // Execute the assignment in a sandbox to capture the object.
+      const bankMatch = bankContent.match(/window\.\w+\s*=\s*(\{[\s\S]*?\});?\s*$/m);
+      if (bankMatch) {
+        window._revQuestionBank = Function('"use strict"; return (' + bankMatch[1] + ')')();
+        console.log('[Reviewer Gen] Loaded question bank with', Object.keys(window._revQuestionBank).length, 'modules');
+      } else {
+        console.warn('[Reviewer Gen] Question bank file found but could not parse window.* assignment');
+      }
+    } catch(e) {
+      console.warn('[Reviewer Gen] Could not fetch question bank at ' + config.questionBankFile + ' — sections will have no MCQs:', e.message);
     }
-  } catch(e) {
-    console.warn('[Reviewer Gen] No question bank found at ' + config.repo + '-question-bank.js — sections will have no MCQs:', e.message);
+  } else {
+    console.log('[Reviewer Gen] No questionBankFile configured — sections will have no per-section MCQs');
   }
 
   let successCount = 0;
