@@ -1023,7 +1023,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051007 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051008 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -3419,16 +3419,33 @@ async function revRunGeneration(files, config, mode) {
     try {
       const bankContent = await revFetchFileFromGitHub(pat, config.repo, config.questionBankFile);
       // Bank files assign to a window.* variable like: window.QS_QUESTION_BANK = {...};
-      // Execute the assignment in a sandbox to capture the object.
-      const bankMatch = bankContent.match(/window\.\w+\s*=\s*(\{[\s\S]*?\});?\s*$/m);
-      if (bankMatch) {
-        window._revQuestionBank = Function('"use strict"; return (' + bankMatch[1] + ')')();
+      // Find the start of the object after `window.X = `, then walk braces (string-aware) to find its end.
+      const startMatch = bankContent.match(/window\.\w+\s*=\s*\{/);
+      if (startMatch) {
+        const objStart = startMatch.index + startMatch[0].length - 1;  // index of opening `{`
+        let depth = 0, i = objStart, inStr = false, strCh = '', escape = false;
+        for (; i < bankContent.length; i++) {
+          const ch = bankContent[i];
+          if (inStr) {
+            if (escape) { escape = false; continue; }
+            if (ch === '\\') { escape = true; continue; }
+            if (ch === strCh) inStr = false;
+            continue;
+          }
+          if (ch === '"' || ch === "'" || ch === '`') { inStr = true; strCh = ch; continue; }
+          if (ch === '/' && bankContent[i+1] === '/') { while (i < bankContent.length && bankContent[i] !== '\n') i++; continue; }
+          if (ch === '/' && bankContent[i+1] === '*') { i += 2; while (i < bankContent.length-1 && !(bankContent[i]==='*' && bankContent[i+1]==='/')) i++; i++; continue; }
+          if (ch === '{') depth++;
+          else if (ch === '}') { depth--; if (depth === 0) { i++; break; } }
+        }
+        const objText = bankContent.slice(objStart, i);
+        window._revQuestionBank = Function('"use strict"; return (' + objText + ')')();
         console.log('[Reviewer Gen] Loaded question bank with', Object.keys(window._revQuestionBank).length, 'modules');
       } else {
-        console.warn('[Reviewer Gen] Question bank file found but could not parse window.* assignment');
+        console.warn('[Reviewer Gen] Question bank file found but could not locate window.* = { assignment');
       }
     } catch(e) {
-      console.warn('[Reviewer Gen] Could not fetch question bank at ' + config.questionBankFile + ' — sections will have no MCQs:', e.message);
+      console.warn('[Reviewer Gen] Could not fetch/parse question bank at ' + config.questionBankFile + ' — sections will have no MCQs:', e.message);
     }
   } else {
     console.log('[Reviewer Gen] No questionBankFile configured — sections will have no per-section MCQs');
