@@ -1014,7 +1014,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051005 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1244,9 +1244,19 @@ window.testUserSignIn = async function() {
   if (!email || !pwd) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
   if (!TEST_USERS[email]) { errEl.textContent = 'Invalid test credentials.'; errEl.style.display = 'block'; return; }
   // Real Firebase Auth sign-in. onAuthStateChanged handles all routing the same as Google sign-in.
-  // Browser password manager will offer to save credentials on first successful sign-in.
   try {
     await signInWithEmailAndPassword(auth, email, pwd);
+    // ── Explicitly ask the browser's password manager to save credentials.
+    //    Required because the form uses preventDefault() with no navigation,
+    //    which can suppress the auto save-prompt in Chrome/Edge.
+    if (window.PasswordCredential) {
+      try {
+        const cred = new PasswordCredential({ id: email, password: pwd, name: email });
+        if (navigator.credentials && navigator.credentials.store) {
+          await navigator.credentials.store(cred);
+        }
+      } catch(credErr) { /* non-fatal — sign-in already succeeded */ }
+    }
   } catch(e) {
     errEl.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Invalid test credentials.' : 'Sign-in failed: ' + (e.message || e.code);
     errEl.style.display = 'block';
@@ -3438,7 +3448,8 @@ async function revFetchFileFromGitHub(pat, repo, path) {
   const res = await fetch(url, { headers: { Authorization: 'token ' + pat, Accept: 'application/vnd.github+json' } });
   if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status} for ${path}`);
   const data = await res.json();
-  return atob(data.content.replace(/\n/g, ''));
+  // ── UTF-8 safe base64 decode (mirror of btoa(unescape(encodeURIComponent())) used in push) ──
+  return decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
 }
 
 async function revPushFileToGitHub(pat, repo, path, content) {
