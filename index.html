@@ -358,7 +358,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
       </button>
     </div>
     <div style="margin-top:18px;text-align:center;">
-      <button id="test-user-toggle" onclick="document.getElementById('test-user-form').style.display = document.getElementById('test-user-form').style.display==='block'?'none':'block';" style="background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">Test user sign-in</button>
+      <button id="test-user-toggle" onclick="document.getElementById('test-user-form').style.display = document.getElementById('test-user-form').style.display==='block'?'none':'block';" style="display:none;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">Test user sign-in</button>
       <div id="test-user-form" style="display:none;margin-top:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px;max-width:340px;margin-left:auto;margin-right:auto;">
         <input id="test-email" type="email" placeholder="Test email" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
         <input id="test-password" type="password" placeholder="Password" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
@@ -1226,6 +1226,14 @@ window.manualSignIn = async function() {
 };
 
 // ── TEST USER SIGN-IN (hardcoded password gate, bypasses Firebase Auth) ──
+// Hidden by default; press Ctrl+Shift+L (or Cmd+Shift+L on Mac) to reveal the toggle.
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+    e.preventDefault();
+    const btn = document.getElementById('test-user-toggle');
+    if (btn) btn.style.display = btn.style.display === 'none' ? 'inline-block' : 'none';
+  }
+});
 // For non-SF Gmail testers: builds a fake `me` user object, then runs the same
 // post-auth role-routing logic as onAuthStateChanged would for a real Google user.
 window.testUserSignIn = async function() {
@@ -1305,8 +1313,20 @@ window.adminNav = function(section) {
 
 window.adminSignOut = async function() {
   $('admin-choice-screen').style.display='none';
-  $('choice-screen').style.display='none';
   $('app').style.display='none';
+  // ── Test user path: no Firebase Auth session, so onAuthStateChanged won't fire.
+  //    Reset state and return to choice-screen manually.
+  const isTestUser = me && me.uid && me.uid.startsWith('email_');
+  if (isTestUser) {
+    me = null; meEmail = null; myRole = null; inLearnerView = false;
+    $('choice-screen').style.display = 'flex';
+    // Re-hide test-user toggle and form so they aren't visible after sign-out
+    const t = $('test-user-toggle'), f = $('test-user-form');
+    if (t) t.style.display = 'none';
+    if (f) { f.style.display = 'none'; const e=$('test-email'),p=$('test-password'),er=$('test-user-error'); if(e)e.value=''; if(p)p.value=''; if(er)er.style.display='none'; }
+    return;
+  }
+  $('choice-screen').style.display='none';
   await signOut(auth);
 };
 
