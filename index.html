@@ -357,6 +357,15 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
         Sign in with Google
       </button>
     </div>
+    <div style="margin-top:18px;text-align:center;">
+      <button id="test-user-toggle" onclick="document.getElementById('test-user-form').style.display = document.getElementById('test-user-form').style.display==='block'?'none':'block';" style="background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">Test user sign-in</button>
+      <div id="test-user-form" style="display:none;margin-top:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px;max-width:340px;margin-left:auto;margin-right:auto;">
+        <input id="test-email" type="email" placeholder="Test email" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <input id="test-password" type="password" placeholder="Password" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <button onclick="testUserSignIn()" style="width:100%;background:#fff;color:#1a1a1a;border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:500;cursor:pointer;">Sign in</button>
+        <div id="test-user-error" style="color:#ff8a8a;font-size:11px;margin-top:6px;display:none;"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1005,7 +1014,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051001 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1023,6 +1032,10 @@ const FB = {
 };
 const ADMINS       = ['jv.ravichandran@sourcefuse.com'];
 const DOMAIN       = 'sourcefuse.com';
+const TEST_USERS   = {
+  'ravjv2013@gmail.com':           'SF-Test-2026!',
+  'noushin.khan7official@gmail.com':'SF-Test-2026!'
+};
 const FLAG_WAIT_MS = 5 * 60 * 1000;
 
 const app  = initializeApp(FB);
@@ -1210,6 +1223,64 @@ window.manualSignIn = async function() {
     if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
   }
+};
+
+// ── TEST USER SIGN-IN (hardcoded password gate, bypasses Firebase Auth) ──
+// For non-SF Gmail testers: builds a fake `me` user object, then runs the same
+// post-auth role-routing logic as onAuthStateChanged would for a real Google user.
+window.testUserSignIn = async function() {
+  const emailEl = $('test-email'), pwdEl = $('test-password'), errEl = $('test-user-error');
+  const email = (emailEl.value || '').trim().toLowerCase();
+  const pwd = pwdEl.value || '';
+  errEl.style.display = 'none';
+  if (!email || !pwd) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
+  if (!TEST_USERS[email] || TEST_USERS[email] !== pwd) {
+    errEl.textContent = 'Invalid test credentials.'; errEl.style.display = 'block'; return;
+  }
+  // Build a fake user object that mirrors a real Firebase Auth user
+  const fakeUid = 'email_' + btoa(email).replace(/=/g, '');
+  me = { uid: fakeUid, email: email, displayName: email.split('@')[0], photoURL: null };
+  meEmail = email;
+  $('user-name').textContent = me.displayName;
+  // Route based on role from Firestore (same as Google-auth path)
+  try {
+    const userData = await getUserByEmail(meEmail);
+    myRole = userData ? (userData.role || 'student') : 'student';
+  } catch(roleErr) {
+    console.warn('[SF Hub] Test user role lookup failed, defaulting to student:', roleErr.message);
+    myRole = 'student';
+  }
+  // Same routing as the real Google-auth path
+  if (myRole === 'reviewer' || myRole === 'proctor') {
+    let isAlsoLearner = false;
+    try {
+      const cSnap = await getDocs(collection(db,'courses'));
+      for (const cd of cSnap.docs) {
+        const nSnap = await getDoc(doc(db,'courses',cd.id,'nominations',meEmail));
+        if (nSnap.exists() && nSnap.data().nominated !== false) { isAlsoLearner = true; break; }
+      }
+      if (!isAlsoLearner) {
+        const eSnap = await getDocs(collection(db,'exams'));
+        for (const ed of eSnap.docs) {
+          const nSnap = await getDoc(doc(db,'exams',ed.id,'nominations',meEmail));
+          if (nSnap.exists() && (nSnap.data().nominated !== false || nSnap.data().examEligible)) { isAlsoLearner = true; break; }
+        }
+      }
+    } catch(e) { console.warn('[SF Hub] Test user dual-role check failed:', e.message); }
+    if (isAlsoLearner) {
+      $('choice-screen').style.display = 'none';
+      $('app').style.display = 'block';
+      showChips(); setupRoleToggle(myRole); startNotifListener();
+      switchRoleView('role');
+      return;
+    }
+    if (myRole === 'reviewer') { window.location.href = 'reviewer.html'; return; }
+    if (myRole === 'proctor')  { window.location.href = 'sf-certs-hub.html'; return; }
+  }
+  // Default: learner view
+  $('choice-screen').style.display = 'none';
+  $('app').style.display = 'block';
+  showChips(); route(); startNotifListener();
 };
 
 window.selectMode = function(mode) {
@@ -1757,9 +1828,8 @@ async function loadReviewerQueue() {
     for (const c of toReview) {
       const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
       const modules = c.reviewerConfig?.modules || [];
-      //const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
-      const reviewerUrl = c.url ? c.url.replace(/[^/]*\.html.*$/, '') + 'reviewer/' : '#';
-      
+      const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+
       // Fetch module progress from Firestore
       let moduleStatuses = [];
       let completedCount = 0;
@@ -1979,8 +2049,8 @@ async function loadReviewerQueueForPreview(reviewer) {
     const c={id:cSnap.id,...cSnap.data()};
     const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
     const modules = c.reviewerConfig?.modules || [];
-    //const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
-    const reviewerUrl = c.url ? c.url.replace(/[^/]*\.html.*$/, '') + 'reviewer/' : '#';
+    const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+
     // Fetch module progress for this reviewer
     let moduleStatuses = [];
     let completedCount = 0;
@@ -2795,7 +2865,7 @@ window.addUserToHub = async function() {
   // Validate
   errEl.style.display = 'none';
   if (!email) { errEl.textContent = 'Please enter an email address.'; errEl.style.display = 'block'; return; }
-  if (!email.endsWith('@sourcefuse.com')) { errEl.textContent = 'Only @sourcefuse.com email addresses are allowed.'; errEl.style.display = 'block'; return; }
+  if (!email.endsWith('@sourcefuse.com') && !TEST_USERS[email]) { errEl.textContent = 'Only @sourcefuse.com email addresses are allowed.'; errEl.style.display = 'block'; return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Invalid email format.'; errEl.style.display = 'block'; return; }
 
   // Check if already in the list
@@ -3889,7 +3959,8 @@ function revSignInOverlay() {
     <button class="sf-google-btn" id="sfGoogleSignInBtn"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"> Sign in with Google</button>
     <div class="sf-signin-divider">or</div>
     <input type="text" class="sf-fallback-input" id="sfEmailInput" placeholder="your.name@sourcefuse.com" autocomplete="off" inputmode="email">
-    <button class="sf-fallback-btn" id="sfEmailSignInBtn">Continue with SF email</button>
+    <input type="password" class="sf-fallback-input" id="sfPasswordInput" placeholder="Password (test users only)" autocomplete="off" style="margin-top:6px;">
+    <button class="sf-fallback-btn" id="sfEmailSignInBtn">Continue with email</button>
     <div class="sf-signin-error" id="sfSigninError"></div>
   </div>
 </div>`;
@@ -3910,7 +3981,8 @@ function sfHideOverlay(user){
   if(typeof sfInitSession==='function')sfInitSession();
   if(window._sfFirebaseReady&&typeof window.sfDb!=='undefined'&&typeof sfFetchAndMerge==='function')sfFetchAndMerge();
 }
-function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim();if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
+const SF_TEST_USERS={'ravjv2013@gmail.com':'SF-Test-2026!','noushin.khan7official@gmail.com':'SF-Test-2026!'};
+function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim().toLowerCase();const pwdEl=document.getElementById('sfPasswordInput');const pwd=pwdEl?pwdEl.value:'';if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(SF_TEST_USERS[email]){if(SF_TEST_USERS[email]!==pwd){sfShowError('Invalid test credentials.');return;}sfHideOverlay(email);return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
 async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{const r=await firebase.auth().signInWithPopup(provider);clearTimeout(t);sfHideOverlay(r.user);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
 function sfSignOut(){window.sfReviewerEmail=null;window.sfReviewerUid=null;const bar=document.getElementById('sfSignedInBar');const ov=document.getElementById('sfSigninOverlay');if(bar)bar.classList.add('hidden');if(ov)ov.classList.remove('hidden');if(typeof firebase!=='undefined'&&window._sfFirebaseReady)firebase.auth().signOut();}
 document.addEventListener('DOMContentLoaded',function(){const gb=document.getElementById('sfGoogleSignInBtn');const eb=document.getElementById('sfEmailSignInBtn');const so=document.getElementById('sfSignoutLink');if(gb)gb.addEventListener('click',sfSignInWithGoogle);if(eb)eb.addEventListener('click',sfSignInWithEmail);if(so)so.addEventListener('click',sfSignOut);});
