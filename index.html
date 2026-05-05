@@ -1014,7 +1014,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051003 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1802,7 +1802,7 @@ async function loadReviewerQueue() {
     for (const c of toReview) {
       const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
       const modules = c.reviewerConfig?.modules || [];
-      const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+      const reviewerUrl = c.url ? c.url.replace(/[^/]*\.html.*$/, '') + 'reviewer/' : '#';
 
       // Fetch module progress from Firestore
       let moduleStatuses = [];
@@ -2023,7 +2023,7 @@ async function loadReviewerQueueForPreview(reviewer) {
     const c={id:cSnap.id,...cSnap.data()};
     const slug = (c.reviewerConfig?.repo || '').replace(/[^a-z0-9-]/gi,'-').toLowerCase();
     const modules = c.reviewerConfig?.modules || [];
-    const reviewerUrl = c.url ? c.url.replace(/index\.html.*$/, '') + 'reviewer/' : '#';
+    const reviewerUrl = c.url ? c.url.replace(/[^/]*\.html.*$/, '') + 'reviewer/' : '#';
 
     // Fetch module progress for this reviewer
     let moduleStatuses = [];
