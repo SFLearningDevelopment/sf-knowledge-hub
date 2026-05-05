@@ -1023,7 +1023,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051009 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051010 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -3418,14 +3418,16 @@ async function revRunGeneration(files, config, mode) {
   if (config.questionBankFile) {
     try {
       const bankContent = await revFetchFileFromGitHub(pat, config.repo, config.questionBankFile);
+      // Strip JS block comments first so example assignments inside JSDoc don't fool the regex.
+      const bankStripped = bankContent.replace(/\/\*[\s\S]*?\*\//g, '');
       // Bank files assign to a window.* variable like: window.QS_QUESTION_BANK = {...};
       // Find the start of the object after `window.X = `, then walk braces (string-aware) to find its end.
-      const startMatch = bankContent.match(/window\.\w+\s*=\s*\{/);
+      const startMatch = bankStripped.match(/window\.\w+\s*=\s*\{/);
       if (startMatch) {
         const objStart = startMatch.index + startMatch[0].length - 1;  // index of opening `{`
         let depth = 0, i = objStart, inStr = false, strCh = '', escape = false;
-        for (; i < bankContent.length; i++) {
-          const ch = bankContent[i];
+        for (; i < bankStripped.length; i++) {
+          const ch = bankStripped[i];
           if (inStr) {
             if (escape) { escape = false; continue; }
             if (ch === '\\') { escape = true; continue; }
@@ -3433,16 +3435,11 @@ async function revRunGeneration(files, config, mode) {
             continue;
           }
           if (ch === '"' || ch === "'" || ch === '`') { inStr = true; strCh = ch; continue; }
-          if (ch === '/' && bankContent[i+1] === '/') { while (i < bankContent.length && bankContent[i] !== '\n') i++; continue; }
-          if (ch === '/' && bankContent[i+1] === '*') { i += 2; while (i < bankContent.length-1 && !(bankContent[i]==='*' && bankContent[i+1]==='/')) i++; i++; continue; }
+          if (ch === '/' && bankStripped[i+1] === '/') { while (i < bankStripped.length && bankStripped[i] !== '\n') i++; continue; }
           if (ch === '{') depth++;
           else if (ch === '}') { depth--; if (depth === 0) { i++; break; } }
         }
-        const objText = bankContent.slice(objStart, i);
-        console.log('[Bank Parse Debug] Total length:', bankContent.length, 'extracted obj length:', objText.length);
-        console.log('[Bank Parse Debug] First 200 chars of obj:', objText.slice(0, 200));
-        console.log('[Bank Parse Debug] Last 200 chars of obj:', objText.slice(-200));
-        console.log('[Bank Parse Debug] Char at end position', i, '=', JSON.stringify(bankContent[i-1]), 'depth at exit:', depth);
+        const objText = bankStripped.slice(objStart, i);
         window._revQuestionBank = Function('"use strict"; return (' + objText + ')')();
         console.log('[Reviewer Gen] Loaded question bank with', Object.keys(window._revQuestionBank).length, 'modules');
       } else {
