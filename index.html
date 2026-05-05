@@ -1023,7 +1023,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051008 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051009 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -3439,6 +3439,10 @@ async function revRunGeneration(files, config, mode) {
           else if (ch === '}') { depth--; if (depth === 0) { i++; break; } }
         }
         const objText = bankContent.slice(objStart, i);
+        console.log('[Bank Parse Debug] Total length:', bankContent.length, 'extracted obj length:', objText.length);
+        console.log('[Bank Parse Debug] First 200 chars of obj:', objText.slice(0, 200));
+        console.log('[Bank Parse Debug] Last 200 chars of obj:', objText.slice(-200));
+        console.log('[Bank Parse Debug] Char at end position', i, '=', JSON.stringify(bankContent[i-1]), 'depth at exit:', depth);
         window._revQuestionBank = Function('"use strict"; return (' + objText + ')')();
         console.log('[Reviewer Gen] Loaded question bank with', Object.keys(window._revQuestionBank).length, 'modules');
       } else {
