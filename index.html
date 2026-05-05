@@ -359,12 +359,12 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
     </div>
     <div style="margin-top:18px;text-align:center;">
       <button id="test-user-toggle" onclick="document.getElementById('test-user-form').style.display = document.getElementById('test-user-form').style.display==='block'?'none':'block';" style="display:none;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">Test user sign-in</button>
-      <div id="test-user-form" style="display:none;margin-top:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px;max-width:340px;margin-left:auto;margin-right:auto;">
-        <input id="test-email" type="email" placeholder="Test email" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
-        <input id="test-password" type="password" placeholder="Password" autocomplete="off" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
-        <button onclick="testUserSignIn()" style="width:100%;background:#fff;color:#1a1a1a;border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:500;cursor:pointer;">Sign in</button>
+      <form id="test-user-form" onsubmit="event.preventDefault();testUserSignIn();" style="display:none;margin-top:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px;max-width:340px;margin-left:auto;margin-right:auto;">
+        <input id="test-email" name="email" type="email" placeholder="Test email" autocomplete="email" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <input id="test-password" name="password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <button type="submit" style="width:100%;background:#fff;color:#1a1a1a;border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:500;cursor:pointer;">Sign in</button>
         <div id="test-user-error" style="color:#ff8a8a;font-size:11px;margin-top:6px;display:none;"></div>
-      </div>
+      </form>
     </div>
   </div>
 </div>
@@ -1017,7 +1017,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051002 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1121,7 +1121,7 @@ onAuthStateChanged(auth, async user => {
   // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
   try {
     $('loading-splash').classList.add('hidden');
-    if (user.email.split('@')[1] !== DOMAIN) {
+    if (user.email.split('@')[1] !== DOMAIN && !TEST_USERS[user.email.toLowerCase()]) {
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
       toast('Access denied — please use your @sourcefuse.com account.', 'error');
@@ -1242,53 +1242,15 @@ window.testUserSignIn = async function() {
   const pwd = pwdEl.value || '';
   errEl.style.display = 'none';
   if (!email || !pwd) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
-  if (!TEST_USERS[email] || TEST_USERS[email] !== pwd) {
-    errEl.textContent = 'Invalid test credentials.'; errEl.style.display = 'block'; return;
-  }
-  // Build a fake user object that mirrors a real Firebase Auth user
-  const fakeUid = 'email_' + btoa(email).replace(/=/g, '');
-  me = { uid: fakeUid, email: email, displayName: email.split('@')[0], photoURL: null };
-  meEmail = email;
-  $('user-name').textContent = me.displayName;
-  // Route based on role from Firestore (same as Google-auth path)
+  if (!TEST_USERS[email]) { errEl.textContent = 'Invalid test credentials.'; errEl.style.display = 'block'; return; }
+  // Real Firebase Auth sign-in. onAuthStateChanged handles all routing the same as Google sign-in.
+  // Browser password manager will offer to save credentials on first successful sign-in.
   try {
-    const userData = await getUserByEmail(meEmail);
-    myRole = userData ? (userData.role || 'student') : 'student';
-  } catch(roleErr) {
-    console.warn('[SF Hub] Test user role lookup failed, defaulting to student:', roleErr.message);
-    myRole = 'student';
+    await signInWithEmailAndPassword(auth, email, pwd);
+  } catch(e) {
+    errEl.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Invalid test credentials.' : 'Sign-in failed: ' + (e.message || e.code);
+    errEl.style.display = 'block';
   }
-  // Same routing as the real Google-auth path
-  if (myRole === 'reviewer' || myRole === 'proctor') {
-    let isAlsoLearner = false;
-    try {
-      const cSnap = await getDocs(collection(db,'courses'));
-      for (const cd of cSnap.docs) {
-        const nSnap = await getDoc(doc(db,'courses',cd.id,'nominations',meEmail));
-        if (nSnap.exists() && nSnap.data().nominated !== false) { isAlsoLearner = true; break; }
-      }
-      if (!isAlsoLearner) {
-        const eSnap = await getDocs(collection(db,'exams'));
-        for (const ed of eSnap.docs) {
-          const nSnap = await getDoc(doc(db,'exams',ed.id,'nominations',meEmail));
-          if (nSnap.exists() && (nSnap.data().nominated !== false || nSnap.data().examEligible)) { isAlsoLearner = true; break; }
-        }
-      }
-    } catch(e) { console.warn('[SF Hub] Test user dual-role check failed:', e.message); }
-    if (isAlsoLearner) {
-      $('choice-screen').style.display = 'none';
-      $('app').style.display = 'block';
-      showChips(); setupRoleToggle(myRole); startNotifListener();
-      switchRoleView('role');
-      return;
-    }
-    if (myRole === 'reviewer') { window.location.href = 'reviewer.html'; return; }
-    if (myRole === 'proctor')  { window.location.href = 'sf-certs-hub.html'; return; }
-  }
-  // Default: learner view
-  $('choice-screen').style.display = 'none';
-  $('app').style.display = 'block';
-  showChips(); route(); startNotifListener();
 };
 
 window.selectMode = function(mode) {
@@ -1313,20 +1275,12 @@ window.adminNav = function(section) {
 
 window.adminSignOut = async function() {
   $('admin-choice-screen').style.display='none';
-  $('app').style.display='none';
-  // ── Test user path: no Firebase Auth session, so onAuthStateChanged won't fire.
-  //    Reset state and return to choice-screen manually.
-  const isTestUser = me && me.uid && me.uid.startsWith('email_');
-  if (isTestUser) {
-    me = null; meEmail = null; myRole = null; inLearnerView = false;
-    $('choice-screen').style.display = 'flex';
-    // Re-hide test-user toggle and form so they aren't visible after sign-out
-    const t = $('test-user-toggle'), f = $('test-user-form');
-    if (t) t.style.display = 'none';
-    if (f) { f.style.display = 'none'; const e=$('test-email'),p=$('test-password'),er=$('test-user-error'); if(e)e.value=''; if(p)p.value=''; if(er)er.style.display='none'; }
-    return;
-  }
   $('choice-screen').style.display='none';
+  $('app').style.display='none';
+  // Re-hide test-user toggle and form so they're not visible after sign-out
+  const t = $('test-user-toggle'), f = $('test-user-form');
+  if (t) t.style.display = 'none';
+  if (f) { f.style.display = 'none'; const e=$('test-email'),p=$('test-password'),er=$('test-user-error'); if(e)e.value=''; if(p)p.value=''; if(er)er.style.display='none'; }
   await signOut(auth);
 };
 
