@@ -609,10 +609,8 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
             <!-- Question Bank file (for reviewer per-section MCQs) -->
             <div style="margin-bottom:18px;">
               <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Question Bank File</div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <input class="form-input" id="rev-question-bank-file" placeholder="e.g. quicksight-question-bank.js" style="flex:1;">
-                <div style="font-size:11px;color:var(--muted);min-width:200px;">Path in repo root. Bank must assign to <code>window.*</code> with <code>m1.s1</code> shape. Leave empty if course has no per-section reviewer MCQs.</div>
-              </div>
+              <input class="form-input" id="rev-question-bank-file" placeholder="e.g. quicksight-question-bank.js" style="width:100%;">
+              <div style="font-size:11px;color:var(--muted);margin-top:6px;">Path in repo root. Bank must assign to <code>window.*</code> with <code>m1.s1</code> shape. Leave empty if course has no per-section reviewer MCQs.</div>
             </div>
 
             <!-- Status gate message -->
@@ -1023,7 +1021,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605051010 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605081200 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
