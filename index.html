@@ -357,15 +357,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
         Sign in with Google
       </button>
     </div>
-    <div style="margin-top:18px;text-align:center;">
-      <button id="test-user-toggle" onclick="document.getElementById('test-user-form').style.display = document.getElementById('test-user-form').style.display==='block'?'none':'block';" style="display:none;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;">Test user sign-in</button>
-      <form id="test-user-form" onsubmit="event.preventDefault();testUserSignIn();" style="display:none;margin-top:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:14px;max-width:340px;margin-left:auto;margin-right:auto;">
-        <input id="test-email" name="email" type="email" placeholder="Test email" autocomplete="email" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
-        <input id="test-password" name="password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
-        <button type="submit" style="width:100%;background:#fff;color:#1a1a1a;border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:500;cursor:pointer;">Sign in</button>
-        <div id="test-user-error" style="color:#ff8a8a;font-size:11px;margin-top:6px;display:none;"></div>
-      </form>
-    </div>
+
   </div>
 </div>
 
@@ -1021,10 +1013,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152300 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152500 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1039,10 +1031,6 @@ const FB = {
 };
 const ADMINS       = ['jv.ravichandran@sourcefuse.com'];
 const DOMAIN       = 'sourcefuse.com';
-const TEST_USERS   = {
-  'ravjv2013@gmail.com':           'SF-Test-2026!',
-  'noushin.khan7official@gmail.com':'SF-Test-2026!'
-};
 const FLAG_WAIT_MS = 5 * 60 * 1000;
 
 const app  = initializeApp(FB);
@@ -1248,72 +1236,12 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
-// ── Handle Google redirect result on page load ──
-// After signInWithRedirect returns to this page, getRedirectResult resolves with
-// the credential. onAuthStateChanged fires automatically with the user; this call
-// is just to surface any redirect-level errors (e.g. account mismatch).
-getRedirectResult(auth).then(result => {
-  if (result && result.user) {
-    console.log('[SF Hub DEBUG] getRedirectResult: signed in as', result.user.email);
-  }
-}).catch(e => {
-  if (e && e.code !== 'auth/no-current-user') {
-    console.warn('[SF Hub DEBUG] getRedirectResult error:', e.code, e.message);
-    // Only show toast for real errors, not the "no redirect pending" case
-    if (e.code !== 'auth/null-user') {
-      toast('Sign-in error: ' + (e.message || e.code), 'error');
-    }
-  }
-});
-
 window.manualSignIn = async function() {
-  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Redirecting to Google...';
-  try {
-    // Use redirect (not popup) — popup is blocked by GitHub Pages COOP headers in iframe/LMS context.
-    // onAuthStateChanged will fire with the user on return; getRedirectResult handles the result.
-    await signInWithRedirect(auth, googleProvider);
-  }
+  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
+  try { await signInWithPopup(auth, googleProvider); }
   catch(e) {
+    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
-    toast('Sign-in failed. Please try again.','error');
-  }
-};
-
-// ── TEST USER SIGN-IN (hardcoded password gate, bypasses Firebase Auth) ──
-// Hidden by default; press Ctrl+Shift+L (or Cmd+Shift+L on Mac) to reveal the toggle.
-document.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
-    e.preventDefault();
-    const btn = document.getElementById('test-user-toggle');
-    if (btn) btn.style.display = btn.style.display === 'none' ? 'inline-block' : 'none';
-  }
-});
-// For non-SF Gmail testers: builds a fake `me` user object, then runs the same
-// post-auth role-routing logic as onAuthStateChanged would for a real Google user.
-window.testUserSignIn = async function() {
-  const emailEl = $('test-email'), pwdEl = $('test-password'), errEl = $('test-user-error');
-  const email = (emailEl.value || '').trim().toLowerCase();
-  const pwd = pwdEl.value || '';
-  errEl.style.display = 'none';
-  if (!email || !pwd) { errEl.textContent = 'Enter email and password.'; errEl.style.display = 'block'; return; }
-  if (!TEST_USERS[email]) { errEl.textContent = 'Invalid test credentials.'; errEl.style.display = 'block'; return; }
-  // Real Firebase Auth sign-in. onAuthStateChanged handles all routing the same as Google sign-in.
-  try {
-    await signInWithEmailAndPassword(auth, email, pwd);
-    // ── Explicitly ask the browser's password manager to save credentials.
-    //    Required because the form uses preventDefault() with no navigation,
-    //    which can suppress the auto save-prompt in Chrome/Edge.
-    if (window.PasswordCredential) {
-      try {
-        const cred = new PasswordCredential({ id: email, password: pwd, name: email });
-        if (navigator.credentials && navigator.credentials.store) {
-          await navigator.credentials.store(cred);
-        }
-      } catch(credErr) { /* non-fatal — sign-in already succeeded */ }
-    }
-  } catch(e) {
-    errEl.textContent = e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' ? 'Invalid test credentials.' : 'Sign-in failed: ' + (e.message || e.code);
-    errEl.style.display = 'block';
   }
 };
 
@@ -1341,10 +1269,6 @@ window.adminSignOut = async function() {
   $('admin-choice-screen').style.display='none';
   $('choice-screen').style.display='none';
   $('app').style.display='none';
-  // Re-hide test-user toggle and form so they're not visible after sign-out
-  const t = $('test-user-toggle'), f = $('test-user-form');
-  if (t) t.style.display = 'none';
-  if (f) { f.style.display = 'none'; const e=$('test-email'),p=$('test-password'),er=$('test-user-error'); if(e)e.value=''; if(p)p.value=''; if(er)er.style.display='none'; }
   await signOut(auth);
 };
 
@@ -2903,7 +2827,7 @@ window.addUserToHub = async function() {
   // Validate
   errEl.style.display = 'none';
   if (!email) { errEl.textContent = 'Please enter an email address.'; errEl.style.display = 'block'; return; }
-  if (!email.endsWith('@sourcefuse.com') && !TEST_USERS[email]) { errEl.textContent = 'Only @sourcefuse.com email addresses are allowed.'; errEl.style.display = 'block'; return; }
+  if (!email.endsWith('@sourcefuse.com')) { errEl.textContent = 'Only @sourcefuse.com email addresses are allowed.'; errEl.style.display = 'block'; return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'Invalid email format.'; errEl.style.display = 'block'; return; }
 
   // Check if already in the list
