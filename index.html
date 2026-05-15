@@ -1013,10 +1013,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152700 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605153000 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1029,7 +1029,7 @@ const FB = {
   projectId:"sfcertification-grafana",
   appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"
 };
-const ADMINS       = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com','harsh.kumar@sourcefuse.com','gaurav.mahajan@sourcefuse.com','anubhav.sharma@sourcefuse.com'];
+const ADMINS       = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
 const DOMAIN       = 'sourcefuse.com';
 const FLAG_WAIT_MS = 5 * 60 * 1000;
 
@@ -1114,32 +1114,37 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // ── Firebase fires onAuthStateChanged with a partial user (email=null) for brand-new
-  //    sign-ins while the profile is still loading. Call user.reload() to force the full
-  //    profile fetch, then continue — do NOT sign out or the second (complete) fire never arrives.
+  // ── Firebase fires onAuthStateChanged with a partial user (email=null) when the popup's
+  //    postMessage is blocked by COOP. The UID is established but profile data didn't transfer.
+  //    Try recovering the email from the ID token claims, which are populated independently.
   if (!user.email) {
-    console.warn('[SF Hub DEBUG] Partial auth — email null on first fire. Reloading profile...');
+    console.warn('[SF Hub DEBUG] Partial auth — email null. Attempting ID token claim recovery...');
     try {
-      await user.reload();
-      const fresh = auth.currentUser;
-      if (fresh && fresh.email) {
-        console.log('[SF Hub DEBUG] Profile reloaded successfully. Email:', fresh.email);
-        // Re-assign user to the fresh object and fall through to domain check below
-        user = fresh;
+      const tokenResult = await user.getIdTokenResult();
+      const claimEmail = tokenResult.claims.email;
+      if (claimEmail) {
+        console.log('[SF Hub DEBUG] Email recovered from token claims:', claimEmail);
+        // Patch the user object so the rest of the flow works normally
+        Object.defineProperty(user, 'email', { value: claimEmail, writable: true });
       } else {
-        // Reload didn't help — sign out silently and let them retry
-        console.warn('[SF Hub DEBUG] Reload did not recover email. Signing out silently.');
-        await signOut(auth);
-        $('loading-splash').classList.add('hidden');
-        $('admin-choice-screen').style.display = 'none';
-        $('app').style.display = 'none';
-        const btnP = $('manual-signin-btn');
-        if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
-        $('choice-screen').style.display = 'flex';
-        return;
+        // Try reload as a second fallback
+        await user.reload();
+        const fresh = auth.currentUser;
+        if (!fresh || !fresh.email) {
+          console.warn('[SF Hub DEBUG] Token claims and reload both failed to recover email. Signing out.');
+          await signOut(auth);
+          $('loading-splash').classList.add('hidden');
+          $('admin-choice-screen').style.display = 'none';
+          $('app').style.display = 'none';
+          const btnP = $('manual-signin-btn');
+          if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
+          $('choice-screen').style.display = 'flex';
+          return;
+        }
+        user = fresh;
       }
-    } catch(reloadErr) {
-      console.warn('[SF Hub DEBUG] user.reload() failed:', reloadErr.message);
+    } catch(tokenErr) {
+      console.warn('[SF Hub DEBUG] ID token recovery failed:', tokenErr.message);
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
       return;
@@ -1252,12 +1257,36 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// ── getRedirectResult: primary driver for redirect-based sign-in ──
+// Called on every page load. If the user just returned from Google via
+// signInWithRedirect, this resolves with a full credential (email guaranteed).
+// onAuthStateChanged will also fire, but the redirect result is the authoritative
+// source for new sign-ins — it completes the Firebase Auth record with the email.
+(async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      console.log('[SF Hub DEBUG] getRedirectResult: full sign-in complete for', result.user.email);
+      // onAuthStateChanged will fire with this complete user automatically.
+      // Nothing more to do here — the handler above takes over.
+    }
+  } catch(e) {
+    // auth/no-redirect-operation-pending is normal on every non-redirect page load
+    if (e.code !== 'auth/no-redirect-operation-pending') {
+      console.warn('[SF Hub DEBUG] getRedirectResult error:', e.code, e.message);
+      toast('Sign-in error — please try again.', 'error');
+      const btn = $('manual-signin-btn');
+      if (btn) { btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
+    }
+  }
+})();
+
 window.manualSignIn = async function() {
-  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
-  try { await signInWithPopup(auth, googleProvider); }
+  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Redirecting to Google...';
+  try { await signInWithRedirect(auth, googleProvider); }
   catch(e) {
-    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+    toast('Sign-in failed. Please try again.','error');
   }
 };
 
