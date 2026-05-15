@@ -1013,7 +1013,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152500 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152600 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
@@ -1114,20 +1114,36 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // ── GUARD: popup auth via COOP-restricted environment can return a user object with
-  //    no email (partial token exchange). Sign out silently and let them retry — do NOT
-  //    show "access denied" which implies they used the wrong account.
+  // ── Firebase fires onAuthStateChanged with a partial user (email=null) for brand-new
+  //    sign-ins while the profile is still loading. Call user.reload() to force the full
+  //    profile fetch, then continue — do NOT sign out or the second (complete) fire never arrives.
   if (!user.email) {
-    console.warn('[SF Hub DEBUG] Partial auth — user object has no email (COOP popup failure). Signing out silently.');
-    await signOut(auth);
-    $('loading-splash').classList.add('hidden');
-    $('admin-choice-screen').style.display = 'none';
-    $('app').style.display = 'none';
-    const btnP = $('manual-signin-btn');
-    if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
-    $('choice-screen').style.display = 'flex';
-    toast('Sign-in was interrupted — please try again.', 'error');
-    return;
+    console.warn('[SF Hub DEBUG] Partial auth — email null on first fire. Reloading profile...');
+    try {
+      await user.reload();
+      const fresh = auth.currentUser;
+      if (fresh && fresh.email) {
+        console.log('[SF Hub DEBUG] Profile reloaded successfully. Email:', fresh.email);
+        // Re-assign user to the fresh object and fall through to domain check below
+        user = fresh;
+      } else {
+        // Reload didn't help — sign out silently and let them retry
+        console.warn('[SF Hub DEBUG] Reload did not recover email. Signing out silently.');
+        await signOut(auth);
+        $('loading-splash').classList.add('hidden');
+        $('admin-choice-screen').style.display = 'none';
+        $('app').style.display = 'none';
+        const btnP = $('manual-signin-btn');
+        if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
+        $('choice-screen').style.display = 'flex';
+        return;
+      }
+    } catch(reloadErr) {
+      console.warn('[SF Hub DEBUG] user.reload() failed:', reloadErr.message);
+      await signOut(auth);
+      $('choice-screen').style.display = 'flex';
+      return;
+    }
   }
 
   // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
