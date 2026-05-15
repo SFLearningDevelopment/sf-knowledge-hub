@@ -1021,7 +1021,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605151400 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605151600 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1111,23 +1111,7 @@ const authTimeout = setTimeout(() => {
 }, 6000);
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-// Handle redirect result from signInWithRedirect
-// Must run before onAuthStateChanged to ensure redirect user is captured
-getRedirectResult(auth).then(result => {
-  if (result && result.user) {
-    console.log('[sf-knowledge-hub] Redirect sign-in complete:', result.user.email);
-    // onAuthStateChanged will fire automatically with this user
-  } else {
-    console.log('[sf-knowledge-hub] No redirect result — showing sign-in screen if needed');
-  }
-}).catch(e => {
-  console.warn('[sf-knowledge-hub] Redirect result error:', e.code, e.message);
-  // Show sign-in screen if redirect failed
-  if ($('loading-splash')) $('loading-splash').classList.add('hidden');
-  if ($('choice-screen')) $('choice-screen').style.display = 'flex';
-});
+googleProvider.setCustomParameters({ hd: 'sourcefuse.com', prompt: 'select_account' });
 
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
@@ -1241,9 +1225,9 @@ onAuthStateChanged(auth, async user => {
 
 window.manualSignIn = async function() {
   const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
-  try { await signInWithRedirect(auth, googleProvider); }
+  try { await signInWithPopup(auth, googleProvider); }
   catch(e) {
-    toast('Sign-in failed. Please try again.','error');
+    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
   }
 };
@@ -3660,6 +3644,8 @@ function revGenerateModulePage(module, sectionsJs, sectionQuestions, config) {
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+<meta http-equiv="Cross-Origin-Opener-Policy" content="unsafe-none">
+<meta http-equiv="Cross-Origin-Embedder-Policy" content="unsafe-none">
 <title>[Reviewer] Module ${module.num}: ${module.title}</title>
 <link href="https://fonts.googleapis.com/css2?family=Merriweather+Sans:wght@300;400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
 ${revNeutralCSS()}
@@ -4041,7 +4027,7 @@ function sfHideOverlay(user){
 }
 const SF_TEST_USERS={'ravjv2013@gmail.com':'SF-Test-2026!','noushin.khan7official@gmail.com':'SF-Test-2026!'};
 function sfSignInWithEmail(){const emailEl=document.getElementById('sfEmailInput');if(!emailEl)return;const email=emailEl.value.trim().toLowerCase();const pwdEl=document.getElementById('sfPasswordInput');const pwd=pwdEl?pwdEl.value:'';if(!email||!email.includes('@')){sfShowError('Please enter a valid email address.');return;}if(SF_TEST_USERS[email]){if(SF_TEST_USERS[email]!==pwd){sfShowError('Invalid test credentials.');return;}sfHideOverlay(email);return;}if(!email.endsWith('@sourcefuse.com')){sfShowError('Please use your @sourcefuse.com email address.');return;}sfHideOverlay(email);}
-async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{clearTimeout(t);await signInWithRedirect(auth,googleProvider);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
+async function sfSignInWithGoogle(){if(typeof firebase==='undefined'||!window._sfFirebaseReady){sfShowError('Popup blocked. Please enter your SF email below.');return;}const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({hd:'sourcefuse.com',prompt:'select_account'});const t=setTimeout(()=>sfShowError('Popup blocked. Please enter your SF email below.'),30000);try{const r=await signInWithPopup(auth,googleProvider);clearTimeout(t);sfHideOverlay(r.user);}catch(e){clearTimeout(t);sfShowError('Popup blocked. Please enter your SF email below.');}}
 function sfSignOut(){window.sfReviewerEmail=null;window.sfReviewerUid=null;const bar=document.getElementById('sfSignedInBar');const ov=document.getElementById('sfSigninOverlay');if(bar)bar.classList.add('hidden');if(ov)ov.classList.remove('hidden');if(typeof firebase!=='undefined'&&window._sfFirebaseReady)firebase.auth().signOut();}
 document.addEventListener('DOMContentLoaded',function(){const gb=document.getElementById('sfGoogleSignInBtn');const eb=document.getElementById('sfEmailSignInBtn');const so=document.getElementById('sfSignoutLink');if(gb)gb.addEventListener('click',sfSignInWithGoogle);if(eb)eb.addEventListener('click',sfSignInWithEmail);if(so)so.addEventListener('click',sfSignOut);});
 <\/script>`;
