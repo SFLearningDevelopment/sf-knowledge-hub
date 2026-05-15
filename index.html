@@ -1021,7 +1021,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605151200 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605151400 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1111,15 +1111,22 @@ const authTimeout = setTimeout(() => {
 }, 6000);
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ hd: 'sourcefuse.com', prompt: 'select_account' });
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Handle redirect result from signInWithRedirect
+// Must run before onAuthStateChanged to ensure redirect user is captured
 getRedirectResult(auth).then(result => {
   if (result && result.user) {
-    console.log('[sf-knowledge-hub] Redirect sign-in successful:', result.user.email);
+    console.log('[sf-knowledge-hub] Redirect sign-in complete:', result.user.email);
+    // onAuthStateChanged will fire automatically with this user
+  } else {
+    console.log('[sf-knowledge-hub] No redirect result — showing sign-in screen if needed');
   }
 }).catch(e => {
-  console.warn('[sf-knowledge-hub] Redirect result error:', e.message);
+  console.warn('[sf-knowledge-hub] Redirect result error:', e.code, e.message);
+  // Show sign-in screen if redirect failed
+  if ($('loading-splash')) $('loading-splash').classList.add('hidden');
+  if ($('choice-screen')) $('choice-screen').style.display = 'flex';
 });
 
 onAuthStateChanged(auth, async user => {
