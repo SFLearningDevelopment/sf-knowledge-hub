@@ -1013,10 +1013,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605153000 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605153100 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1103,7 +1103,8 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
-  console.log('[SF Hub DEBUG] onAuthStateChanged fired. user:', user ? user.email : 'null');
+  console.log('[SF Hub DEBUG] onAuthStateChanged fired. user:', user ? (user.email || '(uid only — resolving email...)') : 'null');
+
   if (!user) {
     $('loading-splash').classList.add('hidden');
     $('admin-choice-screen').style.display = 'none';
@@ -1114,68 +1115,59 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // ── Firebase fires onAuthStateChanged with a partial user (email=null) when the popup's
-  //    postMessage is blocked by COOP. The UID is established but profile data didn't transfer.
-  //    Try recovering the email from the ID token claims, which are populated independently.
-  if (!user.email) {
-    console.warn('[SF Hub DEBUG] Partial auth — email null. Attempting ID token claim recovery...');
+  // ── Resolve email ──────────────────────────────────────────────────────────
+  // COOP headers can block the popup postMessage, leaving user.email null even
+  // though Firebase Auth created the user. The ID token is fetched directly from
+  // Firebase's servers (no postMessage needed) and always carries the email claim.
+  let resolvedEmail = user.email;
+  if (!resolvedEmail) {
+    console.warn('[SF Hub DEBUG] user.email null — fetching from ID token...');
     try {
-      const tokenResult = await user.getIdTokenResult();
-      const claimEmail = tokenResult.claims.email;
-      if (claimEmail) {
-        console.log('[SF Hub DEBUG] Email recovered from token claims:', claimEmail);
-        // Patch the user object so the rest of the flow works normally
-        Object.defineProperty(user, 'email', { value: claimEmail, writable: true });
+      const token = await user.getIdTokenResult(true); // force-refresh to get full claims
+      resolvedEmail = token.claims.email || null;
+      if (resolvedEmail) {
+        console.log('[SF Hub DEBUG] Email from ID token:', resolvedEmail);
       } else {
-        // Try reload as a second fallback
-        await user.reload();
-        const fresh = auth.currentUser;
-        if (!fresh || !fresh.email) {
-          console.warn('[SF Hub DEBUG] Token claims and reload both failed to recover email. Signing out.');
-          await signOut(auth);
-          $('loading-splash').classList.add('hidden');
-          $('admin-choice-screen').style.display = 'none';
-          $('app').style.display = 'none';
-          const btnP = $('manual-signin-btn');
-          if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
-          $('choice-screen').style.display = 'flex';
-          return;
-        }
-        user = fresh;
+        console.warn('[SF Hub DEBUG] ID token has no email claim. Signing out.');
+        await signOut(auth);
+        $('loading-splash').classList.add('hidden');
+        $('choice-screen').style.display = 'flex';
+        return;
       }
-    } catch(tokenErr) {
-      console.warn('[SF Hub DEBUG] ID token recovery failed:', tokenErr.message);
+    } catch(e) {
+      console.warn('[SF Hub DEBUG] getIdTokenResult failed:', e.message);
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
       return;
     }
   }
 
-  // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
+  // ── Domain check ───────────────────────────────────────────────────────────
   try {
     $('loading-splash').classList.add('hidden');
-    const _emailDomain = user.email.split('@')[1].toLowerCase();
-    console.log('[SF Hub DEBUG] Email:', user.email, '| extracted domain:', _emailDomain, '| DOMAIN const:', DOMAIN);
-    if (_emailDomain !== DOMAIN.toLowerCase()) {
-      console.warn('[SF Hub DEBUG] ACCESS DENIED — email:', user.email, '| extracted:', _emailDomain, '| expected:', DOMAIN.toLowerCase());
+    const emailDomain = resolvedEmail.split('@')[1].toLowerCase();
+    console.log('[SF Hub DEBUG] Email:', resolvedEmail, '| domain:', emailDomain, '| expected:', DOMAIN);
+    if (emailDomain !== DOMAIN.toLowerCase()) {
+      console.warn('[SF Hub DEBUG] ACCESS DENIED — domain mismatch:', emailDomain);
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
       toast('Access denied — please use your @sourcefuse.com account.', 'error');
       return;
     }
-    console.log('[SF Hub DEBUG] Domain check PASSED for:', user.email);
-    me = user; meEmail = user.email.toLowerCase();
-    $('user-name').textContent = user.displayName || user.email;
+    console.log('[SF Hub DEBUG] Domain check PASSED for:', resolvedEmail);
+
+    // ── Set globals ────────────────────────────────────────────────────────
+    me = user;
+    meEmail = resolvedEmail.toLowerCase();
+    $('user-name').textContent = user.displayName || resolvedEmail;
     if (user.photoURL) $('user-avatar').src = user.photoURL;
 
+    // ── Role resolution ────────────────────────────────────────────────────
     console.log('[SF Hub DEBUG] meEmail:', meEmail, '| ADMINS:', ADMINS);
     if (ADMINS.includes(meEmail)) {
       myRole = 'admin';
       console.log('[SF Hub DEBUG] Role: admin');
     } else {
-      // ── FIX: role lookup wrapped in its own try/catch ──
-      // Firestore rules may deny learners from reading users/{email} directly.
-      // If this throws, we default safely to 'student' instead of crashing the page.
       try {
         const userData = await getUserByEmail(meEmail);
         myRole = userData ? (userData.role || 'student') : 'student';
@@ -1186,6 +1178,7 @@ onAuthStateChanged(auth, async user => {
       }
     }
 
+    // ── Routing ────────────────────────────────────────────────────────────
     console.log('[SF Hub DEBUG] Final role:', myRole, '| routing...');
     if (myRole === 'admin') {
       const params = new URLSearchParams(window.location.search);
@@ -1197,27 +1190,21 @@ onAuthStateChanged(auth, async user => {
         history.replaceState({}, '', window.location.pathname);
         return;
       }
-      const firstName = (user.displayName || user.email).split(' ')[0].split('@')[0];
+      const firstName = (user.displayName || resolvedEmail).split(' ')[0].split('@')[0];
       $('admin-first-name').textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
       $('choice-screen').style.display = 'none';
       $('admin-choice-screen').style.display = 'flex';
       return;
     }
 
-    // ── Dual-role check ──
-    // If user is reviewer or proctor, check if they are also nominated as a learner.
-    // If yes: show the hub with a role toggle pill instead of redirecting away.
-    // If no: redirect as normal (pure reviewer → reviewer.html, pure proctor → sf-certs-hub.html)
     if (myRole === 'reviewer' || myRole === 'proctor') {
       let isAlsoLearner = false;
       try {
-        // Check course nominations
         const cSnap = await getDocs(collection(db,'courses'));
         for (const cd of cSnap.docs) {
           const nSnap = await getDoc(doc(db,'courses',cd.id,'nominations',meEmail));
           if (nSnap.exists() && nSnap.data().nominated !== false) { isAlsoLearner = true; break; }
         }
-        // Check exam nominations if not already found
         if (!isAlsoLearner) {
           const eSnap = await getDocs(collection(db,'exams'));
           for (const ed of eSnap.docs) {
@@ -1228,17 +1215,12 @@ onAuthStateChanged(auth, async user => {
       } catch(e) { console.warn('[SF Hub] Dual-role check failed:', e.message); }
 
       if (isAlsoLearner) {
-        // Load hub with role toggle — default to their assigned role view
         $('choice-screen').style.display = 'none';
         $('app').style.display = 'block';
-        showChips();
-        setupRoleToggle(myRole);
-        startNotifListener();
-        // Default: show their assigned role view
+        showChips(); setupRoleToggle(myRole); startNotifListener();
         switchRoleView('role');
         return;
       }
-      // Pure role — no learner nominations — redirect as before
       if (myRole === 'reviewer') { window.location.href = 'reviewer.html'; return; }
       if (myRole === 'proctor')  { window.location.href = 'sf-certs-hub.html'; return; }
     }
@@ -1247,7 +1229,6 @@ onAuthStateChanged(auth, async user => {
     $('app').style.display = 'block'; showChips(); route(); startNotifListener();
 
   } catch(err) {
-    // ── FIX: catch-all — never leave learner on a blank screen ──
     console.error('[SF Hub] Auth routing error:', err);
     $('loading-splash').classList.add('hidden');
     $('choice-screen').style.display = 'flex';
@@ -1257,36 +1238,12 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
-// ── getRedirectResult: primary driver for redirect-based sign-in ──
-// Called on every page load. If the user just returned from Google via
-// signInWithRedirect, this resolves with a full credential (email guaranteed).
-// onAuthStateChanged will also fire, but the redirect result is the authoritative
-// source for new sign-ins — it completes the Firebase Auth record with the email.
-(async () => {
-  try {
-    const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      console.log('[SF Hub DEBUG] getRedirectResult: full sign-in complete for', result.user.email);
-      // onAuthStateChanged will fire with this complete user automatically.
-      // Nothing more to do here — the handler above takes over.
-    }
-  } catch(e) {
-    // auth/no-redirect-operation-pending is normal on every non-redirect page load
-    if (e.code !== 'auth/no-redirect-operation-pending') {
-      console.warn('[SF Hub DEBUG] getRedirectResult error:', e.code, e.message);
-      toast('Sign-in error — please try again.', 'error');
-      const btn = $('manual-signin-btn');
-      if (btn) { btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
-    }
-  }
-})();
-
 window.manualSignIn = async function() {
-  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Redirecting to Google...';
-  try { await signInWithRedirect(auth, googleProvider); }
+  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
+  try { await signInWithPopup(auth, googleProvider); }
   catch(e) {
+    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
-    toast('Sign-in failed. Please try again.','error');
   }
 };
 
