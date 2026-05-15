@@ -1128,10 +1128,10 @@ onAuthStateChanged(auth, async user => {
   // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
   try {
     $('loading-splash').classList.add('hidden');
-    if (user.email.split('@')[1] !== DOMAIN && !TEST_USERS[user.email.toLowerCase()]) {
+    if (!user.email || user.email.split('@')[1] !== DOMAIN && !TEST_USERS[user.email.toLowerCase()]) {
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
-      toast('Access denied — please use your @sourcefuse.com account.', 'error');
+      toast('Access denied — please sign in with your @sourcefuse.com Google account.', 'error');
       return;
     }
     me = user; meEmail = user.email.toLowerCase();
