@@ -1021,7 +1021,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152000 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152200 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1111,10 +1111,11 @@ const authTimeout = setTimeout(() => {
 }, 6000);
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ hd: 'sourcefuse.com', prompt: 'select_account' });
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 onAuthStateChanged(auth, async user => {
   clearTimeout(authTimeout);
+  console.log('[SF Hub DEBUG] onAuthStateChanged fired. user:', user ? user.email : 'null');
   if (!user) {
     $('loading-splash').classList.add('hidden');
     $('admin-choice-screen').style.display = 'none';
@@ -1128,18 +1129,24 @@ onAuthStateChanged(auth, async user => {
   // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
   try {
     $('loading-splash').classList.add('hidden');
-    if (!user.email || user.email.split('@')[1].toLowerCase() !== DOMAIN.toLowerCase()) {
+    const _emailDomain = user.email ? user.email.split('@')[1].toLowerCase() : null;
+    console.log('[SF Hub DEBUG] Email:', user.email, '| extracted domain:', _emailDomain, '| DOMAIN const:', DOMAIN);
+    if (!user.email || _emailDomain !== DOMAIN.toLowerCase()) {
+      console.warn('[SF Hub DEBUG] ACCESS DENIED — email:', user.email, '| extracted:', _emailDomain, '| expected:', DOMAIN.toLowerCase());
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
       toast('Access denied — please use your @sourcefuse.com account.', 'error');
       return;
     }
+    console.log('[SF Hub DEBUG] Domain check PASSED for:', user.email);
     me = user; meEmail = user.email.toLowerCase();
     $('user-name').textContent = user.displayName || user.email;
     if (user.photoURL) $('user-avatar').src = user.photoURL;
 
+    console.log('[SF Hub DEBUG] meEmail:', meEmail, '| ADMINS:', ADMINS);
     if (ADMINS.includes(meEmail)) {
       myRole = 'admin';
+      console.log('[SF Hub DEBUG] Role: admin');
     } else {
       // ── FIX: role lookup wrapped in its own try/catch ──
       // Firestore rules may deny learners from reading users/{email} directly.
@@ -1147,12 +1154,14 @@ onAuthStateChanged(auth, async user => {
       try {
         const userData = await getUserByEmail(meEmail);
         myRole = userData ? (userData.role || 'student') : 'student';
+        console.log('[SF Hub DEBUG] Role from Firestore:', myRole, '| userData:', JSON.stringify(userData));
       } catch(roleErr) {
         console.warn('[SF Hub] Role lookup failed, defaulting to student:', roleErr.message);
         myRole = 'student';
       }
     }
 
+    console.log('[SF Hub DEBUG] Final role:', myRole, '| routing...');
     if (myRole === 'admin') {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view');
