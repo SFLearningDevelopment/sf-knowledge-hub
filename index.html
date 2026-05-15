@@ -357,6 +357,17 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
         Sign in with Google
       </button>
     </div>
+    <div style="margin-top:16px;text-align:center;">
+      <div style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:12px;letter-spacing:0.05em;">OR SIGN IN WITH EMAIL</div>
+      <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:16px;max-width:320px;margin:0 auto;">
+        <input id="ep-email" type="email" placeholder="you@sourcefuse.com" autocomplete="email"
+          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:9px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <input id="ep-password" type="password" placeholder="Password" autocomplete="current-password"
+          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:9px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;">
+        <button onclick="emailPasswordSignIn()" style="width:100%;background:#2563eb;color:#fff;border:none;border-radius:6px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;">Sign in</button>
+        <div id="ep-error" style="color:#ff8a8a;font-size:11px;margin-top:6px;display:none;"></div>
+      </div>
+    </div>
 
   </div>
 </div>
@@ -1013,10 +1024,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605153200 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605153300 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1244,6 +1255,26 @@ window.manualSignIn = async function() {
   catch(e) {
     if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+  }
+};
+
+window.emailPasswordSignIn = async function() {
+  const email    = ($('ep-email').value || '').trim().toLowerCase();
+  const password = $('ep-password').value || '';
+  const errEl    = $('ep-error');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
+  if (!email.endsWith('@sourcefuse.com')) { errEl.textContent = 'Only @sourcefuse.com accounts are allowed.'; errEl.style.display = 'block'; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged takes over from here
+  } catch(e) {
+    errEl.textContent = (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential')
+      ? 'Incorrect password. Please try again.'
+      : (e.code === 'auth/user-not-found')
+      ? 'No account found for this email.'
+      : 'Sign-in failed: ' + (e.message || e.code);
+    errEl.style.display = 'block';
   }
 };
 
