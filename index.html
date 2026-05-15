@@ -1021,10 +1021,10 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152200 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202605152300 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc, serverTimestamp,
@@ -1126,12 +1126,28 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
+  // ── GUARD: popup auth via COOP-restricted environment can return a user object with
+  //    no email (partial token exchange). Sign out silently and let them retry — do NOT
+  //    show "access denied" which implies they used the wrong account.
+  if (!user.email) {
+    console.warn('[SF Hub DEBUG] Partial auth — user object has no email (COOP popup failure). Signing out silently.');
+    await signOut(auth);
+    $('loading-splash').classList.add('hidden');
+    $('admin-choice-screen').style.display = 'none';
+    $('app').style.display = 'none';
+    const btnP = $('manual-signin-btn');
+    if (btnP) { btnP.disabled=false; btnP.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google'; }
+    $('choice-screen').style.display = 'flex';
+    toast('Sign-in was interrupted — please try again.', 'error');
+    return;
+  }
+
   // ── FIX: wrap all post-auth logic so a Firestore error never leaves a blank screen ──
   try {
     $('loading-splash').classList.add('hidden');
-    const _emailDomain = user.email ? user.email.split('@')[1].toLowerCase() : null;
+    const _emailDomain = user.email.split('@')[1].toLowerCase();
     console.log('[SF Hub DEBUG] Email:', user.email, '| extracted domain:', _emailDomain, '| DOMAIN const:', DOMAIN);
-    if (!user.email || _emailDomain !== DOMAIN.toLowerCase()) {
+    if (_emailDomain !== DOMAIN.toLowerCase()) {
       console.warn('[SF Hub DEBUG] ACCESS DENIED — email:', user.email, '| extracted:', _emailDomain, '| expected:', DOMAIN.toLowerCase());
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
@@ -1232,12 +1248,34 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// ── Handle Google redirect result on page load ──
+// After signInWithRedirect returns to this page, getRedirectResult resolves with
+// the credential. onAuthStateChanged fires automatically with the user; this call
+// is just to surface any redirect-level errors (e.g. account mismatch).
+getRedirectResult(auth).then(result => {
+  if (result && result.user) {
+    console.log('[SF Hub DEBUG] getRedirectResult: signed in as', result.user.email);
+  }
+}).catch(e => {
+  if (e && e.code !== 'auth/no-current-user') {
+    console.warn('[SF Hub DEBUG] getRedirectResult error:', e.code, e.message);
+    // Only show toast for real errors, not the "no redirect pending" case
+    if (e.code !== 'auth/null-user') {
+      toast('Sign-in error: ' + (e.message || e.code), 'error');
+    }
+  }
+});
+
 window.manualSignIn = async function() {
-  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
-  try { await signInWithPopup(auth, googleProvider); }
+  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Redirecting to Google...';
+  try {
+    // Use redirect (not popup) — popup is blocked by GitHub Pages COOP headers in iframe/LMS context.
+    // onAuthStateChanged will fire with the user on return; getRedirectResult handles the result.
+    await signInWithRedirect(auth, googleProvider);
+  }
   catch(e) {
-    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
     btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+    toast('Sign-in failed. Please try again.','error');
   }
 };
 
