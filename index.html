@@ -3636,7 +3636,7 @@ function revGenerateModulePage(module, sectionsJs, sectionQuestions, config) {
   const moduleId = 'module-' + module.num;
   const numMods = config.modules.length;
   // Build hub URL for redirect after completion
-  const hubUrl = 'https://sflearningdevelopment.github.io/sf-knowledge-hub/index.html';
+  const hubUrl = 'index.html'; // reviewer hub
 
   // Build sections with per-section questions
   const sectionCount = sectionsJs ? sectionsJs.length : 0;
@@ -3717,8 +3717,10 @@ function submitModuleComplete() {
   btn.textContent = 'Saving…';
   const comment = document.getElementById('module-comment')?.value || '';
   const completedAt = new Date().toISOString();
+  const completedState = { completed: true, comment, completedAt, sectionCount: SECTION_COUNT };
+  revSave(completedState);
   if (typeof sfWrite === 'function') {
-    sfWrite({ completed: true, comment, completedAt, sectionCount: SECTION_COUNT });
+    sfWrite(completedState);
   }
   setTimeout(() => { window.location.href = HUB_URL; }, 1200);
 }
@@ -4112,6 +4114,9 @@ window.sqCheck=function(secId,qi,correctIdx){
   const fb=document.getElementById('sq-fb-'+secId+'-'+qi);
   const btn=document.getElementById('sq-btn-'+secId+'-'+qi);
   const item=document.getElementById('sq-item-'+secId+'-'+qi);
+  // Track attempt count — incremented on every submit, right or wrong
+  const atKey='sq_'+secId+'_'+qi+'_attempts';
+  const st0=revLoad();st0[atKey]=(st0[atKey]||0)+1;revSave(st0);
   if(isCorrect){
     selected.classList.add('correct');
     if(fb){fb.textContent='\u2713 Correct!';fb.className='sq-feedback correct';}
