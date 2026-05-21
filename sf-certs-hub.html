@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202603181601 -->
+  <!-- Cache busting v202605212300 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -496,6 +496,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
   <div id="admin-view">
     <div class="admin-tabs">
       <button class="admin-tab active" id="atab-exams"        onclick="switchAdminTab('exams')">🎓 Exams</button>
+      <button class="admin-tab"        id="atab-examresults"  onclick="switchAdminTab('examresults')">📊 Exam Results</button>
       <button class="admin-tab"        id="atab-nominations"  onclick="switchAdminTab('nominations')">Nominations</button>
       <button class="admin-tab"        id="atab-monitor"      onclick="switchAdminTab('monitor')">Live Monitor</button>
       <button class="admin-tab"        id="atab-reports"      onclick="switchAdminTab('reports')">Reports</button>
@@ -538,6 +539,21 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:4px;">🔄 Proctor Reassignment Requests</div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Learners waiting for proctor slot confirmation. Reassign a proctor to unblock them.</div>
           <div id="reassign-requests-list"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXAM RESULTS TAB -->
+    <div class="admin-tab-content" id="atc-examresults">
+      <div class="atc-inner">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+          <h2 style="font-size:18px;font-weight:700;color:var(--text);margin:0;">Exam Results</h2>
+          <select id="er-exam-select" onchange="erSelectExam(this.value)" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text);min-width:240px;">
+            <option value="">— Select an exam —</option>
+          </select>
+        </div>
+        <div id="er-content">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Select an exam above to view results.</div>
         </div>
       </div>
     </div>
@@ -693,7 +709,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202603241004 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202605212300 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -1734,17 +1750,163 @@ async function initAdmin() {
 
 window.switchAdminTab = tab => {
   adminTab = tab;
-  ['exams','nominations','monitor','reports','auditlog'].forEach(t => {
+  ['exams','examresults','nominations','monitor','reports','auditlog'].forEach(t => {
     const btn = $(`atab-${t}`); const pane = $(`atc-${t}`);
     if (btn)  btn.className  = 'admin-tab' + (tab===t ? ' active' : '');
     if (pane) pane.className = 'admin-tab-content' + (tab===t ? ' active' : '');
   });
   if (tab === 'exams')       { loadAdminExams(); loadRescheduleRequests(); loadReassignmentRequests(); }
+  if (tab === 'examresults') loadExamResults();
   if (tab === 'monitor')     { loadBookedSlots(); startFlagListener(); }
   if (tab === 'reports')     loadReports();
   if (tab === 'nominations') populateNomExamSelect();
   if (tab === 'auditlog')    loadAuditLog();
 };
+
+
+// ── EXAM RESULTS TAB ─────────────────────────────────────────────────────────
+
+const PM_CERT_EXAM_ID = 'pm-cert';
+const PM_CERT_TITLE   = 'SF Certified AI-Augmented Project Manager';
+const ER_TOTAL_QS     = 36;
+
+let _erExams = [];
+let _erSelectedExam = null;
+
+async function loadExamResults() {
+  const sel = $('er-exam-select');
+  if (!sel) return;
+  if (_erExams.length === 0) {
+    try {
+      const snap = await getDocs(collection(db, 'exams'));
+      _erExams = [];
+      snap.forEach(d => _erExams.push({ id: d.id, ...d.data() }));
+    } catch(e) { console.warn('[ER] Failed to load exams:', e.message); }
+    sel.innerHTML = '<option value="">— Select an exam —</option>';
+    _erExams.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.title || e.id;
+      sel.appendChild(opt);
+    });
+    const pmOpt = document.createElement('option');
+    pmOpt.value = PM_CERT_EXAM_ID;
+    pmOpt.textContent = PM_CERT_TITLE + ' (Claude for PM)';
+    sel.appendChild(pmOpt);
+  }
+  $('er-content').innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Select an exam above to view results.</div>';
+}
+
+window.erSelectExam = async function(examId) {
+  const content = $('er-content');
+  if (!examId) { content.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Select an exam above to view results.</div>'; return; }
+  content.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Loading results...</div>';
+  _erSelectedExam = examId;
+  if (examId === PM_CERT_EXAM_ID) { await erLoadPmResults(content); }
+  else { await erLoadHubResults(examId, content); }
+};
+
+async function erLoadHubResults(examId, container) {
+  try {
+    const snap = await getDocs(query(collection(db, 'examSessions'), where('examId', '==', examId)));
+    const sessions = [];
+    snap.forEach(d => sessions.push({ id: d.id, ...d.data() }));
+    if (!sessions.length) { container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No results found for this exam.</div>'; return; }
+    const examMeta = _erExams.find(e => e.id === examId) || {};
+    container.innerHTML = erRenderHubTable(sessions, examMeta);
+  } catch(e) { container.innerHTML = '<div style="color:var(--coral);font-size:13px;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function erRenderHubTable(sessions, examMeta) {
+  const sorted = [...sessions].sort((a,b) => (b.completedAt?.seconds||0) - (a.completedAt?.seconds||0));
+  const passCount = sorted.filter(s => s.passed).length;
+  const rows = sorted.map(s => {
+    const date = s.completedAt?.toDate ? s.completedAt.toDate().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const time = s.completedAt?.toDate ? s.completedAt.toDate().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
+    const dur  = s.timeTaken != null ? Math.floor(s.timeTaken/60)+'m '+(s.timeTaken%60)+'s' : '—';
+    const badge = s.passed
+      ? '<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">PASSED</span>'
+      : '<span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">' + (s.status==='abandoned'?'TIMED OUT':'FAILED') + '</span>';
+    return '<tr><td style="padding:10px 14px;font-size:13px;">' + (s.candidateName||s.candidateEmail||'—') + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + (s.candidateEmail||'—') + '</td><td style="padding:10px 14px;">' + badge + '</td><td style="padding:10px 14px;font-size:13px;font-weight:700;">' + (s.score!=null?s.score+'%':'—') + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + date + (time?' · '+time:'') + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + dur + '</td></tr>';
+  }).join('');
+  return '<div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;"><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Total Attempts</div><div style="font-size:22px;font-weight:700;">' + sorted.length + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Pass Rate</div><div style="font-size:22px;font-weight:700;color:#1a6b3a;">' + (sorted.length?Math.round(passCount/sorted.length*100)+'%':'—') + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Passed</div><div style="font-size:22px;font-weight:700;">' + passCount + ' / ' + sorted.length + '</div></div></div><div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;">Note: Per-question breakdown not available for hub exams.</div><table style="width:100%;border-collapse:collapse;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;"><thead><tr style="background:var(--bg3);border-bottom:1px solid var(--border);"><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Name</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Email</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Result</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Score</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Date</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Duration</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+async function erLoadPmResults(container) {
+  try {
+    const snap = await getDocs(collection(db, 'pm_cert_results'));
+    if (!snap.size) { container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No PM cert results found.</div>'; return; }
+    const allLearners = [];
+    for (const learnerDoc of snap.docs) {
+      const email = learnerDoc.id;
+      const attSnap = await getDocs(collection(db,'pm_cert_results',email,'attempts'));
+      const attempts = [];
+      attSnap.forEach(d => attempts.push({ id: d.id, ...d.data() }));
+      attempts.sort((a,b) => (a.attemptNumber||0) - (b.attemptNumber||0));
+      if (attempts.length) allLearners.push({ email, attempts });
+    }
+    container.innerHTML = erRenderPmResults(allLearners);
+    allLearners.forEach(l => {
+      const row = document.getElementById('er-pm-row-' + l.email.replace(/[^a-z0-9]/gi,'_'));
+      if (row) row.addEventListener('click', () => erShowPmDetail(l));
+    });
+  } catch(e) { container.innerHTML = '<div style="color:var(--coral);font-size:13px;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function erRenderPmResults(learners) {
+  const passedLearners = learners.filter(l => l.attempts.some(a => a.pass)).length;
+  const rows = learners.map(l => {
+    const best = l.attempts.find(a => a.pass) || l.attempts[l.attempts.length-1];
+    const badge = best.pass
+      ? '<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">PASSED</span>'
+      : '<span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">NOT PASSED</span>';
+    const date = best.submittedAt ? new Date(best.submittedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const safeId = l.email.replace(/[^a-z0-9]/gi,'_');
+    return '<tr id="er-pm-row-' + safeId + '" style="cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''"><td style="padding:10px 14px;font-size:13px;">' + (best.name||l.email) + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + l.email + '</td><td style="padding:10px 14px;">' + badge + '</td><td style="padding:10px 14px;font-size:13px;font-weight:700;">' + Math.round((best.pct||0)*100) + '%</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + date + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + l.attempts.length + ' attempt' + (l.attempts.length>1?'s':'') + '</td><td style="padding:10px 14px;font-size:12px;color:var(--blue);">View &#x2192;</td></tr>';
+  }).join('');
+  return '<div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;"><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Learners</div><div style="font-size:22px;font-weight:700;">' + learners.length + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Pass Rate</div><div style="font-size:22px;font-weight:700;color:#1a6b3a;">' + (learners.length?Math.round(passedLearners/learners.length*100)+'%':'—') + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Passed</div><div style="font-size:22px;font-weight:700;">' + passedLearners + ' / ' + learners.length + '</div></div></div><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Click a learner to view per-question breakdown.</div><table style="width:100%;border-collapse:collapse;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;"><thead><tr style="background:var(--bg3);border-bottom:1px solid var(--border);"><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Name</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Email</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Result</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Best Score</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Date</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Attempts</th><th style="padding:10px 14px;"></th></tr></thead><tbody>' + rows + '</tbody></table><div id="er-pm-detail" style="margin-top:32px;"></div>';
+}
+
+let _erPmDetailOpen = null;
+function erShowPmDetail(learner) {
+  const detail = $('er-pm-detail');
+  if (!detail) return;
+  if (_erPmDetailOpen === learner.email) { detail.innerHTML=''; _erPmDetailOpen=null; return; }
+  _erPmDetailOpen = learner.email;
+  const attemptOpts = learner.attempts.map((a,i) =>
+    '<option value="' + i + '">Attempt #' + a.attemptNumber + ' — ' + new Date(a.submittedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ', ' + new Date(a.submittedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + '</option>'
+  ).join('');
+  detail.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;"><div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;"><div style="font-size:15px;font-weight:700;">' + (learner.attempts[0]?.name||learner.email) + '</div><select id="er-attempt-sel" onchange="erRenderAttemptDetail(this.value)" style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--text);">' + attemptOpts + '</select><button onclick="document.getElementById('er-pm-detail').innerHTML='';window._erPmDetailOpen=null;" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted);">Close</button></div><div id="er-attempt-body"></div></div>';
+  window._erCurrentLearner = learner;
+  erRenderAttemptDetail(0);
+}
+
+window.erRenderAttemptDetail = function(idx) {
+  const learner = window._erCurrentLearner;
+  if (!learner) return;
+  const attempt = learner.attempts[parseInt(idx)];
+  if (!attempt) return;
+  const dur = attempt.durationSeconds != null ? Math.floor(attempt.durationSeconds/60)+'m '+(attempt.durationSeconds%60)+'s' : '—';
+  const pctStr = Math.round((attempt.pct||0)*100) + '%';
+  const badge = attempt.pass
+    ? '<span style="background:#1a6b3a;color:#fff;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;">PASSED (' + pctStr + ')</span>'
+    : '<span style="background:#c0392b;color:#fff;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;">NOT PASSED (' + pctStr + ')</span>';
+  const answers = attempt.answers || {};
+  const questions = attempt.questions || [];
+  let qRows = questions.length ? questions.map((q,i) => {
+    const chosen = answers['q'+(i+1)] != null ? answers['q'+(i+1)] : null;
+    const isCorrect = chosen === q.correct;
+    const resultBadge = isCorrect
+      ? '<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">CORRECT</span>'
+      : '<span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">INCORRECT</span>';
+    const chosenText = chosen != null ? (q.options?.[chosen]||'Option '+(chosen+1)) : 'No answer';
+    const correctText = q.options?.[q.correct]||'Option '+(q.correct+1);
+    return '<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' + resultBadge + '<span style="font-size:12px;color:var(--muted);">Q' + (i+1) + '</span></div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">' + (q.text||'') + '</div><div style="font-size:12px;color:' + (isCorrect?'#1a6b3a':'#c0392b') + ';margin-bottom:4px;"><strong>Selected:</strong> ' + chosenText + '</div>' + (!isCorrect?'<div style="font-size:12px;color:#1a6b3a;"><strong>Correct:</strong> ' + correctText + '</div>':'') + '</div>';
+  }).join('') : '<div style="color:var(--muted);font-size:13px;">Per-question data not available.</div>';
+  $('er-attempt-body').innerHTML = '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">' + badge + '<span style="font-size:13px;color:var(--muted);">' + (attempt.correct||0) + ' / ' + ER_TOTAL_QS + ' correct · ' + dur + (attempt.timeUp?' · Timed out':'') + '</span></div>' + qRows;
+};
+
+// ── END EXAM RESULTS TAB ──────────────────────────────────────────────────────
 
 async function loadAdminExams() {
   $('exam-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">Loading…</td></tr>';
