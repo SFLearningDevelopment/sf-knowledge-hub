@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202605212300 -->
+  <!-- Cache busting v202606011800 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -716,7 +716,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/fireba
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
 import {
-  getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc,
+  getFirestore, collection, collectionGroup, getDocs, doc, getDoc, setDoc, deleteDoc, addDoc,
   serverTimestamp, query, where, onSnapshot, orderBy, limit
 } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
@@ -1836,20 +1836,40 @@ function erRenderHubTable(sessions, examMeta) {
 
 async function erLoadPmResults(container) {
   try {
-    const snap = await getDocs(collection(db, 'pm_cert_results'));
-    if (!snap.size) { container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No PM cert results found.</div>'; return; }
-    const allLearners = [];
-    for (const learnerDoc of snap.docs) {
-      const email = learnerDoc.id;
-      const attSnap = await getDocs(collection(db,'pm_cert_results',email,'attempts'));
-      const attempts = [];
-      attSnap.forEach(d => attempts.push({ id: d.id, ...d.data() }));
-      attempts.sort((a,b) => (a.attemptNumber||0) - (b.attemptNumber||0));
-      if (attempts.length) allLearners.push({ email, attempts });
+    // Root cause fix: certification-test.html writes only to the
+    // pm_cert_results/{email}/attempts/{id} subcollection — it never writes
+    // a parent document at pm_cert_results/{email}.  Querying the top-level
+    // collection therefore always returns 0 docs.  We use collectionGroup to
+    // reach the attempts subcollection directly, then group by learner email.
+    const attSnap = await getDocs(collectionGroup(db, 'attempts'));
+
+    // Filter to only pm_cert_results attempts (guards against other future
+    // subcollections also named 'attempts' in this project).
+    const pmAttemptDocs = attSnap.docs.filter(
+      d => d.ref.parent.parent.parent.id === 'pm_cert_results'
+    );
+
+    if (!pmAttemptDocs.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No PM cert results found.</div>';
+      return;
     }
+
+    // Group attempts by learner email (parent document id).
+    const learnerMap = {};
+    pmAttemptDocs.forEach(d => {
+      const email = d.ref.parent.parent.id;   // pm_cert_results/{email}
+      if (!learnerMap[email]) learnerMap[email] = [];
+      learnerMap[email].push({ id: d.id, ...d.data() });
+    });
+
+    const allLearners = Object.entries(learnerMap).map(([email, attempts]) => {
+      attempts.sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
+      return { email, attempts };
+    });
+
     container.innerHTML = erRenderPmResults(allLearners);
     allLearners.forEach(l => {
-      const row = document.getElementById('er-pm-row-' + l.email.replace(/[^a-z0-9]/gi,'_'));
+      const row = document.getElementById('er-pm-row-' + l.email.replace(/[^a-z0-9]/gi, '_'));
       if (row) row.addEventListener('click', () => erShowPmDetail(l));
     });
   } catch(e) { container.innerHTML = '<div style="color:var(--coral);font-size:13px;padding:20px;">Error: ' + e.message + '</div>'; }
