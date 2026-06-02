@@ -1836,17 +1836,15 @@ function erRenderHubTable(sessions, examMeta) {
 
 async function erLoadPmResults(container) {
   try {
-    // Root cause fix: certification-test.html writes only to the
-    // pm_cert_results/{email}/attempts/{id} subcollection — it never writes
-    // a parent document at pm_cert_results/{email}.  Querying the top-level
-    // collection therefore always returns 0 docs.  We use collectionGroup to
-    // reach the attempts subcollection directly, then group by learner email.
+    // Uses collectionGroup('attempts') to reach the attempts subcollection
+    // directly. New path: courseExamResults/{email}/courses/claude-for-pm/attempts/{id}
+    // Parent documents are not required to exist for collectionGroup to work.
     const attSnap = await getDocs(collectionGroup(db, 'attempts'));
 
-    // Filter to only pm_cert_results attempts (guards against other future
-    // subcollections also named 'attempts' in this project).
+    // Filter to only claude-for-pm attempts by matching the courseId document.
+    // d.ref.parent.parent.id = courseId ('claude-for-pm')
     const pmAttemptDocs = attSnap.docs.filter(
-      d => d.ref.parent.parent.parent.id === 'pm_cert_results'
+      d => d.ref.parent.parent.id === 'claude-for-pm'
     );
 
     if (!pmAttemptDocs.length) {
@@ -1854,10 +1852,11 @@ async function erLoadPmResults(container) {
       return;
     }
 
-    // Group attempts by learner email (parent document id).
+    // Group attempts by learner email.
+    // d.ref.parent.parent.parent.parent.id = learnerId (email)
     const learnerMap = {};
     pmAttemptDocs.forEach(d => {
-      const email = d.ref.parent.parent.id;   // pm_cert_results/{email}
+      const email = d.ref.parent.parent.parent.parent.id;   // courseExamResults/{email}
       if (!learnerMap[email]) learnerMap[email] = [];
       learnerMap[email].push({ id: d.id, ...d.data() });
     });
