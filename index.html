@@ -505,6 +505,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
           <div class="sb-label">People</div>
           <div style="font-size:12px;color:var(--muted);padding:4px 8px 8px;line-height:1.5;">People are added via course &amp; exam nominations. Use below to set roles only.</div>
           <button class="save-btn" id="sb-add-person" style="width:100%;margin-top:4px;font-size:13px;padding:8px;">+ Set Person Role</button>
+          <button class="save-btn" onclick="openCourseProgressModal()" style="width:100%;margin-top:6px;font-size:13px;padding:8px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#818cf8;">📊 Course Progress</button>
         </div>
       </div>
       <div class="admin-content">
@@ -919,6 +920,34 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
           <button onclick="requestRemoveUser()" style="padding:11px 14px;border-radius:10px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#f87171;font-size:13px;font-weight:600;cursor:pointer;">🗑 Remove</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- COURSE PROGRESS MODAL -->
+<div id="cp-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(10,12,20,.92);backdrop-filter:blur(8px);overflow-y:auto;">
+  <div style="max-width:900px;margin:50px auto;padding:0 20px 80px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">📊 Course Progress</h2>
+        <p style="font-size:13px;color:var(--muted);margin-top:4px;">Section completion per learner across all courses.</p>
+      </div>
+      <button onclick="closeCourseProgressModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&#10005;</button>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Filter by course:</label>
+        <select id="cp-course-select" onchange="cpOnCourseChange()"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;min-width:220px;">
+          <option value="all">All Courses</option>
+          <option value="quicksight">QuickSight Essentials</option>
+          <option value="powerbi">Power BI Essentials</option>
+          <option value="tableau">Tableau Essentials</option>
+        </select>
+        <button onclick="openCourseProgressModal()"
+          style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;">↺ Refresh</button>
+      </div>
+      <div id="cp-body"></div>
     </div>
   </div>
 </div>
@@ -4225,7 +4254,230 @@ function initRevFirebase(){
 <\/script>`;
 }
 
-// ── Hook into selectCourse — revPopulateCourseConfig is called directly inside selectCourse above
+// ══ COURSE PROGRESS ══════════════════════════════════════════════════════════
+// Config: known module keys and section totals per course from progress/{uid}.
+// Keys must match exactly what each course module writes via arrayUnion().
+// Add courses here as they become active. total:null = count shown without denominator.
+const COURSE_PROGRESS_CFG = [
+  {
+    id: 'quicksight', name: 'QuickSight Essentials', examKey: 'qs_examUnlocked',
+    modules: [
+      {key:'m1', title:'Introduction & First Look',      total:5},
+      {key:'m2', title:'Data Preparation & Connections', total:7},
+      {key:'m3', title:'Building Visuals',               total:8},
+      {key:'m4', title:'Calculated Fields',              total:6},
+      {key:'m5', title:'Filters & Parameters',           total:5},
+      {key:'m6', title:'Sharing, Security & Governance', total:6}
+    ]
+  },
+  {
+    id: 'powerbi', name: 'Power BI Essentials', examKey: 'pb_examUnlocked',
+    modules: [
+      {key:'pb1', title:'Module 1', total:null},
+      {key:'pb2', title:'Module 2', total:null},
+      {key:'pb3', title:'Module 3', total:null},
+      {key:'pb4', title:'Module 4', total:null},
+      {key:'pb5', title:'Module 5', total:null},
+      {key:'pb6', title:'Module 6', total:null}
+    ]
+  },
+  {
+    id: 'tableau', name: 'Tableau Essentials', examKey: 'tb_examUnlocked',
+    modules: [
+      {key:'tb1', title:'Module 1', total:null},
+      {key:'tb2', title:'Module 2', total:null},
+      {key:'tb3', title:'Module 3', total:null},
+      {key:'tb4', title:'Module 4', total:null},
+      {key:'tb5', title:'Module 5', total:null},
+      {key:'tb6', title:'Module 6', total:null}
+    ]
+  }
+];
+
+function cpTotalSections(cfg) {
+  return cfg.modules.every(m => m.total !== null)
+    ? cfg.modules.reduce((s, m) => s + m.total, 0) : null;
+}
+
+function cpCalcProgress(data, cfg) {
+  let completed = 0;
+  const details = [];
+  for (const m of cfg.modules) {
+    const done = (data[m.key] || []).length;
+    completed += done;
+    details.push({key:m.key, title:m.title, done, total:m.total});
+  }
+  return {completed, details, examUnlocked: !!(data[cfg.examKey])};
+}
+
+let _cpRows = null; // cached after load
+
+window.openCourseProgressModal = async function() {
+  $('cp-modal').style.display = 'block';
+  $('cp-body').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:13px;">Loading progress data…</div>';
+  _cpRows = null;
+  try {
+    // Build email/name lookup from users collection
+    const userMap = {};
+    try {
+      const uSnap = await getDocs(collection(db,'users'));
+      uSnap.forEach(d => {
+        const ud = d.data();
+        const email = (ud.email && ud.email.includes('@')) ? ud.email.toLowerCase() : d.id;
+        const name  = ud.name || ud.displayName || email;
+        userMap[d.id] = {email, name};
+        if (email !== d.id) userMap[email] = {email, name};
+      });
+    } catch(e) { console.warn('[CP] user lookup failed:', e.message); }
+
+    // Read all progress documents
+    const pSnap = await getDocs(collection(db,'progress'));
+    const rows = [];
+    pSnap.forEach(d => {
+      const data = d.data();
+      const user = userMap[d.id] || {email:d.id, name:d.id};
+      const cp = {};
+      for (const cfg of COURSE_PROGRESS_CFG) {
+        const hasData = cfg.modules.some(m => (data[m.key]||[]).length > 0) || data[cfg.examKey];
+        if (hasData) cp[cfg.id] = cpCalcProgress(data, cfg);
+      }
+      if (Object.keys(cp).length > 0) rows.push({uid:d.id, email:user.email, name:user.name, cp});
+    });
+
+    _cpRows = rows;
+    _cpRender(rows);
+  } catch(e) {
+    $('cp-body').innerHTML = `<div style="color:#f87171;padding:20px;font-size:13px;">Error: ${e.message}</div>`;
+  }
+};
+
+function _cpRender(rows) {
+  const courseId = $('cp-course-select') ? $('cp-course-select').value : 'all';
+  const cfg = courseId !== 'all' ? COURSE_PROGRESS_CFG.find(c => c.id === courseId) : null;
+  const display = cfg ? rows.filter(r => r.cp[courseId]) : rows.filter(r => Object.keys(r.cp).length > 0);
+
+  if (!display.length) {
+    $('cp-body').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:13px;">' +
+      (cfg ? 'No learners have started this course yet.' : 'No course progress data found in Firestore yet.') + '</div>';
+    return;
+  }
+
+  let html = '';
+
+  // Stats bar (single course only)
+  if (cfg) {
+    const total = cpTotalSections(cfg);
+    let started = 0, unlocked = 0;
+    display.forEach(r => {
+      const p = r.cp[courseId];
+      if (p.examUnlocked) unlocked++;
+      else if (p.completed > 0) started++;
+    });
+    html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:var(--accent);">${display.length}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Learners</div>
+      </div>
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#f59e0b;">${started}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">In Progress</div>
+      </div>
+      <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#34d399;">${unlocked}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Exam Unlocked</div>
+      </div>
+    </div>`;
+  }
+
+  // Table header
+  html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr style="border-bottom:2px solid var(--border);">
+      <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Learner</th>`;
+
+  if (cfg) {
+    html += `<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Sections Done</th>
+      <th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Exam</th>
+      <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Per Module</th>`;
+  } else {
+    COURSE_PROGRESS_CFG.forEach(c => {
+      html += `<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${c.name.replace(' Essentials','')}</th>`;
+    });
+  }
+  html += '</tr></thead><tbody>';
+
+  // Rows
+  display.forEach((r, idx) => {
+    const initials = (r.name || r.email).substring(0,2).toUpperCase();
+    const bg = idx % 2 === 0 ? '' : 'background:rgba(255,255,255,.02);';
+    html += `<tr style="${bg}border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">${initials}</div>
+          <div>
+            <div style="font-weight:600;color:var(--text);font-size:13px;">${esc(r.name)}</div>
+            <div style="font-size:11px;color:var(--muted);">${esc(r.email)}</div>
+          </div>
+        </div>
+      </td>`;
+
+    if (cfg) {
+      const p = r.cp[courseId];
+      if (!p) {
+        html += `<td colspan="3" style="text-align:center;color:var(--muted);padding:10px;font-size:12px;">Not started</td>`;
+      } else {
+        const total = cpTotalSections(cfg);
+        const pct   = total ? Math.round((p.completed / total) * 100) : null;
+        const clr   = p.examUnlocked ? '#34d399' : (p.completed > 0 ? '#f59e0b' : 'var(--muted)');
+        html += `<td style="text-align:center;padding:10px;">
+            <div style="font-size:18px;font-weight:800;color:${clr};">${p.completed}${total ? ' / '+total : ''}</div>
+            ${pct !== null ? `<div style="font-size:10px;color:var(--muted);">${pct}%</div>` : ''}
+          </td>
+          <td style="text-align:center;padding:10px;">
+            ${p.examUnlocked
+              ? '<span style="background:rgba(52,211,153,.15);color:#34d399;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;">✓ Unlocked</span>'
+              : '<span style="background:rgba(255,255,255,.06);color:var(--muted);padding:3px 10px;border-radius:50px;font-size:11px;">Locked</span>'}
+          </td>
+          <td style="padding:10px;"><div style="display:flex;gap:4px;flex-wrap:wrap;">`;
+        p.details.forEach(m => {
+          const fill = m.done > 0
+            ? (m.total && m.done >= m.total ? '#34d399' : '#f59e0b')
+            : 'rgba(255,255,255,.1)';
+          html += `<div title="${esc(m.title)}: ${m.done}${m.total?'/'+m.total:''} sections"
+              style="width:28px;height:28px;border-radius:6px;background:${fill};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;cursor:default;">${m.done}</div>`;
+        });
+        html += `</div></td>`;
+      }
+    } else {
+      COURSE_PROGRESS_CFG.forEach(c => {
+        const p = r.cp[c.id];
+        if (!p) {
+          html += `<td style="text-align:center;padding:10px;color:var(--muted);font-size:12px;">—</td>`;
+        } else {
+          const total = cpTotalSections(c);
+          const clr   = p.examUnlocked ? '#34d399' : '#f59e0b';
+          html += `<td style="text-align:center;padding:10px;">
+              <div style="font-size:14px;font-weight:700;color:${clr};">${p.completed}${total ? '/'+total : ''}</div>
+              ${p.examUnlocked ? '<div style="font-size:10px;color:#34d399;">✓ Exam</div>' : ''}
+            </td>`;
+        }
+      });
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  $('cp-body').innerHTML = html;
+}
+
+window.cpOnCourseChange = function() { if (_cpRows) _cpRender(_cpRows); };
+
+window.closeCourseProgressModal = function() {
+  $('cp-modal').style.display = 'none';
+};
+
+// ── bump version ──
+// v202606021800
+
 </script>
 
 <!-- ══ REVIEWER GENERATION MODAL ══ -->
