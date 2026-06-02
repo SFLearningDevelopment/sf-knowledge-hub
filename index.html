@@ -865,7 +865,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
       <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
         <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Add New User to Hub</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <input id="add-user-email" placeholder="name@sourcefuse.com" style="flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" oninput="$('add-user-error').style.display='none'">
+          <input id="add-user-email" placeholder="name@sourcefuse.com" style="flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" oninput="document.getElementById('add-user-error').style.display='none'">
           <select id="add-user-role" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
             <option value="student">Student</option>
             <option value="reviewer">Reviewer</option>
@@ -1126,20 +1126,50 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  // ── Resolve email ──────────────────────────────────────────────────────────
-  // COOP headers can block the popup postMessage, leaving user.email null even
-  // though Firebase Auth created the user. The ID token is fetched directly from
-  // Firebase's servers (no postMessage needed) and always carries the email claim.
+  // ── Debug: full user identity dump on every auth state change ────────────
+  console.log('[SF Hub DEBUG] ── User identity ──────────────────────────────');
+  console.log('[SF Hub DEBUG] UID          :', user.uid);
+  console.log('[SF Hub DEBUG] displayName  :', user.displayName || '(none)');
+  console.log('[SF Hub DEBUG] user.email   :', user.email       || '(null)');
+  console.log('[SF Hub DEBUG] providerData :', JSON.stringify(
+    (user.providerData || []).map(p => ({
+      providerId:  p.providerId,
+      email:       p.email       || '(none)',
+      displayName: p.displayName || '(none)',
+      uid:         p.uid
+    }))
+  ));
+  console.log('[SF Hub DEBUG] ─────────────────────────────────────────────');
+
+  // ── Resolve email — three-step fallback ───────────────────────────────────
+  // Step 1: user.email (populated normally)
+  // Step 2: providerData[0].email (sync, covers COOP popup edge cases)
+  // Step 3: ID token claims (network call, last resort)
   let resolvedEmail = user.email;
+
+  // Step 2 — providerData fallback (synchronous, no network call)
   if (!resolvedEmail) {
-    console.warn('[SF Hub DEBUG] user.email null — fetching from ID token...');
+    const providerEmail = user.providerData?.[0]?.email || null;
+    if (providerEmail) {
+      resolvedEmail = providerEmail;
+      console.log('[SF Hub DEBUG] Email from providerData[0]:', resolvedEmail);
+    }
+  }
+
+  // Step 3 — ID token fallback (network call)
+  if (!resolvedEmail) {
+    console.warn('[SF Hub DEBUG] user.email and providerData both null — fetching from ID token...');
     try {
       const token = await user.getIdTokenResult(true); // force-refresh to get full claims
       resolvedEmail = token.claims.email || null;
       if (resolvedEmail) {
         console.log('[SF Hub DEBUG] Email from ID token:', resolvedEmail);
       } else {
-        console.warn('[SF Hub DEBUG] ID token has no email claim. Signing out.');
+        console.warn('[SF Hub DEBUG] All 3 email sources failed.');
+        console.warn('[SF Hub DEBUG] UID:', user.uid,
+          '| providerData:', JSON.stringify(user.providerData),
+          '| ID token claims:', JSON.stringify(token.claims));
+        console.warn('[SF Hub DEBUG] Signing out — cannot verify identity.');
         await signOut(auth);
         $('loading-splash').classList.add('hidden');
         $('choice-screen').style.display = 'flex';
