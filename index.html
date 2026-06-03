@@ -4296,8 +4296,20 @@ const COURSE_PROGRESS_CFG = [
 ,
   {
     id: 'claude-for-pm', name: 'Claude for PM', examKey: null,
+    source: 'courseProgress',   // reads new courseProgress collection (not legacy progress)
     modules: [
-      {key:'pm_examples', title:'Completed Examples', total:12}
+      {key:'example-1-scope',        title:'Project scoping',        total:1},
+      {key:'example-2-status',       title:'Status update',          total:1},
+      {key:'example-3-risk',         title:'Risk register',          total:1},
+      {key:'example-4-sprint',       title:'Sprint planning',        total:1},
+      {key:'example-5-requirements', title:'Requirements (MRD)',     total:1},
+      {key:'example-6-tracking',     title:'Escalation memo',        total:1},
+      {key:'example-7-reporting',    title:'Vendor evaluation',      total:1},
+      {key:'example-8-change',       title:'Stakeholder reporting',  total:1},
+      {key:'example-9-model',        title:'Model selection',        total:1},
+      {key:'example-10-rca',         title:'P1 incident RCA',        total:1},
+      {key:'example-11-contract',    title:'Contract red flags',     total:1},
+      {key:'example-12-cost',        title:'Cloud cost narrative',   total:1}
     ]
   }
 ];
@@ -4316,6 +4328,37 @@ function cpCalcProgress(data, cfg) {
     details.push({key:m.key, title:m.title, done, total:m.total});
   }
   return {completed, details, examUnlocked: !!(data[cfg.examKey])};
+}
+
+// PM reads the courseProgress map shape: courses['claude-for-pm'].modules{ id:{startedOn,completedOn,timeTaken,...} }
+function cpCalcProgressPM(courseObj, cfg) {
+  const mods = (courseObj && courseObj.modules) || {};
+  let completed = 0;
+  const details = [];
+  for (const m of cfg.modules) {
+    const entry = mods[m.key] || null;
+    const isDone = !!(entry && entry.completedOn);
+    if (isDone) completed++;
+    details.push({
+      key: m.key, title: m.title,
+      done: isDone ? 1 : 0, total: 1,
+      startedOn: entry ? (entry.startedOn || null) : null,
+      startedAt: entry ? (entry.startedAt || null) : null,
+      completedOn: entry ? (entry.completedOn || null) : null,
+      completedAt: entry ? (entry.completedAt || null) : null,
+      timeTaken: entry ? (entry.timeTaken || null) : null,
+      inProgress: !!(entry && entry.startedOn && !entry.completedOn)
+    });
+  }
+  return {
+    completed, details,
+    examUnlocked: !!(courseObj && courseObj.courseCompletedOn), // reuse "unlocked" slot = course complete
+    courseStartedOn:   courseObj ? (courseObj.courseStartedOn   || null) : null,
+    courseCompletedOn: courseObj ? (courseObj.courseCompletedOn || null) : null,
+    courseTimeTaken:   courseObj ? (courseObj.timeTaken         || null) : null,
+    moduleInProgress:  courseObj ? (courseObj.moduleInProgress  || null) : null,
+    isPM: true
+  };
 }
 
 let _cpRows = null; // cached after load
@@ -4338,19 +4381,50 @@ window.openCourseProgressModal = async function() {
       });
     } catch(e) { console.warn('[CP] user lookup failed:', e.message); }
 
-    // Read all progress documents
+    // Read all progress documents (legacy collection: BI courses)
     const pSnap = await getDocs(collection(db,'progress'));
-    const rows = [];
+    const rowMap = {};   // uid -> row (merged across collections)
     pSnap.forEach(d => {
       const data = d.data();
       const user = userMap[d.id] || {email:d.id, name:'User ' + d.id.substring(0,10) + '…'};
       const cp = {};
       for (const cfg of COURSE_PROGRESS_CFG) {
+        if (cfg.source === 'courseProgress') continue;   // handled separately below
         const hasData = cfg.modules.some(m => (data[m.key]||[]).length > 0) || data[cfg.examKey];
         if (hasData) cp[cfg.id] = cpCalcProgress(data, cfg);
       }
-      if (Object.keys(cp).length > 0) rows.push({uid:d.id, email:user.email, name:user.name, cp});
+      if (Object.keys(cp).length > 0) rowMap[d.id] = {uid:d.id, email:user.email, name:user.name, cp};
     });
+
+    // Read courseProgress documents (new collection: Claude for PM)
+    const pmCfg = COURSE_PROGRESS_CFG.find(c => c.source === 'courseProgress');
+    if (pmCfg) {
+      try {
+        const cpSnap = await getDocs(collection(db,'courseProgress'));
+        cpSnap.forEach(d => {
+          const data = d.data() || {};
+          const courseObj = (data.courses && data.courses[pmCfg.id]) || null;
+          if (!courseObj) return;
+          // identity: prefer users collection, then doc fields, then uid
+          const fallbackEmail = (data.email && data.email.includes('@')) ? data.email.toLowerCase() : d.id;
+          const um = userMap[d.id] || userMap[fallbackEmail];
+          const email = um ? um.email : fallbackEmail;
+          const name  = um ? um.name  : (data.name || email);
+          const prog = cpCalcProgressPM(courseObj, pmCfg);
+          // only show if learner has at least started a module or the course
+          const hasData = prog.completed > 0 || prog.courseStartedOn ||
+                          prog.details.some(x => x.startedOn);
+          if (!hasData) return;
+          if (rowMap[d.id]) {
+            rowMap[d.id].cp[pmCfg.id] = prog;
+          } else {
+            rowMap[d.id] = {uid:d.id, email, name, cp:{[pmCfg.id]: prog}};
+          }
+        });
+      } catch(e) { console.warn('[CP] courseProgress read failed:', e.message); }
+    }
+
+    const rows = Object.keys(rowMap).map(k => rowMap[k]);
 
     _cpRows = rows;
     _cpRender(rows);
@@ -4374,6 +4448,7 @@ function _cpRender(rows) {
 
   // Stats bar (single course only)
   if (cfg) {
+    const isPM = cfg.source === 'courseProgress';
     const total = cpTotalSections(cfg);
     let started = 0, unlocked = 0;
     display.forEach(r => {
@@ -4381,6 +4456,7 @@ function _cpRender(rows) {
       if (p.examUnlocked) unlocked++;
       else if (p.completed > 0) started++;
     });
+    const lastLabel = isPM ? 'Course Complete' : 'Exam Unlocked';
     html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
       <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:14px;text-align:center;">
         <div style="font-size:24px;font-weight:800;color:var(--accent);">${display.length}</div>
@@ -4392,7 +4468,7 @@ function _cpRender(rows) {
       </div>
       <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:14px;text-align:center;">
         <div style="font-size:24px;font-weight:800;color:#34d399;">${unlocked}</div>
-        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">Exam Unlocked</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;">${lastLabel}</div>
       </div>
     </div>`;
   }
@@ -4403,8 +4479,9 @@ function _cpRender(rows) {
       <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Learner</th>`;
 
   if (cfg) {
-    html += `<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Sections Done</th>
-      <th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Exam</th>
+    const isPM = cfg.source === 'courseProgress';
+    html += `<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${isPM ? 'Modules Done' : 'Sections Done'}</th>
+      <th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${isPM ? 'Status' : 'Exam'}</th>
       <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;">Per Module</th>`;
   } else {
     COURSE_PROGRESS_CFG.forEach(c => {
@@ -4429,6 +4506,7 @@ function _cpRender(rows) {
       </td>`;
 
     if (cfg) {
+      const isPM = cfg.source === 'courseProgress';
       const p = r.cp[courseId];
       if (!p) {
         html += `<td colspan="3" style="text-align:center;color:var(--muted);padding:10px;font-size:12px;">Not started</td>`;
@@ -4439,19 +4517,43 @@ function _cpRender(rows) {
         html += `<td style="text-align:center;padding:10px;">
             <div style="font-size:18px;font-weight:800;color:${clr};">${p.completed}${total ? ' / '+total : ''}</div>
             ${pct !== null ? `<div style="font-size:10px;color:var(--muted);">${pct}%</div>` : ''}
-          </td>
-          <td style="text-align:center;padding:10px;">
+          </td>`;
+        if (isPM) {
+          // Status: Completed (+timeTaken) / In progress / Not started
+          let statusHtml;
+          if (p.courseCompletedOn) {
+            statusHtml = `<span title="Completed ${esc(p.courseCompletedOn)}${p.courseTimeTaken ? ' • '+esc(p.courseTimeTaken) : ''}" style="background:rgba(52,211,153,.15);color:#34d399;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;">✓ Completed</span>`
+              + (p.courseTimeTaken ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;">${esc(p.courseTimeTaken)}</div>` : '');
+          } else if (p.completed > 0 || p.courseStartedOn) {
+            statusHtml = `<span style="background:rgba(245,158,11,.15);color:#f59e0b;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;">In progress</span>`;
+          } else {
+            statusHtml = `<span style="background:rgba(255,255,255,.06);color:var(--muted);padding:3px 10px;border-radius:50px;font-size:11px;">Not started</span>`;
+          }
+          html += `<td style="text-align:center;padding:10px;">${statusHtml}</td>`;
+        } else {
+          html += `<td style="text-align:center;padding:10px;">
             ${p.examUnlocked
               ? '<span style="background:rgba(52,211,153,.15);color:#34d399;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;">✓ Unlocked</span>'
               : '<span style="background:rgba(255,255,255,.06);color:var(--muted);padding:3px 10px;border-radius:50px;font-size:11px;">Locked</span>'}
-          </td>
-          <td style="padding:10px;"><div style="display:flex;gap:4px;flex-wrap:wrap;">`;
+          </td>`;
+        }
+        html += `<td style="padding:10px;"><div style="display:flex;gap:4px;flex-wrap:wrap;">`;
         p.details.forEach(m => {
-          const fill = m.done > 0
-            ? (m.total && m.done >= m.total ? '#34d399' : '#f59e0b')
-            : 'rgba(255,255,255,.1)';
-          html += `<div title="${esc(m.title)}: ${m.done}${m.total?'/'+m.total:''} sections"
-              style="width:28px;height:28px;border-radius:6px;background:${fill};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;cursor:default;">${m.done}</div>`;
+          let fill, tip;
+          if (isPM) {
+            fill = m.completedOn ? '#34d399' : (m.inProgress ? '#f59e0b' : 'rgba(255,255,255,.1)');
+            tip = m.title + ': ' + (m.completedOn
+              ? ('completed ' + m.completedOn + (m.timeTaken ? ' (' + m.timeTaken + ')' : ''))
+              : (m.inProgress ? ('started ' + (m.startedOn||'') + (m.startedAt? ' '+m.startedAt:'')) : 'not started'));
+          } else {
+            fill = m.done > 0
+              ? (m.total && m.done >= m.total ? '#34d399' : '#f59e0b')
+              : 'rgba(255,255,255,.1)';
+            tip = m.title + ': ' + m.done + (m.total?'/'+m.total:'') + ' sections';
+          }
+          const cellTxt = isPM ? (m.completedOn ? '✓' : (m.inProgress ? '·' : '')) : m.done;
+          html += `<div title="${esc(tip)}"
+              style="width:28px;height:28px;border-radius:6px;background:${fill};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;cursor:default;">${cellTxt}</div>`;
         });
         html += `</div></td>`;
       }
@@ -4461,11 +4563,12 @@ function _cpRender(rows) {
         if (!p) {
           html += `<td style="text-align:center;padding:10px;color:var(--muted);font-size:12px;">—</td>`;
         } else {
+          const isPM = c.source === 'courseProgress';
           const total = cpTotalSections(c);
           const clr   = p.examUnlocked ? '#34d399' : '#f59e0b';
           html += `<td style="text-align:center;padding:10px;">
               <div style="font-size:14px;font-weight:700;color:${clr};">${p.completed}${total ? '/'+total : ''}</div>
-              ${p.examUnlocked ? '<div style="font-size:10px;color:#34d399;">✓ Exam</div>' : ''}
+              ${p.examUnlocked ? `<div style="font-size:10px;color:#34d399;">${isPM ? '✓ Done' : '✓ Exam'}</div>` : ''}
             </td>`;
         }
       });
