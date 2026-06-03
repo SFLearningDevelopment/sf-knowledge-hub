@@ -505,7 +505,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
           <div class="sb-label">People</div>
           <div style="font-size:12px;color:var(--muted);padding:4px 8px 8px;line-height:1.5;">People are added via course &amp; exam nominations. Use below to set roles only.</div>
           <button class="save-btn" id="sb-add-person" style="width:100%;margin-top:4px;font-size:13px;padding:8px;">+ Set Person Role</button>
-          <button class="save-btn" onclick="openCourseProgressModal()" style="width:100%;margin-top:6px;font-size:13px;padding:8px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#818cf8;">📊 Course Progress</button>
+          <button class="save-btn" onclick="openCourseProgressModal()" style="width:100%;margin-top:6px;font-size:13px;padding:8px;">📊 Course Progress</button>
         </div>
       </div>
       <div class="admin-content">
@@ -943,6 +943,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
           <option value="quicksight">QuickSight Essentials</option>
           <option value="powerbi">Power BI Essentials</option>
           <option value="tableau">Tableau Essentials</option>
+          <option value="claude-for-pm">Claude for PM</option>
         </select>
         <button onclick="openCourseProgressModal()"
           style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;">↺ Refresh</button>
@@ -4292,6 +4293,13 @@ const COURSE_PROGRESS_CFG = [
       {key:'tb6', title:'Module 6', total:null}
     ]
   }
+,
+  {
+    id: 'claude-for-pm', name: 'Claude for PM', examKey: null,
+    modules: [
+      {key:'pm_examples', title:'Completed Examples', total:12}
+    ]
+  }
 ];
 
 function cpTotalSections(cfg) {
@@ -4335,7 +4343,7 @@ window.openCourseProgressModal = async function() {
     const rows = [];
     pSnap.forEach(d => {
       const data = d.data();
-      const user = userMap[d.id] || {email:d.id, name:d.id};
+      const user = userMap[d.id] || {email:d.id, name:'User ' + d.id.substring(0,10) + '…'};
       const cp = {};
       for (const cfg of COURSE_PROGRESS_CFG) {
         const hasData = cfg.modules.some(m => (data[m.key]||[]).length > 0) || data[cfg.examKey];
