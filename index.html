@@ -3304,16 +3304,7 @@ window.revAddModuleRow = function(num, title, file) {
 
   const repoFiles = revGetRepoFiles();
   let fileInput;
-  if (repoFiles) {
-    const opts = repoFiles.modules.map(m =>
-      `<option value="${m.file}" ${file===m.file?'selected':''}>${m.file} — ${m.title}</option>`
-    ).join('');
-    fileInput = `<select class="form-input" id="rev-mod-file-${n}" style="flex:2;">
-      <option value="">— Select file —</option>${opts}
-    </select>`;
-  } else {
-    fileInput = `<input class="form-input" id="rev-mod-file-${n}" value="${file||''}" placeholder="module-1.html" style="flex:2;" title="Path relative to repo root">`;
-  }
+  fileInput = `<input class="form-input" id="rev-mod-file-${n}" value="${file||''}" placeholder="module-1.html" style="flex:2;" title="Path relative to repo root">`;
 
   row.innerHTML = `
     <input class="form-input" id="rev-mod-num-${n}" value="${num||n}" placeholder="1" style="width:48px;flex-shrink:0;" title="Module number">
@@ -3336,16 +3327,11 @@ window.revToggleEval = function() {
 }
 
 function revPopulateEvalField() {
-  const repoFiles = revGetRepoFiles();
   const container = document.getElementById('rev-eval-input-wrap');
   if (!container) return;
-  if (repoFiles) {
-    container.innerHTML = `<select class="form-input" id="rev-eval-file" style="flex:1;">
-      <option value="${repoFiles.eval}" selected>${repoFiles.eval}</option>
-    </select>`;
-  } else {
-    container.innerHTML = `<input class="form-input" id="rev-eval-file" placeholder="e.g. evaluation.html" style="flex:1;">`;
-  }
+  // Always a plain text box: the admin types the evaluation file name manually.
+  // This value is used when "Generate Evaluation Review" is clicked.
+  container.innerHTML = `<input class="form-input" id="rev-eval-file" placeholder="e.g. evaluation.html" style="flex:1;">`;
 }
 
 // ── Populate reviewer section when a course is selected ──
