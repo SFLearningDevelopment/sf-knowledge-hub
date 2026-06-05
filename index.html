@@ -535,6 +535,11 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
             <div class="form-group" style="margin-bottom:14px;"><label class="form-label">Status</label>
               <select class="form-input" id="f-status"><option value="draft">Draft</option><option value="review">Under Review</option><option value="live">Live</option></select>
             </div>
+            <!-- Modules (course progress tracking) -->
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Modules</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Module title and file name (e.g. <code>module-1.html</code>) for each module in the course. Used for per-learner progress tracking. At least one module is required.</div>
+            <div id="cf-module-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+            <button type="button" onclick="cfAddModuleRow()" style="font-size:12px;padding:6px 14px;border-radius:7px;border:1px dashed var(--border);background:none;color:var(--muted);cursor:pointer;margin-bottom:18px;">+ Add Module</button>
             <button class="save-btn" id="save-course-btn">Save Course</button>
             <button class="danger-btn" id="delete-course-btn" style="margin-left:10px;">Delete</button>
           </div>
@@ -940,10 +945,6 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
         <select id="cp-course-select" onchange="cpOnCourseChange()"
           style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;min-width:220px;">
           <option value="all">All Courses</option>
-          <option value="quicksight">QuickSight Essentials</option>
-          <option value="powerbi">Power BI Essentials</option>
-          <option value="tableau">Tableau Essentials</option>
-          <option value="claude-for-pm">Claude for PM</option>
         </select>
         <button onclick="openCourseProgressModal()"
           style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;">↺ Refresh</button>
@@ -1762,6 +1763,50 @@ function renderCourseList() {
   });
 }
 
+// ══ COURSE MODULES EDITOR (course progress tracking) ══
+let cfModuleCount = 0;
+window.cfAddModuleRow = function(title, file) {
+  const wrap = $('cf-module-rows'); if (!wrap) return;
+  cfModuleCount++;
+  const n = cfModuleCount;
+  const row = document.createElement('div');
+  row.id = 'cf-mod-row-' + n;
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  row.innerHTML =
+    '<div style="width:34px;height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--muted);" class="cf-mod-index"></div>' +
+    '<input class="form-input cf-mod-title" id="cf-mod-title-' + n + '" placeholder="Module title" style="flex:1;min-width:120px;" value="' + (title ? esc(title) : '') + '">' +
+    '<input class="form-input cf-mod-file" id="cf-mod-file-' + n + '" placeholder="module-1.html" style="flex:1;min-width:120px;" value="' + (file ? esc(file) : '') + '">' +
+    '<button type="button" onclick="cfRemoveModuleRow(' + n + ')" style="flex-shrink:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 8px;">&times;</button>';
+  wrap.appendChild(row);
+  cfRenumberModuleRows();
+};
+window.cfRemoveModuleRow = function(n) {
+  const row = $('cf-mod-row-' + n); if (row) row.remove();
+  cfRenumberModuleRows();
+};
+function cfRenumberModuleRows() {
+  const rows = document.querySelectorAll('#cf-module-rows [id^="cf-mod-row-"]');
+  rows.forEach((row, i) => {
+    const idx = row.querySelector('.cf-mod-index');
+    if (idx) idx.textContent = (i + 1);
+  });
+}
+function cfPopulateModuleRows(modules) {
+  const wrap = $('cf-module-rows'); if (!wrap) return;
+  wrap.innerHTML = ''; cfModuleCount = 0;
+  (Array.isArray(modules) ? modules : []).forEach(m => cfAddModuleRow(m.title || '', m.file || ''));
+}
+function cfCollectModules() {
+  const out = [];
+  document.querySelectorAll('#cf-module-rows [id^="cf-mod-row-"]').forEach(row => {
+    const n = row.id.replace('cf-mod-row-', '');
+    const title = ($('cf-mod-title-' + n)?.value || '').trim();
+    const file  = ($('cf-mod-file-' + n)?.value || '').trim();
+    if (file) out.push({ title: title || file.replace(/\.html?$/i, ''), file });
+  });
+  return out;
+}
+
 async function selectCourse(id) {
   selCourse=id; selPerson=null; renderCourseList();
   hide('admin-placeholder'); hide('person-panel'); show('course-panel');
@@ -1770,6 +1815,7 @@ async function selectCourse(id) {
   $('f-url').value=c.url||''; $('f-duration').value=c.duration||''; $('f-level').value=c.level||'Beginner';
   $('f-icon').value=c.icon||'📘'; $('f-color').value=c.accentColor||'#3b82f6';
   $('f-order').value=c.order!=null?c.order:''; $('f-status').value=c.status||'draft';
+  cfPopulateModuleRows(c.modules);
   await loadNominations(id);
   await revPopulateCourseConfig(id);
 }
@@ -1778,7 +1824,9 @@ $('save-course-btn').addEventListener('click', async()=>{
   if (!selCourse) return;
   const btn=$('save-course-btn'); btn.disabled=true; btn.textContent='Saving...';
   try {
-    const data={title:$('f-title').value.trim()||'Untitled',category:$('f-category').value.trim(),description:$('f-desc').value.trim(),url:$('f-url').value.trim(),duration:$('f-duration').value.trim(),level:$('f-level').value,icon:$('f-icon').value.trim()||'📘',accentColor:$('f-color').value.trim()||'#3b82f6',order:parseInt($('f-order').value)||0,status:$('f-status').value,updatedAt:serverTimestamp()};
+    const modules=cfCollectModules();
+    if (!modules.length) { toast('Please add at least one module.','error'); btn.disabled=false; btn.textContent='Save Course'; return; }
+    const data={title:$('f-title').value.trim()||'Untitled',category:$('f-category').value.trim(),description:$('f-desc').value.trim(),url:$('f-url').value.trim(),duration:$('f-duration').value.trim(),level:$('f-level').value,icon:$('f-icon').value.trim()||'📘',accentColor:$('f-color').value.trim()||'#3b82f6',order:parseInt($('f-order').value)||0,status:$('f-status').value,modules:modules,updatedAt:serverTimestamp()};
     await setDoc(doc(db,'courses',selCourse),data,{merge:true});
     const i=courses.findIndex(c=>c.id===selCourse); if(i>=0) Object.assign(courses[i],data);
     renderCourseList(); toast('Course saved!','success');
@@ -4256,82 +4304,66 @@ function initRevFirebase(){
 }
 
 // ══ COURSE PROGRESS ══════════════════════════════════════════════════════════
-// Config: known module keys and section totals per course from progress/{uid}.
-// Keys must match exactly what each course module writes via arrayUnion().
-// Add courses here as they become active. total:null = count shown without denominator.
-const COURSE_PROGRESS_CFG = [
-  {
-    id: 'quicksight', name: 'QuickSight Essentials', examKey: 'qs_examUnlocked',
-    modules: [
-      {key:'m1', title:'Introduction & First Look',      total:5},
-      {key:'m2', title:'Data Preparation & Connections', total:7},
-      {key:'m3', title:'Building Visuals',               total:8},
-      {key:'m4', title:'Calculated Fields',              total:6},
-      {key:'m5', title:'Filters & Parameters',           total:5},
-      {key:'m6', title:'Sharing, Security & Governance', total:6}
-    ]
-  },
-  {
-    id: 'powerbi', name: 'Power BI Essentials', examKey: 'pb_examUnlocked',
-    modules: [
-      {key:'pb1', title:'Module 1', total:null},
-      {key:'pb2', title:'Module 2', total:null},
-      {key:'pb3', title:'Module 3', total:null},
-      {key:'pb4', title:'Module 4', total:null},
-      {key:'pb5', title:'Module 5', total:null},
-      {key:'pb6', title:'Module 6', total:null}
-    ]
-  },
-  {
-    id: 'tableau', name: 'Tableau Essentials', examKey: 'tb_examUnlocked',
-    modules: [
-      {key:'tb1', title:'Module 1', total:null},
-      {key:'tb2', title:'Module 2', total:null},
-      {key:'tb3', title:'Module 3', total:null},
-      {key:'tb4', title:'Module 4', total:null},
-      {key:'tb5', title:'Module 5', total:null},
-      {key:'tb6', title:'Module 6', total:null}
-    ]
-  }
-,
-  {
-    id: 'claude-for-pm', name: 'Claude for PM', examKey: null,
-    source: 'courseProgress',   // reads new courseProgress collection (not legacy progress)
-    modules: [
-      {key:'example-1-scope',        title:'Project scoping',        total:1},
-      {key:'example-2-status',       title:'Status update',          total:1},
-      {key:'example-3-risk',         title:'Risk register',          total:1},
-      {key:'example-4-sprint',       title:'Sprint planning',        total:1},
-      {key:'example-5-requirements', title:'Requirements (MRD)',     total:1},
-      {key:'example-6-tracking',     title:'Escalation memo',        total:1},
-      {key:'example-7-reporting',    title:'Vendor evaluation',      total:1},
-      {key:'example-8-change',       title:'Stakeholder reporting',  total:1},
-      {key:'example-9-model',        title:'Model selection',        total:1},
-      {key:'example-10-rca',         title:'P1 incident RCA',        total:1},
-      {key:'example-11-contract',    title:'Contract red flags',     total:1},
-      {key:'example-12-cost',        title:'Cloud cost narrative',   total:1}
-    ]
-  }
-];
+// Claude for PM is a special case: pre-existing courseProgress keys (example-N-*),
+// wired-in exam, no catalog modules array. All OTHER courses are derived dynamically
+// from the courses catalog (top-level `modules` array set in the New Course form) at
+// load time — see cpBuildConfigs(). Module key = module filename minus '.html'
+// (the join key with courseProgress, written by each course page).
+const CP_PM_CFG = {
+  id: 'claude-for-pm', name: 'Claude for PM', examKey: null,
+  source: 'courseProgress', isPMSpecial: true,
+  modules: [
+    {key:'example-1-scope',        title:'Project scoping',        total:1},
+    {key:'example-2-status',       title:'Status update',          total:1},
+    {key:'example-3-risk',         title:'Risk register',          total:1},
+    {key:'example-4-sprint',       title:'Sprint planning',        total:1},
+    {key:'example-5-requirements', title:'Requirements (MRD)',     total:1},
+    {key:'example-6-tracking',     title:'Escalation memo',        total:1},
+    {key:'example-7-reporting',    title:'Vendor evaluation',      total:1},
+    {key:'example-8-change',       title:'Stakeholder reporting',  total:1},
+    {key:'example-9-model',        title:'Model selection',        total:1},
+    {key:'example-10-rca',         title:'P1 incident RCA',        total:1},
+    {key:'example-11-contract',    title:'Contract red flags',     total:1},
+    {key:'example-12-cost',        title:'Cloud cost narrative',   total:1}
+  ]
+};
+
+let COURSE_PROGRESS_CFG = [CP_PM_CFG];
+
+function cpModuleKeyFromFile(file) {
+  return String(file || '').trim().replace(/\.html?$/i, '');
+}
+
+// Build configs from the courses catalog: PM special case + one cfg per course that
+// has a top-level `modules` array (set via the New Course form).
+function cpBuildConfigs(courseDocs) {
+  const cfgs = [CP_PM_CFG];
+  courseDocs.forEach(c => {
+    if (c.id === 'claude-for-pm') return;            // PM handled by special case
+    const mods = Array.isArray(c.modules) ? c.modules : [];
+    if (!mods.length) return;                        // no modules defined -> not tracked here
+    cfgs.push({
+      id: c.id,
+      name: c.title || c.id,
+      examKey: null,
+      source: 'courseProgress',
+      modules: mods.map((m, i) => ({
+        key:   cpModuleKeyFromFile(m.file),
+        title: m.title || ('Module ' + (i + 1)),
+        total: 1
+      })).filter(m => m.key)
+    });
+  });
+  return cfgs;
+}
 
 function cpTotalSections(cfg) {
   return cfg.modules.every(m => m.total !== null)
     ? cfg.modules.reduce((s, m) => s + m.total, 0) : null;
 }
 
-function cpCalcProgress(data, cfg) {
-  let completed = 0;
-  const details = [];
-  for (const m of cfg.modules) {
-    const done = (data[m.key] || []).length;
-    completed += done;
-    details.push({key:m.key, title:m.title, done, total:m.total});
-  }
-  return {completed, details, examUnlocked: !!(data[cfg.examKey])};
-}
-
-// PM reads the courseProgress map shape: courses['claude-for-pm'].modules{ id:{startedOn,completedOn,timeTaken,...} }
-function cpCalcProgressPM(courseObj, cfg) {
+// Calculate module-level progress for any courseProgress course (PM or catalog-derived).
+function cpCalcCourseProgress(courseObj, cfg) {
   const mods = (courseObj && courseObj.modules) || {};
   let completed = 0;
   const details = [];
@@ -4352,13 +4384,24 @@ function cpCalcProgressPM(courseObj, cfg) {
   }
   return {
     completed, details,
-    examUnlocked: !!(courseObj && courseObj.courseCompletedOn), // reuse "unlocked" slot = course complete
+    examUnlocked: !!(courseObj && courseObj.courseCompletedOn), // "unlocked" slot = course complete
     courseStartedOn:   courseObj ? (courseObj.courseStartedOn   || null) : null,
     courseCompletedOn: courseObj ? (courseObj.courseCompletedOn || null) : null,
     courseTimeTaken:   courseObj ? (courseObj.timeTaken         || null) : null,
     moduleInProgress:  courseObj ? (courseObj.moduleInProgress  || null) : null,
-    isPM: true
+    isPM: true   // all courseProgress courses use the module-level renderer
   };
+}
+
+// Populate the course filter dropdown from the current COURSE_PROGRESS_CFG.
+function cpPopulateCourseDropdown() {
+  const sel = $('cp-course-select');
+  if (!sel) return;
+  const prev = sel.value || 'all';
+  let opts = '<option value="all">All Courses</option>';
+  COURSE_PROGRESS_CFG.forEach(c => { opts += `<option value="${esc(c.id)}">${esc(c.name)}</option>`; });
+  sel.innerHTML = opts;
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 
 let _cpRows = null; // cached after load
@@ -4381,48 +4424,41 @@ window.openCourseProgressModal = async function() {
       });
     } catch(e) { console.warn('[CP] user lookup failed:', e.message); }
 
-    // Read all progress documents (legacy collection: BI courses)
-    const pSnap = await getDocs(collection(db,'progress'));
-    const rowMap = {};   // uid -> row (merged across collections)
-    pSnap.forEach(d => {
-      const data = d.data();
-      const user = userMap[d.id] || {email:d.id, name:'User ' + d.id.substring(0,10) + '…'};
-      const cp = {};
-      for (const cfg of COURSE_PROGRESS_CFG) {
-        if (cfg.source === 'courseProgress') continue;   // handled separately below
-        const hasData = cfg.modules.some(m => (data[m.key]||[]).length > 0) || data[cfg.examKey];
-        if (hasData) cp[cfg.id] = cpCalcProgress(data, cfg);
-      }
-      if (Object.keys(cp).length > 0) rowMap[d.id] = {uid:d.id, email:user.email, name:user.name, cp};
-    });
+    // Build course configs dynamically from the catalog (PM special case + any course
+    // with a top-level `modules` array). Module key = filename minus '.html'.
+    let courseDocs = [];
+    try {
+      const cSnap = await getDocs(collection(db,'courses'));
+      cSnap.forEach(d => courseDocs.push({id:d.id, ...d.data()}));
+    } catch(e) { console.warn('[CP] courses catalog read failed:', e.message); }
+    COURSE_PROGRESS_CFG = cpBuildConfigs(courseDocs);
+    cpPopulateCourseDropdown();
 
-    // Read courseProgress documents (new collection: Claude for PM)
-    const pmCfg = COURSE_PROGRESS_CFG.find(c => c.source === 'courseProgress');
-    if (pmCfg) {
-      try {
-        const cpSnap = await getDocs(collection(db,'courseProgress'));
-        cpSnap.forEach(d => {
-          const data = d.data() || {};
-          const courseObj = (data.courses && data.courses[pmCfg.id]) || null;
-          if (!courseObj) return;
-          // identity: prefer users collection, then doc fields, then uid
-          const fallbackEmail = (data.email && data.email.includes('@')) ? data.email.toLowerCase() : d.id;
-          const um = userMap[d.id] || userMap[fallbackEmail];
-          const email = um ? um.email : fallbackEmail;
-          const name  = um ? um.name  : (data.name || email);
-          const prog = cpCalcProgressPM(courseObj, pmCfg);
-          // only show if learner has at least started a module or the course
+    // Read all courseProgress documents and map each learner's per-course progress.
+    const rowMap = {};   // uid -> row
+    try {
+      const cpSnap = await getDocs(collection(db,'courseProgress'));
+      cpSnap.forEach(d => {
+        const data = d.data() || {};
+        const coursesObj = data.courses || {};
+        // identity: prefer users collection, then doc fields, then uid
+        const fallbackEmail = (data.email && data.email.includes('@')) ? data.email.toLowerCase() : d.id;
+        const um = userMap[d.id] || userMap[fallbackEmail];
+        const email = um ? um.email : fallbackEmail;
+        const name  = um ? um.name  : (data.name || email);
+
+        const cp = {};
+        for (const cfg of COURSE_PROGRESS_CFG) {
+          const courseObj = coursesObj[cfg.id];
+          if (!courseObj) continue;
+          const prog = cpCalcCourseProgress(courseObj, cfg);
           const hasData = prog.completed > 0 || prog.courseStartedOn ||
                           prog.details.some(x => x.startedOn);
-          if (!hasData) return;
-          if (rowMap[d.id]) {
-            rowMap[d.id].cp[pmCfg.id] = prog;
-          } else {
-            rowMap[d.id] = {uid:d.id, email, name, cp:{[pmCfg.id]: prog}};
-          }
-        });
-      } catch(e) { console.warn('[CP] courseProgress read failed:', e.message); }
-    }
+          if (hasData) cp[cfg.id] = prog;
+        }
+        if (Object.keys(cp).length > 0) rowMap[d.id] = {uid:d.id, email, name, cp};
+      });
+    } catch(e) { console.warn('[CP] courseProgress read failed:', e.message); }
 
     const rows = Object.keys(rowMap).map(k => rowMap[k]);
 
