@@ -1055,7 +1055,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202606080401 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202606080457 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -3630,21 +3630,63 @@ async function revPushFileToGitHub(pat, repo, path, content) {
 // ── Content extraction helpers ──
 function revExtractSections(html) {
   const m = html.match(/const SECTIONS\s*=\s*(\[[\s\S]*?\]);\s*\n/);
-  if (!m) throw new Error('SECTIONS array not found in source file');
-  // Fix encoding issues in extracted content
-  let sections = m[1];
-  const encodingFixes = [
-    ['\u00e2\u20ac\u201c', '\u2014'], // em dash
-    ['\u00e2\u20ac\u201d', '\u2013'], // en dash
-    ['\u00e2\u20ac\u2122', '\u2019'], // right single quote
-    ['\u00e2\u20ac\u02dc', '\u2018'], // left single quote
-    ['\u00e2\u20ac\u0153', '\u201c'], // left double quote
-    ['\u00e2\u20ac', '\u201d'],       // right double quote
-    ['\u00e2\u20ac\u00a2', '\u2022'], // bullet
-    ['\u00e2\u20ac\u00a6', '\u2026'], // ellipsis
-  ];
-  encodingFixes.forEach(([bad, good]) => { sections = sections.split(bad).join(good); });
-  return sections;
+  if (m) {
+    // Fix encoding issues in extracted content
+    let sections = m[1];
+    const encodingFixes = [
+      ['\u00e2\u20ac\u201c', '\u2014'], // em dash
+      ['\u00e2\u20ac\u201d', '\u2013'], // en dash
+      ['\u00e2\u20ac\u2122', '\u2019'], // right single quote
+      ['\u00e2\u20ac\u02dc', '\u2018'], // left single quote
+      ['\u00e2\u20ac\u0153', '\u201c'], // left double quote
+      ['\u00e2\u20ac', '\u201d'],       // right double quote
+      ['\u00e2\u20ac\u00a2', '\u2022'], // bullet
+      ['\u00e2\u20ac\u00a6', '\u2026'], // ellipsis
+    ];
+    encodingFixes.forEach(([bad, good]) => { sections = sections.split(bad).join(good); });
+    return sections;
+  }
+  // Fallback: course modules that express sections as HTML accordion blocks
+  // (e.g. <div class="accordion-item" data-section="1.1">…) with no const SECTIONS array.
+  // Build the same JS-array-literal string the SECTIONS path returns, with
+  // { id, title, badge, content } per section. id = integer suffix after the dot
+  // in data-section ("1.1" -> 1) so it joins with question-bank keys (s1..sN).
+  const fallback = revExtractSectionsFromHtml(html);
+  if (fallback) return fallback;
+  throw new Error('SECTIONS array not found in source file');
+}
+
+function revExtractSectionsFromHtml(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const items = doc.querySelectorAll('.accordion-item[data-section]');
+    if (!items.length) return null;
+    const objs = [];
+    items.forEach(item => {
+      const ds = (item.getAttribute('data-section') || '').trim();
+      // id = part after the dot, as integer (e.g. "1.1" -> 1, "5.10" -> 10)
+      const idPart = ds.indexOf('.') >= 0 ? ds.split('.').pop() : ds;
+      const id = parseInt(idPart, 10);
+      if (isNaN(id)) return;
+      const titleEl = item.querySelector('.accordion-title span');
+      let title = titleEl ? titleEl.textContent.trim() : ('Section ' + ds);
+      // Strip a leading "1.1 " numeric prefix if present, keeping the human title
+      title = title.replace(/^\s*\d+(?:\.\d+)*\s+/, '').trim() || title;
+      const badgeEl = item.querySelector('.badge');
+      const badge = badgeEl ? badgeEl.textContent.trim() : '';
+      const bodyEl = item.querySelector('.accordion-body');
+      const content = bodyEl ? bodyEl.innerHTML.trim() : '';
+      objs.push({ id, title, badge, content });
+    });
+    if (!objs.length) return null;
+    // Emit as a JS array literal. JSON.stringify produces valid JS and safely
+    // escapes the HTML content; downstream parses via Function(...) and embeds as
+    // `const SECTIONS=${sectionsJs};`, both of which accept JSON-shaped output.
+    return JSON.stringify(objs, null, 2);
+  } catch (e) {
+    console.warn('[Reviewer Gen] HTML section fallback failed:', e.message);
+    return null;
+  }
 }
 
 function revExtractQuestions(html) {
@@ -4608,7 +4650,7 @@ window.closeCourseProgressModal = function() {
 };
 
 // ── bump version ──
-// v202606080401
+// v202606080457
 
 </script>
 
