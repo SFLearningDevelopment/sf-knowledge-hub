@@ -3369,10 +3369,8 @@ async function revPopulateCourseConfig(courseId) {
     document.getElementById('rev-module-rows').innerHTML = '';
     revModuleCount = 0;
     if (rc.modules && rc.modules.length) {
-      const knownFiles = revGetRepoFiles();
       rc.modules.forEach(m => {
-        const resolvedFile = knownFiles ? (knownFiles.modules.find(kf => kf.num === m.num)?.file || m.file) : m.file;
-        revAddModuleRow(m.num, m.title, resolvedFile);
+        revAddModuleRow(m.num, m.title, m.file);
       });
     }
 
