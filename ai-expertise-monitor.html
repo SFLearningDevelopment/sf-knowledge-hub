@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New Age HRM Monitor &middot; SF Learning Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a1020; --bg2:#0e1628; --panel:#111c33; --panel2:#0c1426;
+    --border:#1e2c47; --border2:#2a3b5c;
+    --text:#e8eef8; --muted:#8aa0c4; --dim:#5f769a;
+    --blue:#3b82f6; --blue-dark:#2563eb; --blue-light:#1a2f52;
+    --green:#34d399; --green-dim:#0f3d2e;
+    --amber:#fbbf24; --amber-dim:#3a2e0a;
+    --radius:12px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; min-height:100vh; }
+
+  .topbar { background:var(--bg2); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand .logo { width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#3b82f6,#2563eb); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:15px; color:#fff; }
+  .brand .title { font-family:'Syne',sans-serif; font-weight:800; font-size:20px; }
+  .brand .title .accent { color:var(--blue); }
+  .badge-admin { font-family:'Source Code Pro',monospace; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--amber); background:var(--amber-dim); border:1px solid #5c4a12; padding:4px 10px; border-radius:20px; }
+  .top-actions { display:flex; gap:10px; align-items:center; }
+  .top-btn { background:var(--panel); border:1px solid var(--border2); color:var(--muted); border-radius:8px; padding:9px 16px; font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; font-family:'Inter',sans-serif; }
+  .top-btn:hover { color:var(--text); border-color:var(--blue); }
+
+  .wrap { max-width:1200px; margin:0 auto; padding:28px; }
+  .page-head { margin-bottom:22px; }
+  .page-head h1 { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; margin-bottom:6px; }
+  .page-head p { color:var(--muted); font-size:14.5px; }
+
+  .controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .controls input, .controls select { background:var(--panel); border:1px solid var(--border2); color:var(--text); border-radius:8px; padding:9px 12px; font-size:14px; font-family:'Inter',sans-serif; outline:none; }
+  .controls input:focus, .controls select:focus { border-color:var(--blue); }
+  .controls input { min-width:240px; }
+  .refresh-btn { background:var(--blue); border:none; color:#fff; border-radius:8px; padding:9px 18px; font-size:14px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; }
+  .refresh-btn:hover { background:var(--blue-dark); }
+  .count-pill { margin-left:auto; font-family:'Source Code Pro',monospace; font-size:13px; color:var(--muted); }
+
+  .table-wrap { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  table { width:100%; border-collapse:collapse; }
+  thead th { background:var(--panel2); text-align:left; font-size:12px; font-family:'Source Code Pro',monospace; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+  thead th .arrow { opacity:.5; font-size:10px; margin-left:4px; }
+  tbody td { padding:14px 16px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:top; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:var(--panel2); }
+  .learner-name { font-weight:600; color:var(--text); }
+  .learner-email { font-size:12px; color:var(--dim); font-family:'Source Code Pro',monospace; margin-top:2px; }
+  .module-tag { display:inline-block; font-size:12px; font-weight:600; color:var(--blue); background:var(--blue-light); padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .dt { font-family:'Source Code Pro',monospace; font-size:13px; color:var(--muted); white-space:nowrap; }
+  .response-cell { max-width:560px; }
+  .response-text { font-family:'Source Code Pro',monospace; font-size:13px; line-height:1.65; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:120px; overflow:hidden; position:relative; }
+  .response-text.expanded { max-height:none; }
+  .resp-toggle { margin-top:6px; background:none; border:none; color:var(--blue); font-size:12.5px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; padding:0; }
+  .resp-empty { color:var(--dim); font-style:italic; }
+
+  .state { text-align:center; padding:60px 20px; color:var(--muted); }
+  .state .spinner { width:34px; height:34px; border:3px solid var(--border2); border-top-color:var(--blue); border-radius:50%; margin:0 auto 16px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .hidden { display:none !important; }
+
+  .auth-overlay { position:fixed; inset:0; background:rgba(5,10,22,.85); display:flex; align-items:center; justify-content:center; z-index:9999; backdrop-filter:blur(5px); }
+  .auth-overlay.hidden { display:none; }
+  .auth-box { background:var(--panel); border:1px solid var(--border2); border-radius:16px; padding:44px 38px; max-width:420px; width:90%; text-align:center; }
+  .auth-logo { width:52px; height:52px; border-radius:13px; background:linear-gradient(135deg,#3b82f6,#2563eb); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:20px; color:#fff; margin:0 auto 18px; }
+  .auth-title { font-family:'Syne',sans-serif; font-size:21px; font-weight:800; margin-bottom:8px; }
+  .auth-sub { font-size:14.5px; color:var(--muted); line-height:1.6; margin-bottom:26px; }
+  .auth-google-btn { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; padding:13px 20px; border-radius:9px; background:var(--blue); color:#fff; border:none; font-size:15px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; }
+  .auth-google-btn:hover { background:var(--blue-dark); }
+  .auth-error { font-size:13px; color:#f87171; margin-top:14px; font-family:'Source Code Pro',monospace; }
+  footer { text-align:center; padding:24px; font-size:11px; font-family:'Source Code Pro',monospace; color:var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo">SF</div>
+    <div class="auth-title">New Age HRM Monitor</div>
+    <div class="auth-sub">Admin access only. Sign in with your SourceFuse admin account to view learner responses.</div>
+    <button class="auth-google-btn" id="googleSignInBtn">
+      <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-error hidden" id="authError"></div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">SF</div>
+    <div class="title">Learning <span class="accent">Hub</span></div>
+    <span class="badge-admin">Admin Monitor</span>
+  </div>
+  <div class="top-actions">
+    <span id="userEmail" class="dt"></span>
+    <a class="top-btn" href="index.html">&larr; Back to Hub</a>
+    <button class="top-btn" id="signOutBtn">Sign out</button>
+  </div>
+</div>
+
+<div class="wrap" id="content" style="display:none;">
+  <div class="page-head">
+    <h1>New Age HRM Monitor</h1>
+    <p>Interactive capstone challenge responses saved by learners across the AI Expertise for HR course.</p>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="searchInput" placeholder="Search learner, email, module, or response…">
+    <select id="moduleFilter"><option value="">All modules</option></select>
+    <button class="refresh-btn" id="refreshBtn">Refresh</button>
+    <span class="count-pill" id="countPill"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="learner">Learner <span class="arrow"></span></th>
+          <th data-sort="module">Module <span class="arrow"></span></th>
+          <th data-sort="datetime">Saved <span class="arrow"></span></th>
+          <th>Response</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="state" id="loadingState"><div class="spinner"></div>Loading responses…</div>
+    <div class="state hidden" id="emptyState">No saved challenge responses yet.</div>
+  </div>
+</div>
+
+<footer>SF Learning Hub &middot; New Age HRM Monitor &middot; CACHE_VERSION = <span id="cvLabel"></span></footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const CACHE_VERSION = '2026-06-17-v1';
+document.getElementById('cvLabel').textContent = CACHE_VERSION;
+console.log('%c[SF Knowledge Hub] ai-expertise-monitor.html — CACHE_VERSION = ' + CACHE_VERSION, 'color:#3b82f6;font-weight:bold;');
+
+const _FB_CONFIG = {
+  apiKey: "AIzaSyA-8fatW5D7uR69rcuGFPH54IFqrz0PhU0",
+  authDomain: "sfcertification-grafana.firebaseapp.com",
+  projectId: "sfcertification-grafana",
+  storageBucket: "sfcertification-grafana.firebasestorage.app",
+  messagingSenderId: "227322696511",
+  appId: "1:227322696511:web:12e7ced7dd3d45fa06798a"
+};
+const ADMINS = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
+
+if (!window._fbApp) { window._fbApp = firebase.initializeApp(_FB_CONFIG); }
+const _auth = firebase.auth(window._fbApp);
+const _db = firebase.firestore(window._fbApp);
+const _provider = new firebase.auth.GoogleAuthProvider();
+_provider.setCustomParameters({ hd: 'sourcefuse.com' });
+
+function showOverlay(msg) {
+  document.getElementById('authOverlay').classList.remove('hidden');
+  document.getElementById('content').style.display = 'none';
+  if (msg) { const e = document.getElementById('authError'); e.textContent = msg; e.classList.remove('hidden'); }
+}
+function hideOverlay() {
+  document.getElementById('authOverlay').classList.add('hidden');
+  document.getElementById('content').style.display = 'block';
+}
+
+document.getElementById('googleSignInBtn').addEventListener('click', function(){
+  _auth.signInWithPopup(_provider).catch(function(err){ showOverlay(err.message); });
+});
+document.getElementById('signOutBtn').addEventListener('click', function(){ _auth.signOut(); });
+
+_auth.onAuthStateChanged(function(user){
+  if (user && user.email && ADMINS.includes(user.email)) {
+    document.getElementById('userEmail').textContent = user.email;
+    hideOverlay();
+    loadResponses();
+  } else if (user && user.email) {
+    _auth.signOut();
+    showOverlay('This page is restricted to administrators.');
+  } else {
+    showOverlay();
+  }
+});
+
+// ---- data ----
+let ALL_ROWS = [];
+let nameCache = {};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+async function lookupName(uid, email) {
+  // Try users collection by uid, then by email-keyed doc. Fallback to email.
+  if (nameCache[uid] !== undefined) return nameCache[uid];
+  let name = '';
+  try {
+    const byUid = await _db.collection('users').doc(uid).get();
+    if (byUid.exists) { const d = byUid.data() || {}; name = d.name || d.displayName || d.fullName || ''; }
+  } catch(e) {}
+  if (!name && email) {
+    try {
+      const byEmail = await _db.collection('users').doc(email).get();
+      if (byEmail.exists) { const d = byEmail.data() || {}; name = d.name || d.displayName || d.fullName || ''; }
+    } catch(e) {}
+  }
+  nameCache[uid] = name || '';
+  return nameCache[uid];
+}
+
+async function loadResponses() {
+  document.getElementById('loadingState').classList.remove('hidden');
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('tableBody').innerHTML = '';
+  ALL_ROWS = [];
+  try {
+    const snap = await _db.collection('challengeResponses').get();
+    const rows = [];
+    snap.forEach(function(doc){
+      const data = doc.data() || {};
+      const uid = doc.id;
+      const email = data.email || '';
+      const challenges = data.challenges || {};
+      Object.keys(challenges).forEach(function(cid){
+        const c = challenges[cid] || {};
+        rows.push({
+          uid: uid,
+          email: email,
+          name: '',
+          challengeId: cid,
+          moduleId: c.moduleId || '',
+          moduleName: c.moduleName || c.moduleId || '(unknown module)',
+          response: c.response || '',
+          savedOn: c.savedOn || '',
+          savedAt: c.savedAt || '',
+          datetime: (c.savedOn || '') + (c.savedAt ? ' ' + c.savedAt : '')
+        });
+      });
+    });
+    // resolve names (parallel, cached per uid)
+    await Promise.all(rows.map(async function(r){ r.name = await lookupName(r.uid, r.email); }));
+    ALL_ROWS = rows;
+    populateModuleFilter();
+    render();
+  } catch(e) {
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('emptyState').textContent = 'Could not load responses: ' + e.message;
+    document.getElementById('emptyState').classList.remove('hidden');
+    console.warn('[monitor] load failed:', e.message);
+  }
+}
+
+function populateModuleFilter() {
+  const sel = document.getElementById('moduleFilter');
+  const current = sel.value;
+  const mods = Array.from(new Set(ALL_ROWS.map(function(r){ return r.moduleName; }))).sort();
+  sel.innerHTML = '<option value="">All modules</option>' + mods.map(function(m){ return '<option value="' + esc(m) + '">' + esc(m) + '</option>'; }).join('');
+  sel.value = current;
+}
+
+let sortKey = 'datetime', sortDir = -1;
+
+function render() {
+  document.getElementById('loadingState').classList.add('hidden');
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  const modF = document.getElementById('moduleFilter').value;
+
+  let rows = ALL_ROWS.slice();
+  if (modF) rows = rows.filter(function(r){ return r.moduleName === modF; });
+  if (q) rows = rows.filter(function(r){
+    return (r.name + ' ' + r.email + ' ' + r.moduleName + ' ' + r.response).toLowerCase().indexOf(q) !== -1;
+  });
+
+  rows.sort(function(a,b){
+    let av, bv;
+    if (sortKey === 'learner') { av = (a.name || a.email).toLowerCase(); bv = (b.name || b.email).toLowerCase(); }
+    else if (sortKey === 'module') { av = a.moduleName.toLowerCase(); bv = b.moduleName.toLowerCase(); }
+    else { av = a.datetime; bv = b.datetime; }
+    if (av < bv) return -1 * sortDir;
+    if (av > bv) return 1 * sortDir;
+    return 0;
+  });
+
+  const body = document.getElementById('tableBody');
+  if (!rows.length) {
+    body.innerHTML = '';
+    const empty = document.getElementById('emptyState');
+    empty.textContent = ALL_ROWS.length ? 'No responses match your filter.' : 'No saved challenge responses yet.';
+    empty.classList.remove('hidden');
+  } else {
+    document.getElementById('emptyState').classList.add('hidden');
+    body.innerHTML = rows.map(function(r, i){
+      const nameHtml = r.name
+        ? '<div class="learner-name">' + esc(r.name) + '</div><div class="learner-email">' + esc(r.email) + '</div>'
+        : '<div class="learner-name">' + esc(r.email || '(no email)') + '</div>';
+      const respHtml = r.response
+        ? '<div class="response-text" id="resp-' + i + '">' + esc(r.response) + '</div><button class="resp-toggle" data-resp="' + i + '">Show more</button>'
+        : '<span class="resp-empty">(empty)</span>';
+      return '<tr>'
+        + '<td>' + nameHtml + '</td>'
+        + '<td><span class="module-tag">' + esc(r.moduleName) + '</span></td>'
+        + '<td class="dt">' + esc(r.datetime || '—') + '</td>'
+        + '<td class="response-cell">' + respHtml + '</td>'
+        + '</tr>';
+    }).join('');
+    // wire show-more toggles (only show the button when content overflows)
+    rows.forEach(function(r, i){
+      const el = document.getElementById('resp-' + i);
+      const btn = document.querySelector('.resp-toggle[data-resp="' + i + '"]');
+      if (el && btn) {
+        if (el.scrollHeight <= el.clientHeight + 2) { btn.style.display = 'none'; }
+        btn.addEventListener('click', function(){
+          el.classList.toggle('expanded');
+          btn.textContent = el.classList.contains('expanded') ? 'Show less' : 'Show more';
+        });
+      }
+    });
+  }
+  document.getElementById('countPill').textContent = rows.length + ' of ' + ALL_ROWS.length + ' response' + (ALL_ROWS.length === 1 ? '' : 's');
+}
+
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('moduleFilter').addEventListener('change', render);
+document.getElementById('refreshBtn').addEventListener('click', loadResponses);
+document.querySelectorAll('thead th[data-sort]').forEach(function(th){
+  th.addEventListener('click', function(){
+    const k = th.getAttribute('data-sort');
+    if (sortKey === k) { sortDir *= -1; } else { sortKey = k; sortDir = (k === 'datetime') ? -1 : 1; }
+    document.querySelectorAll('thead th .arrow').forEach(function(a){ a.textContent = ''; });
+    th.querySelector('.arrow').textContent = sortDir === 1 ? '▲' : '▼';
+    render();
+  });
+});
+</script>
+
+</body>
+</html>
