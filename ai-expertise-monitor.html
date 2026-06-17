@@ -45,6 +45,11 @@
   .refresh-btn:hover { background:var(--blue-dark); }
   .count-pill { margin-left:auto; font-family:'Source Code Pro',monospace; font-size:13px; color:var(--muted); }
 
+  .section-h { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; margin:0 0 14px; color:var(--text); }
+  .score-pill { display:inline-block; font-family:'Source Code Pro',monospace; font-size:13px; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .score-pill.pass { color:var(--green); background:var(--green-dim); }
+  .score-pill.mid { color:var(--amber); background:var(--amber-dim); }
+  .section-name { color:var(--text); font-size:13.5px; }
   .table-wrap { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
   table { width:100%; border-collapse:collapse; }
   thead th { background:var(--panel2); text-align:left; font-size:12px; font-family:'Source Code Pro',monospace; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
@@ -113,6 +118,7 @@
     <p>Interactive capstone challenge responses saved by learners across the AI Expertise for HR course.</p>
   </div>
 
+  <h2 class="section-h">Interactive challenge responses</h2>
   <div class="controls">
     <input type="text" id="searchInput" placeholder="Search learner, email, module, or response…">
     <select id="moduleFilter"><option value="">All modules</option></select>
@@ -135,6 +141,31 @@
     <div class="state" id="loadingState"><div class="spinner"></div>Loading responses…</div>
     <div class="state hidden" id="emptyState">No saved challenge responses yet.</div>
   </div>
+
+  <h2 class="section-h" style="margin-top:38px;">Check-understanding responses</h2>
+  <div class="controls">
+    <input type="text" id="asmtSearchInput" placeholder="Search learner, email, module, or section…">
+    <select id="asmtModuleFilter"><option value="">All modules</option></select>
+    <button class="refresh-btn" id="asmtRefreshBtn">Refresh</button>
+    <span class="count-pill" id="asmtCountPill"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-asort="learner">Learner <span class="arrow"></span></th>
+          <th data-asort="module">Module <span class="arrow"></span></th>
+          <th data-asort="section">Section <span class="arrow"></span></th>
+          <th data-asort="score">Score <span class="arrow"></span></th>
+          <th data-asort="datetime">Submitted <span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="asmtTableBody"></tbody>
+    </table>
+    <div class="state" id="asmtLoadingState"><div class="spinner"></div>Loading responses…</div>
+    <div class="state hidden" id="asmtEmptyState">No Check-understanding responses yet.</div>
+  </div>
 </div>
 
 <footer>SF Learning Hub &middot; New Age HRM Monitor &middot; CACHE_VERSION = <span id="cvLabel"></span></footer>
@@ -143,7 +174,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
-const CACHE_VERSION = '2026-06-17-v1';
+const CACHE_VERSION = '2026-06-17-v2';
 document.getElementById('cvLabel').textContent = CACHE_VERSION;
 console.log('%c[SF Knowledge Hub] ai-expertise-monitor.html — CACHE_VERSION = ' + CACHE_VERSION, 'color:#3b82f6;font-weight:bold;');
 
@@ -183,6 +214,7 @@ _auth.onAuthStateChanged(function(user){
     document.getElementById('userEmail').textContent = user.email;
     hideOverlay();
     loadResponses();
+    loadAssessments();
   } else if (user && user.email) {
     _auth.signOut();
     showOverlay('This page is restricted to administrators.');
@@ -337,9 +369,131 @@ document.querySelectorAll('thead th[data-sort]').forEach(function(th){
   th.addEventListener('click', function(){
     const k = th.getAttribute('data-sort');
     if (sortKey === k) { sortDir *= -1; } else { sortKey = k; sortDir = (k === 'datetime') ? -1 : 1; }
-    document.querySelectorAll('thead th .arrow').forEach(function(a){ a.textContent = ''; });
+    document.querySelectorAll('thead th[data-sort] .arrow').forEach(function(a){ a.textContent = ''; });
     th.querySelector('.arrow').textContent = sortDir === 1 ? '▲' : '▼';
     render();
+  });
+});
+
+// ============ Check-understanding responses (assessmentResponses) ============
+let ASMT_ROWS = [];
+let asmtSortKey = 'datetime', asmtSortDir = -1;
+
+async function loadAssessments() {
+  document.getElementById('asmtLoadingState').classList.remove('hidden');
+  document.getElementById('asmtEmptyState').classList.add('hidden');
+  document.getElementById('asmtTableBody').innerHTML = '';
+  ASMT_ROWS = [];
+  try {
+    const snap = await _db.collection('assessmentResponses').get();
+    const rows = [];
+    snap.forEach(function(doc){
+      const data = doc.data() || {};
+      const uid = doc.id;
+      const email = data.email || '';
+      const responses = data.responses || {};
+      Object.keys(responses).forEach(function(rid){
+        const r = responses[rid] || {};
+        rows.push({
+          uid: uid,
+          email: email,
+          name: '',
+          moduleId: r.moduleId || '',
+          moduleName: r.moduleName || r.moduleId || '(unknown module)',
+          sectionTitle: r.sectionTitle || r.sectionId || '',
+          score: (typeof r.score === 'number') ? r.score : null,
+          total: (typeof r.total === 'number') ? r.total : null,
+          submittedOn: r.submittedOn || '',
+          submittedAt: r.submittedAt || '',
+          datetime: (r.submittedOn || '') + (r.submittedAt ? ' ' + r.submittedAt : '')
+        });
+      });
+    });
+    await Promise.all(rows.map(async function(r){ r.name = await lookupName(r.uid, r.email); }));
+    ASMT_ROWS = rows;
+    populateAsmtModuleFilter();
+    renderAsmt();
+  } catch(e) {
+    document.getElementById('asmtLoadingState').classList.add('hidden');
+    document.getElementById('asmtEmptyState').textContent = 'Could not load responses: ' + e.message;
+    document.getElementById('asmtEmptyState').classList.remove('hidden');
+    console.warn('[monitor] assessment load failed:', e.message);
+  }
+}
+
+function populateAsmtModuleFilter() {
+  const sel = document.getElementById('asmtModuleFilter');
+  const current = sel.value;
+  const mods = Array.from(new Set(ASMT_ROWS.map(function(r){ return r.moduleName; }))).sort();
+  sel.innerHTML = '<option value="">All modules</option>' + mods.map(function(m){ return '<option value="' + esc(m) + '">' + esc(m) + '</option>'; }).join('');
+  sel.value = current;
+}
+
+function renderAsmt() {
+  document.getElementById('asmtLoadingState').classList.add('hidden');
+  const q = (document.getElementById('asmtSearchInput').value || '').toLowerCase().trim();
+  const modF = document.getElementById('asmtModuleFilter').value;
+
+  let rows = ASMT_ROWS.slice();
+  if (modF) rows = rows.filter(function(r){ return r.moduleName === modF; });
+  if (q) rows = rows.filter(function(r){
+    return (r.name + ' ' + r.email + ' ' + r.moduleName + ' ' + r.sectionTitle).toLowerCase().indexOf(q) !== -1;
+  });
+
+  rows.sort(function(a,b){
+    let av, bv;
+    if (asmtSortKey === 'learner') { av = (a.name || a.email).toLowerCase(); bv = (b.name || b.email).toLowerCase(); }
+    else if (asmtSortKey === 'module') { av = a.moduleName.toLowerCase(); bv = b.moduleName.toLowerCase(); }
+    else if (asmtSortKey === 'section') { av = a.sectionTitle.toLowerCase(); bv = b.sectionTitle.toLowerCase(); }
+    else if (asmtSortKey === 'score') {
+      av = (a.total ? (a.score / a.total) : -1); bv = (b.total ? (b.score / b.total) : -1);
+    }
+    else { av = a.datetime; bv = b.datetime; }
+    if (av < bv) return -1 * asmtSortDir;
+    if (av > bv) return 1 * asmtSortDir;
+    return 0;
+  });
+
+  const body = document.getElementById('asmtTableBody');
+  if (!rows.length) {
+    body.innerHTML = '';
+    const empty = document.getElementById('asmtEmptyState');
+    empty.textContent = ASMT_ROWS.length ? 'No responses match your filter.' : 'No Check-understanding responses yet.';
+    empty.classList.remove('hidden');
+  } else {
+    document.getElementById('asmtEmptyState').classList.add('hidden');
+    body.innerHTML = rows.map(function(r){
+      const nameHtml = r.name
+        ? '<div class="learner-name">' + esc(r.name) + '</div><div class="learner-email">' + esc(r.email) + '</div>'
+        : '<div class="learner-name">' + esc(r.email || '(no email)') + '</div>';
+      let scoreHtml = '<span class="dt">—</span>';
+      if (r.score != null && r.total != null && r.total > 0) {
+        const pct = r.score / r.total;
+        const cls = pct >= 0.7 ? 'pass' : 'mid';
+        scoreHtml = '<span class="score-pill ' + cls + '">' + r.score + ' / ' + r.total + '</span>';
+      }
+      return '<tr>'
+        + '<td>' + nameHtml + '</td>'
+        + '<td><span class="module-tag">' + esc(r.moduleName) + '</span></td>'
+        + '<td><span class="section-name">' + esc(r.sectionTitle || '—') + '</span></td>'
+        + '<td>' + scoreHtml + '</td>'
+        + '<td class="dt">' + esc(r.datetime || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+  document.getElementById('asmtCountPill').textContent = rows.length + ' of ' + ASMT_ROWS.length + ' response' + (ASMT_ROWS.length === 1 ? '' : 's');
+}
+
+document.getElementById('asmtSearchInput').addEventListener('input', renderAsmt);
+document.getElementById('asmtModuleFilter').addEventListener('change', renderAsmt);
+document.getElementById('asmtRefreshBtn').addEventListener('click', loadAssessments);
+document.querySelectorAll('thead th[data-asort]').forEach(function(th){
+  th.addEventListener('click', function(){
+    const k = th.getAttribute('data-asort');
+    if (asmtSortKey === k) { asmtSortDir *= -1; } else { asmtSortKey = k; asmtSortDir = (k === 'datetime' || k === 'score') ? -1 : 1; }
+    document.querySelectorAll('thead th[data-asort] .arrow').forEach(function(a){ a.textContent = ''; });
+    th.querySelector('.arrow').textContent = asmtSortDir === 1 ? '▲' : '▼';
+    renderAsmt();
   });
 });
 </script>
