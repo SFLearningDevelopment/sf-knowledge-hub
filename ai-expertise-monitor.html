@@ -166,6 +166,32 @@
     <div class="state" id="asmtLoadingState"><div class="spinner"></div>Loading responses…</div>
     <div class="state hidden" id="asmtEmptyState">No Check-understanding responses yet.</div>
   </div>
+
+  <h2 class="section-h" style="margin-top:38px;">Practical test responses</h2>
+  <div class="controls">
+    <input type="text" id="ptSearchInput" placeholder="Search learner, email, module, or rewrite…">
+    <select id="ptModuleFilter"><option value="">All modules</option></select>
+    <button class="refresh-btn" id="ptRefreshBtn">Refresh</button>
+    <span class="count-pill" id="ptCountPill"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-psort="learner">Learner <span class="arrow"></span></th>
+          <th data-psort="module">Module <span class="arrow"></span></th>
+          <th data-psort="test">Test <span class="arrow"></span></th>
+          <th data-psort="score">Score <span class="arrow"></span></th>
+          <th>Rewrite</th>
+          <th data-psort="datetime">Submitted <span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="ptTableBody"></tbody>
+    </table>
+    <div class="state" id="ptLoadingState"><div class="spinner"></div>Loading responses…</div>
+    <div class="state hidden" id="ptEmptyState">No practical test responses yet.</div>
+  </div>
 </div>
 
 <footer>SF Learning Hub &middot; New Age HRM Monitor &middot; CACHE_VERSION = <span id="cvLabel"></span></footer>
@@ -174,7 +200,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
-const CACHE_VERSION = '2026-06-17-v2';
+const CACHE_VERSION = '2026-06-17-v3';
 document.getElementById('cvLabel').textContent = CACHE_VERSION;
 console.log('%c[SF Knowledge Hub] ai-expertise-monitor.html — CACHE_VERSION = ' + CACHE_VERSION, 'color:#3b82f6;font-weight:bold;');
 
@@ -215,6 +241,7 @@ _auth.onAuthStateChanged(function(user){
     hideOverlay();
     loadResponses();
     loadAssessments();
+    loadPracticals();
   } else if (user && user.email) {
     _auth.signOut();
     showOverlay('This page is restricted to administrators.');
@@ -494,6 +521,140 @@ document.querySelectorAll('thead th[data-asort]').forEach(function(th){
     document.querySelectorAll('thead th[data-asort] .arrow').forEach(function(a){ a.textContent = ''; });
     th.querySelector('.arrow').textContent = asmtSortDir === 1 ? '▲' : '▼';
     renderAsmt();
+  });
+});
+
+// ============ Practical test responses (practicalTestResponses) ============
+let PT_ROWS = [];
+let ptSortKey = 'datetime', ptSortDir = -1;
+
+async function loadPracticals() {
+  document.getElementById('ptLoadingState').classList.remove('hidden');
+  document.getElementById('ptEmptyState').classList.add('hidden');
+  document.getElementById('ptTableBody').innerHTML = '';
+  PT_ROWS = [];
+  try {
+    const snap = await _db.collection('practicalTestResponses').get();
+    const rows = [];
+    snap.forEach(function(doc){
+      const data = doc.data() || {};
+      const uid = doc.id;
+      const email = data.email || '';
+      const tests = data.tests || {};
+      Object.keys(tests).forEach(function(tid){
+        const t = tests[tid] || {};
+        rows.push({
+          uid: uid, email: email, name: '',
+          moduleId: t.moduleId || '',
+          moduleName: t.moduleName || t.moduleId || '(unknown module)',
+          testTitle: t.testTitle || tid,
+          rewrite: t.learnerRewrite || '',
+          score: (typeof t.score === 'number') ? t.score : null,
+          total: (typeof t.total === 'number') ? t.total : null,
+          submittedOn: t.submittedOn || '',
+          submittedAt: t.submittedAt || '',
+          datetime: (t.submittedOn || '') + (t.submittedAt ? ' ' + t.submittedAt : '')
+        });
+      });
+    });
+    await Promise.all(rows.map(async function(r){ r.name = await lookupName(r.uid, r.email); }));
+    PT_ROWS = rows;
+    populatePtModuleFilter();
+    renderPt();
+  } catch(e) {
+    document.getElementById('ptLoadingState').classList.add('hidden');
+    document.getElementById('ptEmptyState').textContent = 'Could not load responses: ' + e.message;
+    document.getElementById('ptEmptyState').classList.remove('hidden');
+    console.warn('[monitor] practical load failed:', e.message);
+  }
+}
+
+function populatePtModuleFilter() {
+  const sel = document.getElementById('ptModuleFilter');
+  const current = sel.value;
+  const mods = Array.from(new Set(PT_ROWS.map(function(r){ return r.moduleName; }))).sort();
+  sel.innerHTML = '<option value="">All modules</option>' + mods.map(function(m){ return '<option value="' + esc(m) + '">' + esc(m) + '</option>'; }).join('');
+  sel.value = current;
+}
+
+function renderPt() {
+  document.getElementById('ptLoadingState').classList.add('hidden');
+  const q = (document.getElementById('ptSearchInput').value || '').toLowerCase().trim();
+  const modF = document.getElementById('ptModuleFilter').value;
+
+  let rows = PT_ROWS.slice();
+  if (modF) rows = rows.filter(function(r){ return r.moduleName === modF; });
+  if (q) rows = rows.filter(function(r){
+    return (r.name + ' ' + r.email + ' ' + r.moduleName + ' ' + r.testTitle + ' ' + r.rewrite).toLowerCase().indexOf(q) !== -1;
+  });
+
+  rows.sort(function(a,b){
+    let av, bv;
+    if (ptSortKey === 'learner') { av = (a.name || a.email).toLowerCase(); bv = (b.name || b.email).toLowerCase(); }
+    else if (ptSortKey === 'module') { av = a.moduleName.toLowerCase(); bv = b.moduleName.toLowerCase(); }
+    else if (ptSortKey === 'test') { av = a.testTitle.toLowerCase(); bv = b.testTitle.toLowerCase(); }
+    else if (ptSortKey === 'score') { av = (a.total ? (a.score / a.total) : -1); bv = (b.total ? (b.score / b.total) : -1); }
+    else { av = a.datetime; bv = b.datetime; }
+    if (av < bv) return -1 * ptSortDir;
+    if (av > bv) return 1 * ptSortDir;
+    return 0;
+  });
+
+  const body = document.getElementById('ptTableBody');
+  if (!rows.length) {
+    body.innerHTML = '';
+    const empty = document.getElementById('ptEmptyState');
+    empty.textContent = PT_ROWS.length ? 'No responses match your filter.' : 'No practical test responses yet.';
+    empty.classList.remove('hidden');
+  } else {
+    document.getElementById('ptEmptyState').classList.add('hidden');
+    body.innerHTML = rows.map(function(r, i){
+      const nameHtml = r.name
+        ? '<div class="learner-name">' + esc(r.name) + '</div><div class="learner-email">' + esc(r.email) + '</div>'
+        : '<div class="learner-name">' + esc(r.email || '(no email)') + '</div>';
+      let scoreHtml = '<span class="dt">—</span>';
+      if (r.score != null && r.total != null && r.total > 0) {
+        const pct = r.score / r.total;
+        const cls = pct >= 0.7 ? 'pass' : 'mid';
+        scoreHtml = '<span class="score-pill ' + cls + '">' + r.score + ' / ' + r.total + '</span>';
+      }
+      const rwHtml = r.rewrite
+        ? '<div class="response-text" id="ptresp-' + i + '">' + esc(r.rewrite) + '</div><button class="resp-toggle" data-ptresp="' + i + '">Show more</button>'
+        : '<span class="resp-empty">(empty)</span>';
+      return '<tr>'
+        + '<td>' + nameHtml + '</td>'
+        + '<td><span class="module-tag">' + esc(r.moduleName) + '</span></td>'
+        + '<td><span class="section-name">' + esc(r.testTitle || '—') + '</span></td>'
+        + '<td>' + scoreHtml + '</td>'
+        + '<td class="response-cell">' + rwHtml + '</td>'
+        + '<td class="dt">' + esc(r.datetime || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    rows.forEach(function(r, i){
+      const el = document.getElementById('ptresp-' + i);
+      const btn = document.querySelector('.resp-toggle[data-ptresp="' + i + '"]');
+      if (el && btn) {
+        if (el.scrollHeight <= el.clientHeight + 2) { btn.style.display = 'none'; }
+        btn.addEventListener('click', function(){
+          el.classList.toggle('expanded');
+          btn.textContent = el.classList.contains('expanded') ? 'Show less' : 'Show more';
+        });
+      }
+    });
+  }
+  document.getElementById('ptCountPill').textContent = rows.length + ' of ' + PT_ROWS.length + ' response' + (PT_ROWS.length === 1 ? '' : 's');
+}
+
+document.getElementById('ptSearchInput').addEventListener('input', renderPt);
+document.getElementById('ptModuleFilter').addEventListener('change', renderPt);
+document.getElementById('ptRefreshBtn').addEventListener('click', loadPracticals);
+document.querySelectorAll('thead th[data-psort]').forEach(function(th){
+  th.addEventListener('click', function(){
+    const k = th.getAttribute('data-psort');
+    if (ptSortKey === k) { ptSortDir *= -1; } else { ptSortKey = k; ptSortDir = (k === 'datetime' || k === 'score') ? -1 : 1; }
+    document.querySelectorAll('thead th[data-psort] .arrow').forEach(function(a){ a.textContent = ''; });
+    th.querySelector('.arrow').textContent = ptSortDir === 1 ? '▲' : '▼';
+    renderPt();
   });
 });
 </script>
