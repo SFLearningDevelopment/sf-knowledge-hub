@@ -1056,7 +1056,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202606080457 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202606191120 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -4517,8 +4517,12 @@ function _cpRender(rows) {
     let started = 0, unlocked = 0;
     display.forEach(r => {
       const p = r.cp[courseId];
-      if (p.examUnlocked) unlocked++;
-      else if (p.completed > 0) started++;
+      // "Complete" = every module actually done (a stale courseCompletedOn
+      // alone must not count); everyone else with any progress is In Progress.
+      const allModulesDone = total > 0 && p.completed === total;
+      const isComplete = isPM ? allModulesDone : p.examUnlocked;
+      if (isComplete) unlocked++;
+      else if (p.completed > 0 || p.courseStartedOn) started++;
     });
     const lastLabel = isPM ? 'Course Complete' : 'Exam Unlocked';
     html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
@@ -4584,8 +4588,11 @@ function _cpRender(rows) {
           </td>`;
         if (isPM) {
           // Status: Completed (+timeTaken) / In progress / Not started
+          // Completed only when every module is actually done — a stale
+          // courseCompletedOn alone must not mark a partial learner Completed.
+          const allModulesDone = total > 0 && p.completed === total;
           let statusHtml;
-          if (p.courseCompletedOn) {
+          if (p.courseCompletedOn && allModulesDone) {
             statusHtml = `<span title="Completed ${esc(p.courseCompletedOn)}${p.courseTimeTaken ? ' • '+esc(p.courseTimeTaken) : ''}" style="background:rgba(52,211,153,.15);color:#34d399;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;">✓ Completed</span>`
               + (p.courseTimeTaken ? `<div style="font-size:10px;color:var(--muted);margin-top:3px;">${esc(p.courseTimeTaken)}</div>` : '');
           } else if (p.completed > 0 || p.courseStartedOn) {
@@ -4651,7 +4658,7 @@ window.closeCourseProgressModal = function() {
 };
 
 // ── bump version ──
-// v202606080457
+// v202606191120
 
 </script>
 
