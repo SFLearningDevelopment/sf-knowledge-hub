@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202606011800 -->
+  <!-- Cache busting v202606290513 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -711,7 +711,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202605212300 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202606290513 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -1805,7 +1805,15 @@ window.erSelectExam = async function(examId) {
   content.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Loading results...</div>';
   _erSelectedExam = examId;
   if (examId === PM_CERT_EXAM_ID) { await erLoadPmResults(content); }
-  else { await erLoadHubResults(examId, content); }
+  else {
+    // Exams with a linked course store attempts in courseExamResults
+    // (written by the course evaluation pages). Read those directly,
+    // keyed by linkedCourseId. Falls back to legacy examSessions only
+    // when an exam has no linkedCourseId.
+    const examMeta = _erExams.find(e => e.id === examId) || {};
+    if (examMeta.linkedCourseId) { await erLoadCourseResults(examMeta.linkedCourseId, content); }
+    else { await erLoadHubResults(examId, content); }
+  }
 };
 
 async function erLoadHubResults(examId, container) {
@@ -1874,6 +1882,38 @@ async function erLoadPmResults(container) {
   } catch(e) { container.innerHTML = '<div style="color:var(--coral);font-size:13px;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
+// Generalized courseExamResults reader for any course-linked exam.
+// Same mechanism as erLoadPmResults but filtered by an arbitrary courseId
+// (the exam's linkedCourseId) instead of the hardcoded PM course.
+// Path: courseExamResults/{email}/courses/{courseId}/attempts/{id}
+async function erLoadCourseResults(courseId, container) {
+  try {
+    const attSnap = await getDocs(collectionGroup(db, 'attempts'));
+    const courseAttemptDocs = attSnap.docs.filter(
+      d => d.ref.parent.parent.id === courseId
+    );
+    if (!courseAttemptDocs.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No results found for this exam.</div>';
+      return;
+    }
+    const learnerMap = {};
+    courseAttemptDocs.forEach(d => {
+      const email = d.ref.parent.parent.parent.parent.id;   // courseExamResults/{email}
+      if (!learnerMap[email]) learnerMap[email] = [];
+      learnerMap[email].push({ id: d.id, ...d.data() });
+    });
+    const allLearners = Object.entries(learnerMap).map(([email, attempts]) => {
+      attempts.sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
+      return { email, attempts };
+    });
+    container.innerHTML = erRenderPmResults(allLearners);
+    allLearners.forEach(l => {
+      const row = document.getElementById('er-pm-row-' + l.email.replace(/[^a-z0-9]/gi, '_'));
+      if (row) row.addEventListener('click', () => erShowPmDetail(l));
+    });
+  } catch(e) { container.innerHTML = '<div style="color:var(--coral);font-size:13px;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
 function erRenderPmResults(learners) {
   const passedLearners = learners.filter(l => l.attempts.some(a => a.pass)).length;
   const rows = learners.map(l => {
@@ -1924,7 +1964,7 @@ window.erRenderAttemptDetail = function(idx) {
     const correctText = q.options?.[q.correct]||'Option '+(q.correct+1);
     return '<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' + resultBadge + '<span style="font-size:12px;color:var(--muted);">Q' + (i+1) + '</span></div><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">' + (q.text||'') + '</div><div style="font-size:12px;color:' + (isCorrect?'#1a6b3a':'#c0392b') + ';margin-bottom:4px;"><strong>Selected:</strong> ' + chosenText + '</div>' + (!isCorrect?'<div style="font-size:12px;color:#1a6b3a;"><strong>Correct:</strong> ' + correctText + '</div>':'') + '</div>';
   }).join('') : '<div style="color:var(--muted);font-size:13px;">Per-question data not available.</div>';
-  $('er-attempt-body').innerHTML = '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">' + badge + '<span style="font-size:13px;color:var(--muted);">' + (attempt.correct||0) + ' / ' + ER_TOTAL_QS + ' correct · ' + dur + (attempt.timeUp?' · Timed out':'') + '</span></div>' + qRows;
+  $('er-attempt-body').innerHTML = '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">' + badge + '<span style="font-size:13px;color:var(--muted);">' + (attempt.correct||0) + ' / ' + (attempt.total || ER_TOTAL_QS) + ' correct · ' + dur + (attempt.timeUp?' · Timed out':'') + '</span></div>' + qRows;
 };
 
 window.erClosePmDetail = function() {
