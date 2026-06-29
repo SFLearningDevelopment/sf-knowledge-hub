@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="760" viewBox="0 0 680 760" role="img" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+<title>Certification data topology: writers, collections, and admin readers</title>
+<desc>Generic map of how course pages write to legacy and v2 Firestore collections for progress and exam results, and which admin readers consume each.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#73726c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="0" y="0" width="680" height="760" fill="#ffffff"/>
+
+<text x="40" y="24" font-size="14" font-weight="600" fill="#2c2c2a">Writers</text>
+<text x="300" y="24" font-size="14" font-weight="600" fill="#2c2c2a">Collections</text>
+<text x="560" y="24" font-size="14" font-weight="600" fill="#2c2c2a">Readers</text>
+
+<g>
+<rect x="40" y="40" width="150" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="115" y="64" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">Course dashboards</text>
+<text x="115" y="82" text-anchor="middle" font-size="12" fill="#5F5E5A">+ sync buttons</text>
+</g>
+<g>
+<rect x="40" y="200" width="150" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="115" y="224" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">Evaluation pages</text>
+<text x="115" y="242" text-anchor="middle" font-size="12" fill="#5F5E5A">on exam submit</text>
+</g>
+<g>
+<rect x="40" y="320" width="150" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="115" y="344" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">Backfill script</text>
+<text x="115" y="362" text-anchor="middle" font-size="12" fill="#5F5E5A">one-off repair</text>
+</g>
+<g>
+<rect x="40" y="440" width="150" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="115" y="464" text-anchor="middle" font-size="14" font-weight="500" fill="#2C2C2A">Reviewer pages</text>
+<text x="115" y="482" text-anchor="middle" font-size="12" fill="#5F5E5A">per-course review</text>
+</g>
+
+<g>
+<rect x="270" y="40" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="60" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">courseProgress/{uid}</text>
+<text x="350" y="78" text-anchor="middle" font-size="12" fill="#185FA5">v2 modules</text>
+</g>
+<g>
+<rect x="270" y="120" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="140" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">progress/{uid}</text>
+<text x="350" y="158" text-anchor="middle" font-size="12" fill="#185FA5">legacy sections</text>
+</g>
+<g>
+<rect x="270" y="200" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="220" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">courseExamResults</text>
+<text x="350" y="238" text-anchor="middle" font-size="12" fill="#185FA5">{email}/courses/attempts</text>
+</g>
+<g>
+<rect x="270" y="280" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="300" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">results/{uid}</text>
+<text x="350" y="318" text-anchor="middle" font-size="12" fill="#185FA5">legacy attempts</text>
+</g>
+<g>
+<rect x="270" y="440" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="460" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">reviewerSessions</text>
+<text x="350" y="478" text-anchor="middle" font-size="12" fill="#185FA5">{uid}/{course}/{module}</text>
+</g>
+<g>
+<rect x="270" y="520" width="160" height="50" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="350" y="540" text-anchor="middle" font-size="14" font-weight="500" fill="#0C447C">examQuestionLog</text>
+<text x="350" y="558" text-anchor="middle" font-size="12" fill="#185FA5">dedup per course</text>
+</g>
+
+<g>
+<rect x="510" y="40" width="150" height="56" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="585" y="64" text-anchor="middle" font-size="14" font-weight="500" fill="#633806">Admin Course</text>
+<text x="585" y="82" text-anchor="middle" font-size="12" fill="#854F0B">Progress reader</text>
+</g>
+<g>
+<rect x="510" y="200" width="150" height="56" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="585" y="224" text-anchor="middle" font-size="14" font-weight="500" fill="#633806">Admin Exam</text>
+<text x="585" y="242" text-anchor="middle" font-size="12" fill="#854F0B">Results reader</text>
+</g>
+<g>
+<rect x="510" y="440" width="150" height="56" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="585" y="464" text-anchor="middle" font-size="14" font-weight="500" fill="#633806">Reviewer status</text>
+<text x="585" y="482" text-anchor="middle" font-size="12" fill="#854F0B">admin views</text>
+</g>
+
+<line x1="190" y1="60" x2="268" y2="60" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="190" y1="80" x2="268" y2="140" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="232" y="114" text-anchor="middle" font-size="12" fill="#5F5E5A">dual-write</text>
+<line x1="190" y1="222" x2="268" y2="222" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="190" y1="240" x2="268" y2="300" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="190" y1="228" x2="268" y2="540" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="190" y1="345" x2="268" y2="232" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="190" y1="465" x2="268" y2="465" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<line x1="350" y1="280" x2="350" y2="252" stroke="#a3a29c" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="372" y="268" text-anchor="start" font-size="12" fill="#5F5E5A">migrates</text>
+
+<line x1="430" y1="62" x2="508" y2="62" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="430" y1="222" x2="508" y2="222" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="430" y1="465" x2="508" y2="465" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect x="40" y="610" width="16" height="16" rx="4" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="62" y="622" font-size="12" fill="#5F5E5A">Page / script</text>
+<rect x="190" y="610" width="16" height="16" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="212" y="622" font-size="12" fill="#5F5E5A">Collection</text>
+<rect x="320" y="610" width="16" height="16" rx="4" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+<text x="342" y="622" font-size="12" fill="#5F5E5A">Admin reader</text>
+<line x1="450" y1="618" x2="478" y2="618" stroke="#73726c" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="484" y="622" font-size="12" fill="#5F5E5A">write / read</text>
+<line x1="450" y1="640" x2="478" y2="640" stroke="#a3a29c" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="484" y="644" font-size="12" fill="#5F5E5A">migration path</text>
+
+<text x="40" y="684" font-size="12" fill="#5F5E5A">Pattern is identical for every course; "course" stands in for any tool track.</text>
+<text x="40" y="704" font-size="12" fill="#5F5E5A">Legacy collections (progress, results) are written but not read by admin.</text>
+</svg>
