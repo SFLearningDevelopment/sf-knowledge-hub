@@ -1056,7 +1056,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202607081356 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202607221600 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1074,6 +1074,7 @@ const FB = {
 };
 const ADMINS       = ['jv.ravichandran@sourcefuse.com','noushin.khan@sourcefuse.com'];
 const DOMAIN       = 'sourcefuse.com';
+const ALLOWED_EXTRA = ['ravjv2013@gmail.com'];  // TEST ONLY — remove after testing
 const FLAG_WAIT_MS = 5 * 60 * 1000;
 
 const app  = initializeApp(FB);
@@ -1220,7 +1221,7 @@ onAuthStateChanged(auth, async user => {
     $('loading-splash').classList.add('hidden');
     const emailDomain = resolvedEmail.split('@')[1].toLowerCase();
     console.log('[SF Hub DEBUG] Email:', resolvedEmail, '| domain:', emailDomain, '| expected:', DOMAIN);
-    if (emailDomain !== DOMAIN.toLowerCase()) {
+    if (emailDomain !== DOMAIN.toLowerCase() && !ALLOWED_EXTRA.includes(resolvedEmail.toLowerCase())) {
       console.warn('[SF Hub DEBUG] ACCESS DENIED — domain mismatch:', emailDomain);
       await signOut(auth);
       $('choice-screen').style.display = 'flex';
@@ -4660,7 +4661,7 @@ window.closeCourseProgressModal = function() {
 };
 
 // ── bump version ──
-// v202607081356
+// v202607221600
 
 </script>
 
