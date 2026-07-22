@@ -1056,7 +1056,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202607221600 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202607221615 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -1326,8 +1326,15 @@ window.emailPasswordSignIn = async function() {
   const password = $('ep-password').value || '';
   const errEl    = $('ep-error');
   errEl.style.display = 'none';
+  console.log('[SF Hub DEBUG] email/password sign-in attempt. email:', email);
   if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
-  if (!email.endsWith('@sourcefuse.com')) { errEl.textContent = 'Only @sourcefuse.com accounts are allowed.'; errEl.style.display = 'block'; return; }
+  const emailDomain = email.split('@')[1] || '';
+  console.log('[SF Hub DEBUG] email/password domain:', emailDomain, '| expected:', DOMAIN, '| in ALLOWED_EXTRA:', ALLOWED_EXTRA.includes(email));
+  if (email.split('@')[1] !== DOMAIN.toLowerCase() && !ALLOWED_EXTRA.includes(email)) {
+    console.warn('[SF Hub DEBUG] email/password ACCESS DENIED — domain mismatch:', emailDomain);
+    errEl.textContent = 'Only @sourcefuse.com accounts are allowed.'; errEl.style.display = 'block'; return;
+  }
+  console.log('[SF Hub DEBUG] email/password domain check PASSED for:', email);
   try {
     await signInWithEmailAndPassword(auth, email, password);
     // onAuthStateChanged takes over from here
@@ -4661,7 +4668,7 @@ window.closeCourseProgressModal = function() {
 };
 
 // ── bump version ──
-// v202607221600
+// v202607221615
 
 </script>
 
