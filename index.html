@@ -1056,7 +1056,7 @@ body.preview-active .p-slot-tabs,body.preview-active .p-slot-tab{
 </footer>
 
 <script type="module">
-console.log('%c[sf-knowledge-hub / index.html] ✅ v202607221615 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-knowledge-hub / index.html] ✅ v202608171230 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged }
@@ -4366,6 +4366,23 @@ const CP_PM_CFG = {
 
 let COURSE_PROGRESS_CFG = [CP_PM_CFG];
 
+// AI Fluency only: its certification exam counts as one more completion item,
+// read from examResults/{uid}.aiFluency2026SFCert rather than courseProgress.
+// Every other course is untouched.
+const CP_EXAM_MODULE_KEY = '__exam__';
+const AIF_COURSE_DOC     = 'xCmMdbucSkMMrUUf6kuK';
+const AIF_EXAM_KEY       = 'aiFluency2026SFCert';
+
+// Firestore Timestamp | ISO string -> 'YYYY-MM-DD', for the cell tooltip.
+function cpExamDate(v) {
+  try {
+    if (!v) return null;
+    if (typeof v.toDate === 'function') return v.toDate().toISOString().slice(0,10);
+    if (typeof v === 'string') return v.slice(0,10);
+  } catch {}
+  return null;
+}
+
 function cpModuleKeyFromFile(file) {
   return String(file || '').trim().replace(/\.html?$/i, '');
 }
@@ -4389,6 +4406,11 @@ function cpBuildConfigs(courseDocs) {
         total: 1
       })).filter(m => m.key)
     });
+    if (c.id === AIF_COURSE_DOC) {
+      const cfg = cfgs[cfgs.length - 1];
+      cfg.examKey = AIF_EXAM_KEY;
+      cfg.modules.push({ key: CP_EXAM_MODULE_KEY, title: 'Certification exam', total: 1 });
+    }
   });
   return cfgs;
 }
@@ -4399,11 +4421,25 @@ function cpTotalSections(cfg) {
 }
 
 // Calculate module-level progress for any courseProgress course (PM or catalog-derived).
-function cpCalcCourseProgress(courseObj, cfg) {
+function cpCalcCourseProgress(courseObj, cfg, examDoc) {
   const mods = (courseObj && courseObj.modules) || {};
   let completed = 0;
   const details = [];
   for (const m of cfg.modules) {
+    if (m.key === CP_EXAM_MODULE_KEY) {
+      const ex   = (examDoc || {})[cfg.examKey] || {};
+      const done = ex.passed === true;
+      if (done) completed++;
+      details.push({
+        key: m.key, title: m.title, done: done ? 1 : 0, total: 1,
+        startedOn: null, startedAt: null,
+        completedOn: done ? (cpExamDate(ex.submittedAt) || 'passed') : null,
+        completedAt: null,
+        timeTaken: (done && typeof ex.score === 'number') ? (ex.score + '%') : null,
+        inProgress: !done && (ex.attempts || 0) > 0
+      });
+      continue;
+    }
     const entry = mods[m.key] || null;
     const isDone = !!(entry && entry.completedOn);
     if (isDone) completed++;
@@ -4470,6 +4506,13 @@ window.openCourseProgressModal = async function() {
     COURSE_PROGRESS_CFG = cpBuildConfigs(courseDocs);
     cpPopulateCourseDropdown();
 
+    // examResults/{uid} -> map field per course. Used for the AI Fluency exam item.
+    const examMap = {};
+    try {
+      const erSnap = await getDocs(collection(db,'examResults'));
+      erSnap.forEach(d => { examMap[d.id] = d.data() || {}; });
+    } catch(e) { console.warn('[CP] examResults read failed:', e.message); }
+
     // Read all courseProgress documents and map each learner's per-course progress.
     const rowMap = {};   // uid -> row
     try {
@@ -4487,7 +4530,7 @@ window.openCourseProgressModal = async function() {
         for (const cfg of COURSE_PROGRESS_CFG) {
           const courseObj = coursesObj[cfg.id];
           if (!courseObj) continue;
-          const prog = cpCalcCourseProgress(courseObj, cfg);
+          const prog = cpCalcCourseProgress(courseObj, cfg, examMap[d.id]);
           const hasData = prog.completed > 0 || prog.courseStartedOn ||
                           prog.details.some(x => x.startedOn);
           if (hasData) cp[cfg.id] = prog;
@@ -4668,7 +4711,7 @@ window.closeCourseProgressModal = function() {
 };
 
 // ── bump version ──
-// v202607221615
+// v202608171230
 
 </script>
 
