@@ -1312,12 +1312,38 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+const GOOGLE_BTN_HTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+
+/* Google sign-in needs a first-party context. Inside the TalentLMS frame the
+   browser partitions storage and the handshake cannot complete, so the button
+   opens this page in a top-level tab and sign-in runs there.
+
+   The ?sso=1 marker is what stops that tab opening another tab: when it is
+   present, the button signs in directly instead of launching again. */
 window.manualSignIn = async function() {
-  const btn=$('manual-signin-btn'); btn.disabled=true; btn.textContent='Signing in...';
+  const btn = $('manual-signin-btn');
+  let url;
+  try { url = new URL(window.location.href); }
+  catch (_) { url = null; }
+
+  if (url && url.searchParams.get('sso') !== '1') {
+    url.searchParams.set('sso', '1');
+    const tab = window.open(url.toString(), '_blank');
+    if (!tab) {
+      toast('Your browser blocked the sign-in tab. Allow pop-ups for this site, then try again.', 'error');
+    }
+    return;                       /* this window stays as it is */
+  }
+
+  btn.disabled = true; btn.textContent = 'Signing in...';
   try { await signInWithPopup(auth, googleProvider); }
   catch(e) {
-    if (e.code !== 'auth/cancelled-popup-request') toast('Sign-in failed. Please try again.','error');
-    btn.disabled=false; btn.innerHTML='<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"> Sign in with Google';
+    if (e.code === 'auth/popup-blocked') {
+      toast('Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.', 'error');
+    } else if (e.code !== 'auth/cancelled-popup-request') {
+      toast('Sign-in failed. Please try again.','error');
+    }
+    btn.disabled=false; btn.innerHTML = GOOGLE_BTN_HTML;
   }
 };
 
