@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Cache busting v202610141345 -->
+  <!-- Cache busting v202610141500 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -711,7 +711,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202610141345 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202610141500 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -1804,6 +1804,8 @@ window.erSelectExam = async function(examId) {
   if (!examId) { content.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Select an exam above to view results.</div>'; return; }
   content.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">Loading results...</div>';
   _erSelectedExam = examId;
+  _erLab = null;
+  _erPmDetailOpen = null;
   if (examId === PM_CERT_EXAM_ID) { await erLoadPmResults(content); }
   else {
     // Exams with a linked course store attempts in courseExamResults
@@ -1892,16 +1894,24 @@ async function erLoadCourseResults(courseId, container) {
     const courseAttemptDocs = attSnap.docs.filter(
       d => d.ref.parent.parent.id === courseId
     );
-    if (!courseAttemptDocs.length) {
-      container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No results found for this exam.</div>';
-      return;
-    }
+    _erLab = await erLoadLabMap(courseId);
     const learnerMap = {};
     courseAttemptDocs.forEach(d => {
-      const email = d.ref.parent.parent.parent.parent.id;   // courseExamResults/{email}
+      const email = d.ref.parent.parent.parent.parent.id.toLowerCase();   // courseExamResults/{email}
       if (!learnerMap[email]) learnerMap[email] = [];
       learnerMap[email].push({ id: d.id, ...d.data() });
     });
+    // Learners who submitted the lab but have not taken the exam yet still get a row,
+    // so their lab can be reviewed.
+    if (_erLab) {
+      Object.entries(_erLab.byEmail).forEach(([email, entry]) => {
+        if (!learnerMap[email] && entry.lab && entry.lab.submittedOn) learnerMap[email] = [];
+      });
+    }
+    if (!Object.keys(learnerMap).length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0;">No results found for this exam.</div>';
+      return;
+    }
     const allLearners = Object.entries(learnerMap).map(([email, attempts]) => {
       attempts.sort((a, b) => (a.attemptNumber || 0) - (b.attemptNumber || 0));
       return { email, attempts };
@@ -1915,18 +1925,163 @@ async function erLoadCourseResults(courseId, container) {
 }
 
 function erRenderPmResults(learners) {
-  const passedLearners = learners.filter(l => l.attempts.some(a => a.pass)).length;
+  const tested = learners.filter(l => l.attempts.length > 0);
+  const passedLearners = tested.filter(l => l.attempts.some(a => a.pass)).length;
+  const showLab = !!_erLab;
   const rows = learners.map(l => {
-    const best = l.attempts.find(a => a.pass) || l.attempts[l.attempts.length-1];
-    const badge = best.pass
-      ? '<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">PASSED</span>'
-      : '<span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">NOT PASSED</span>';
-    const date = best.submittedAt ? new Date(best.submittedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
     const safeId = l.email.replace(/[^a-z0-9]/gi,'_');
-    return '<tr id="er-pm-row-' + safeId + '" style="cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;" class="er-pm-row-hover"><td style="padding:10px 14px;font-size:13px;">' + (best.name||l.email) + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + l.email + '</td><td style="padding:10px 14px;">' + badge + '</td><td style="padding:10px 14px;font-size:13px;font-weight:700;">' + erPctDisplay(best.pct) + '%</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + date + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + l.attempts.length + ' attempt' + (l.attempts.length>1?'s':'') + '</td><td style="padding:10px 14px;font-size:12px;color:var(--blue);">View &#x2192;</td></tr>';
+    const best = l.attempts.find(a => a.pass) || l.attempts[l.attempts.length-1] || null;
+    let badge, score = '—', date = '—';
+    if (best) {
+      badge = best.pass
+        ? '<span style="background:#1a6b3a;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">PASSED</span>'
+        : '<span style="background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">NOT PASSED</span>';
+      score = erPctDisplay(best.pct) + '%';
+      date = best.submittedAt ? new Date(best.submittedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    } else {
+      badge = '<span style="color:var(--muted);font-size:12px;">Exam not taken</span>';
+    }
+    const name = (best && best.name) || erLabEntry(l.email)?.name || l.email;
+    const labCell = showLab ? '<td id="er-lab-cell-' + safeId + '" style="padding:10px 14px;">' + erLabBadge(erLabEntry(l.email)?.lab) + '</td>' : '';
+    return '<tr id="er-pm-row-' + safeId + '" style="cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;" class="er-pm-row-hover"><td style="padding:10px 14px;font-size:13px;">' + esc(name) + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + esc(l.email) + '</td><td style="padding:10px 14px;">' + badge + '</td><td style="padding:10px 14px;font-size:13px;font-weight:700;">' + score + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + date + '</td><td style="padding:10px 14px;font-size:12px;color:var(--muted);">' + l.attempts.length + ' attempt' + (l.attempts.length===1?'':'s') + '</td>' + labCell + '<td style="padding:10px 14px;font-size:12px;color:var(--blue);">View &#x2192;</td></tr>';
   }).join('');
-  return '<div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;"><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Learners</div><div style="font-size:22px;font-weight:700;">' + learners.length + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Pass Rate</div><div style="font-size:22px;font-weight:700;color:#1a6b3a;">' + (learners.length?Math.round(passedLearners/learners.length*100)+'%':'—') + '</div></div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Passed</div><div style="font-size:22px;font-weight:700;">' + passedLearners + ' / ' + learners.length + '</div></div></div><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Click a learner to view per-question breakdown.</div><table style="width:100%;border-collapse:collapse;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;"><thead><tr style="background:var(--bg3);border-bottom:1px solid var(--border);"><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Name</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Email</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Result</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Best Score</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Date</th><th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Attempts</th><th style="padding:10px 14px;"></th></tr></thead><tbody>' + rows + '</tbody></table><div id="er-pm-detail" style="margin-top:32px;"></div>';
+  const stat = (label, value, colour) => '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 20px;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">' + label + '</div><div style="font-size:22px;font-weight:700;' + (colour?'color:'+colour+';':'') + '">' + value + '</div></div>';
+  const TH = '<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">';
+  return '<div style="display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap;">'
+    + stat('Learners', learners.length)
+    + stat('Pass Rate', tested.length ? Math.round(passedLearners/tested.length*100)+'%' : '—', '#1a6b3a')
+    + stat('Passed', passedLearners + ' / ' + tested.length)
+    + '</div><div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Click a learner to view ' + (showLab ? 'their exam attempts and graded lab.' : 'per-question breakdown.') + '</div>'
+    + '<table style="width:100%;border-collapse:collapse;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;"><thead><tr style="background:var(--bg3);border-bottom:1px solid var(--border);">'
+    + TH + 'Name</th>' + TH + 'Email</th>' + TH + 'Result</th>' + TH + 'Best Score</th>' + TH + 'Date</th>' + TH + 'Attempts</th>'
+    + (showLab ? TH + 'Lab</th>' : '')
+    + '<th style="padding:10px 14px;"></th></tr></thead><tbody>' + rows + '</tbody></table><div id="er-pm-detail" style="margin-top:32px;"></div>';
 }
+
+// ── GRADED LAB REVIEW ──
+// The lab is saved by the course exam page at
+// courseProgress/{uid}.courses.{courseId}.lab = { planOutput, applyOutput,
+//   submittedOn, submittedAt, submittedIso, review }
+// review = { status: 'approved' | 'needsRework', comment, reviewedBy, reviewedAt }
+let _erLab = null;   // { courseId, byEmail: { email: { uid, name, lab } } }
+
+async function erLoadLabMap(courseId) {
+  try {
+    const snap = await getDocs(collection(db, 'courseProgress'));
+    const byEmail = {};
+    snap.forEach(d => {
+      const data = d.data() || {};
+      const lab = ((data.courses || {})[courseId] || {}).lab || null;
+      const email = String(data.email || '').toLowerCase();
+      if (!email) return;
+      byEmail[email] = { uid: d.id, name: data.name || email, lab };
+    });
+    return { courseId, byEmail };
+  } catch(e) {
+    console.warn('[ER] lab read failed:', e.message);
+    return null;
+  }
+}
+
+function erLabEntry(email) {
+  return _erLab ? _erLab.byEmail[String(email||'').toLowerCase()] || null : null;
+}
+
+function erLabSubmittedMs(lab) {
+  if (lab.submittedIso) return Date.parse(lab.submittedIso);
+  return Date.parse((lab.submittedOn || '') + 'T' + (lab.submittedAt || '00:00:00'));
+}
+
+function erLabState(lab) {
+  if (!lab || !lab.submittedOn) return 'none';
+  const r = lab.review;
+  if (!r || !r.status) return 'awaiting';
+  if (erLabSubmittedMs(lab) > Date.parse(r.reviewedAt || 0)) return 'resubmitted';
+  return r.status === 'approved' ? 'approved' : 'rework';
+}
+
+const ER_LAB_LABEL = {
+  none:        ['Not submitted',   'var(--muted)', 'transparent'],
+  awaiting:    ['Awaiting review', '#fbbf24', 'rgba(245,158,11,.12)'],
+  resubmitted: ['Resubmitted',     '#fbbf24', 'rgba(245,158,11,.12)'],
+  approved:    ['Approved',        '#34d399', 'rgba(16,185,129,.12)'],
+  rework:      ['Needs rework',    '#f87171', 'rgba(239,68,68,.12)']
+};
+
+function erLabBadge(lab) {
+  const [label, colour, bg] = ER_LAB_LABEL[erLabState(lab)];
+  return '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;color:' + colour + ';background:' + bg + ';white-space:nowrap;">' + label + '</span>';
+}
+
+function erFmtDateTime(ms) {
+  if (!ms || isNaN(ms)) return '—';
+  const d = new Date(ms);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ', ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+
+function erRenderLabSection(email) {
+  const box = $('er-lab-body');
+  if (!box || !_erLab) return;
+  const entry = erLabEntry(email);
+  const lab = entry ? entry.lab : null;
+  const state = erLabState(lab);
+  let h = '<div style="border-top:1px solid var(--border);margin-top:24px;padding-top:20px;">'
+    + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;"><div style="font-size:15px;font-weight:700;">Graded lab</div>' + erLabBadge(lab) + '</div>';
+  if (state === 'none') {
+    $('er-lab-body').innerHTML = h + '<div style="color:var(--muted);font-size:13px;">Lab not submitted.</div></div>';
+    return;
+  }
+  const pre = 'style="max-height:320px;overflow:auto;white-space:pre;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.5;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0 0 16px;color:var(--text);"';
+  const lbl = 'style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;"';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Submitted ' + erFmtDateTime(erLabSubmittedMs(lab)) + '</div>'
+    + '<div ' + lbl + '>Output of terraform plan</div><pre ' + pre + '>' + esc(lab.planOutput || '') + '</pre>'
+    + '<div ' + lbl + '>Output of terraform apply</div><pre ' + pre + '>' + esc(lab.applyOutput || '') + '</pre>';
+
+  const r = lab.review;
+  if (r && r.status) {
+    const ok = r.status === 'approved';
+    h += '<div style="border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;background:' + (ok?'rgba(16,185,129,.08)':'rgba(239,68,68,.08)') + ';border:1px solid ' + (ok?'rgba(16,185,129,.25)':'rgba(239,68,68,.25)') + ';">'
+      + '<div style="font-weight:700;color:' + (ok?'#34d399':'#f87171') + ';">' + (ok?'Approved':'Needs rework') + ' by ' + esc(r.reviewedBy || '—') + ' on ' + erFmtDateTime(Date.parse(r.reviewedAt)) + '</div>'
+      + (r.comment ? '<div style="color:var(--text);margin-top:6px;white-space:pre-wrap;">' + esc(r.comment) + '</div>' : '')
+      + '</div>';
+    if (state === 'resubmitted') {
+      h += '<div style="font-size:13px;color:#fbbf24;margin-bottom:14px;">The learner submitted again after this review. A new review is needed.</div>';
+    }
+  }
+  const prefill = (r && state !== 'resubmitted') ? (r.comment || '') : '';
+  h += '<div ' + lbl + '>' + (r && r.status ? 'Update the review' : 'Review this lab') + '</div>'
+    + '<textarea id="er-lab-comment" rows="4" placeholder="Comment for the learner (required for Needs rework)" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);resize:vertical;font-family:inherit;margin-bottom:10px;">' + esc(prefill) + '</textarea>'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    + '<button onclick="erSaveLabReview(\'approved\')" style="padding:9px 18px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">&#10003; Approve</button>'
+    + '<button onclick="erSaveLabReview(\'needsRework\')" style="padding:9px 18px;border-radius:8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#f87171;font-size:13px;font-weight:700;cursor:pointer;">&#9998; Needs rework</button>'
+    + '<span id="er-lab-msg" style="font-size:12px;color:var(--muted);"></span></div></div>';
+  box.innerHTML = h;
+}
+
+window.erSaveLabReview = async function(status) {
+  const email = _erPmDetailOpen;
+  const entry = erLabEntry(email);
+  if (!_erLab || !entry || !entry.lab) return;
+  const comment = ($('er-lab-comment')?.value || '').trim();
+  const msg = $('er-lab-msg');
+  if (status === 'needsRework' && !comment) { if (msg) { msg.textContent = 'Add a comment so the learner knows what to fix.'; msg.style.color = '#f87171'; } return; }
+  const label = status === 'approved' ? 'Approve' : 'Mark as needs rework';
+  if (!confirm(label + ' the lab for ' + email + '?')) return;
+  const review = { status, comment, reviewedBy: meEmail, reviewedAt: new Date().toISOString() };
+  if (msg) { msg.textContent = 'Saving…'; msg.style.color = 'var(--muted)'; }
+  try {
+    await setDoc(doc(db, 'courseProgress', entry.uid),
+      { courses: { [_erLab.courseId]: { lab: { review } } } }, { merge: true });
+    entry.lab.review = review;
+    const cell = document.getElementById('er-lab-cell-' + email.replace(/[^a-z0-9]/gi,'_'));
+    if (cell) cell.innerHTML = erLabBadge(entry.lab);
+    erRenderLabSection(email);
+    toast('Lab review saved.', 'success');
+  } catch(e) {
+    console.error('erSaveLabReview:', e);
+    if (msg) { msg.textContent = 'Could not save the review. Try again.'; msg.style.color = '#f87171'; }
+  }
+};
 
 // Attempt scores are saved either as a decimal (0.93) or a whole percent (93).
 // Multiply by 100 only for the decimal form.
@@ -1941,12 +2096,18 @@ function erShowPmDetail(learner) {
   if (!detail) return;
   if (_erPmDetailOpen === learner.email) { detail.innerHTML=''; _erPmDetailOpen=null; return; }
   _erPmDetailOpen = learner.email;
+  const hasAttempts = learner.attempts.length > 0;
   const attemptOpts = learner.attempts.map((a,i) =>
     '<option value="' + i + '">Attempt #' + a.attemptNumber + ' — ' + new Date(a.submittedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ', ' + new Date(a.submittedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + '</option>'
   ).join('');
-  detail.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;"><div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;"><div style="font-size:15px;font-weight:700;">' + (learner.attempts[0]?.name||learner.email) + '</div><select id="er-attempt-sel" onchange="erRenderAttemptDetail(this.value)" style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--text);">' + attemptOpts + '</select><button onclick="erClosePmDetail()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted);">Close</button></div><div id="er-attempt-body"></div></div>';
+  const name = learner.attempts[0]?.name || erLabEntry(learner.email)?.name || learner.email;
+  const attemptSel = hasAttempts
+    ? '<select id="er-attempt-sel" onchange="erRenderAttemptDetail(this.value)" style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg2);color:var(--text);">' + attemptOpts + '</select>'
+    : '<span style="font-size:13px;color:var(--muted);">Exam not taken yet</span>';
+  detail.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;"><div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;"><div style="font-size:15px;font-weight:700;">' + esc(name) + '</div>' + attemptSel + '<button onclick="erClosePmDetail()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted);">Close</button></div><div id="er-attempt-body"></div><div id="er-lab-body"></div></div>';
   window._erCurrentLearner = learner;
-  erRenderAttemptDetail(0);
+  if (hasAttempts) erRenderAttemptDetail(0);
+  erRenderLabSection(learner.email);
 }
 
 window.erRenderAttemptDetail = function(idx) {
@@ -1977,7 +2138,7 @@ window.erRenderAttemptDetail = function(idx) {
 window.erClosePmDetail = function() {
   const d = document.getElementById('er-pm-detail');
   if (d) d.innerHTML = '';
-  window._erPmDetailOpen = null;
+  _erPmDetailOpen = null;
 };
 
 // ── END EXAM RESULTS TAB ──────────────────────────────────────────────────────
@@ -2971,16 +3132,28 @@ async function loadTestResults() {
       }
       let user = userMap[uid] || emailNameMap[uid] || { name:'', email:uid };
 
-      Object.entries(data).forEach(([examId, res])=>{
-        if (resultsByExam[examId]===undefined) return;
+      // Entries are stored either under the exam id (hub exams: attemptCount,
+      // bestScore, bestPassed) or under the exam's linked course id (course
+      // exam pages such as tf1-exam.html: attempts, score, passed).
+      // An exam-id entry wins if the same learner has both.
+      const matched = {};   // examId -> res
+      Object.entries(data).forEach(([key, res])=>{
+        if (!res || typeof res !== 'object' || Array.isArray(res)) return;
+        if (resultsByExam[key]!==undefined) { matched[key] = res; return; }
+        exs.forEach(e=>{
+          if (e.linkedCourseId && e.linkedCourseId===key && !matched[e.id]) matched[e.id] = res;
+        });
+      });
+      Object.entries(matched).forEach(([examId, res])=>{
         const examDef = exs.find(e=>e.id===examId);
         const passMark = examDef ? (examDef.passMark||examDef.passmark||70) : 70;
-        const attemptCount = res.attemptCount||0;
-        const bestScore    = res.bestScore??null;
+        const attemptCount = typeof res.attemptCount==='number' ? res.attemptCount
+                           : (typeof res.attempts==='number' ? res.attempts : 0);
+        const bestScore    = res.bestScore ?? (typeof res.score==='number' ? res.score : null);
         // Derive bestPassed from bestScore vs passMark when not explicitly stored
-        let bestPassed = res.bestPassed??null;
+        let bestPassed = res.bestPassed ?? (typeof res.passed==='boolean' ? res.passed : null);
         if (bestPassed===null && bestScore!==null) bestPassed = (bestScore >= passMark);
-        resultsByExam[examId].push({ uid, email:user.email, name:user.name, attemptCount, bestScore, bestPassed, attempts:res.attempts||[] });
+        resultsByExam[examId].push({ uid, email:user.email, name:user.name, attemptCount, bestScore, bestPassed, attempts:Array.isArray(res.attempts)?res.attempts:[] });
       });
     });
 
