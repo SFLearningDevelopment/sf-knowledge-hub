@@ -711,7 +711,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-con
 </div>
 
 <script type="module">
-console.log('%c[sf-certs-hub] ✅ Code version: v202610141500 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
+console.log('%c[sf-certs-hub] ✅ Code version: v202610161130 — loaded from GitHub Pages', 'color:#60a5fa;font-weight:bold;');
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
@@ -3239,6 +3239,12 @@ async function loadTestResults() {
       </div>`;
       container.appendChild(card);
     }
+
+    // Course completions that are not hub exams are appended after the exam
+    // cards, in the same list. Kept in its own try so a failure here leaves
+    // the exam cards above intact.
+    try { await renderCrcCompletionsCard(container); }
+    catch(e) { console.error('renderCrcCompletionsCard:', e); }
   } catch(err) {
     container.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px 0;">Error loading test results.</div>';
     console.error('loadTestResults:',err);
@@ -3247,6 +3253,141 @@ async function loadTestResults() {
 window.trToggle = function(id, header) {
   const body=$(id), chevron=header.querySelector('.tr-chevron'), isOpen=body.style.display!=='none';
   body.style.display=isOpen?'none':'block'; chevron.style.transform=isOpen?'':'rotate(180deg)';
+};
+
+/* ══════════════════════════════════════
+   WORKPLACE CONDUCT & ETIQUETTES — COMPLETIONS
+   Source: clientReadinessCompletions (one document per submission,
+   written by crc-quiz.html). Rendered as a card in Reports > Test
+   Results, with a CSV download of the full record.
+═══════════════════════════════════════ */
+const CRC_COURSE_ID = '1nfc8ZRFFSokoxbkrETE';
+const CRC_TITLE     = 'Workplace Conduct & Etiquettes';
+const CRC_CATEGORY  = 'Mandatory · Quarterly';
+let   crcRows       = [];
+
+function crcModuleDatesText(md) {
+  if (!md || typeof md !== 'object') return '';
+  return Object.keys(md).sort().map(k => k + '=' + md[k]).join('; ');
+}
+
+async function fetchCrcCompletions() {
+  const snap = await getDocs(query(collection(db,'clientReadinessCompletions'),
+                                   where('courseId','==',CRC_COURSE_ID)));
+  const rows = []; snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
+  // Newest first. Sorted here rather than with orderBy so no composite
+  // index is needed and documents missing a date still appear.
+  rows.sort((a,b) => ((b.submittedOn||'')+' '+(b.submittedAt||''))
+                     .localeCompare((a.submittedOn||'')+' '+(a.submittedAt||'')));
+  return rows;
+}
+
+async function renderCrcCompletionsCard(container) {
+  crcRows = await fetchCrcCompletions();
+
+  const total   = crcRows.length;
+  const passed  = crcRows.filter(r => r.passed === true).length;
+  const failed  = crcRows.filter(r => r.passed === false).length;
+  const withPct = crcRows.filter(r => typeof r.percent === 'number');
+  const avg     = withPct.length ? Math.round(withPct.reduce((s,r)=>s+r.percent,0)/withPct.length) : null;
+  const bodyId  = 'tr-crc-completions';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;';
+  card.innerHTML = `<div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;user-select:none;" onclick="trToggle('${bodyId}',this)">
+      <div style="display:flex;align-items:center;gap:14px;flex:1;min-width:0;">
+        <div style="font-size:22px;flex-shrink:0;">\u{1F91D}</div>
+        <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">${esc(CRC_TITLE)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(CRC_CATEGORY)}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2);">${total} Taken</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2);">\u{1F7E2} ${passed} Passed</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(239,68,68,.08);color:#f87171;border:1px solid rgba(239,68,68,.15);">${failed} Failed</span>
+        ${avg!==null?`<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:50px;background:rgba(240,165,0,.1);color:#fbbf24;border:1px solid rgba(240,165,0,.2);">Avg ${avg}%</span>`:''}
+        <span class="tr-chevron" style="font-size:14px;color:var(--muted);transition:transform .2s;">▾</span>
+      </div>
+    </div>
+    <div id="${bodyId}" style="display:none;border-top:1px solid var(--border);">
+      <div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
+        <div style="font-size:12px;color:var(--muted);">${total} submission${total===1?'':'s'} recorded.</div>
+        <button onclick="crcDownloadCsv()" ${total?'':'disabled'} style="font-family:inherit;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:${total?'pointer':'default'};background:${total?'rgba(59,130,246,.12)':'var(--surface)'};color:${total?'#60a5fa':'var(--muted)'};border:1px solid ${total?'rgba(59,130,246,.3)':'var(--border)'};">⬇ Download CSV</button>
+      </div>
+      ${total===0
+        ? `<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center;">No completions recorded yet.</div>`
+        : `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+            <thead><tr style="border-bottom:1px solid var(--border);">
+              ${['Emp ID','Email','Score','%','Pass Mark','Result','Attempts','Modules','Module Dates','Device','Submitted'].map(h=>
+                `<th style="text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);">${h}</th>`).join('')}
+            </tr></thead>
+            <tbody>${crcRows.map(r=>{
+              const sc = r.passed===true
+                ? 'color:#34d399;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);'
+                : r.passed===false
+                  ? 'color:#f87171;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);'
+                  : 'color:var(--muted);background:var(--surface);border:1px solid var(--border);';
+              const resultCell = r.passed===true
+                ? '<span style="color:#34d399;font-weight:600;">\u{1F7E2} Pass</span>'
+                : r.passed===false
+                  ? '<span style="color:#f87171;font-weight:600;">\u{1F534} Fail</span>'
+                  : '<span style="color:var(--muted);">—</span>';
+              const mdText = crcModuleDatesText(r.moduleDates);
+              const dev    = r.deviceId || '';
+              return `<tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;font-weight:600;">${esc(r.empId||'—')}</td>
+                <td style="padding:12px 16px;">${esc(r.email||'—')}</td>
+                <td style="padding:12px 16px;">${typeof r.score==='number'?esc(r.score+' / '+(r.total??'')):'—'}</td>
+                <td style="padding:12px 16px;">${typeof r.percent==='number'
+                  ? `<span style="font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px;${sc}">${r.percent}%</span>`
+                  : '<span style="color:var(--muted);">—</span>'}</td>
+                <td style="padding:12px 16px;color:var(--muted);">${r.passMark??'—'}</td>
+                <td style="padding:12px 16px;">${resultCell}</td>
+                <td style="padding:12px 16px;color:var(--muted);">${r.attempts??'—'}</td>
+                <td style="padding:12px 16px;color:var(--muted);">${r.modulesCompleted??'—'}</td>
+                <td style="padding:12px 16px;color:var(--muted);max-width:280px;overflow:hidden;text-overflow:ellipsis;" title="${esc(mdText)}">${esc(mdText||'—')}</td>
+                <td style="padding:12px 16px;color:var(--muted);" title="${esc(dev)}">${esc(dev?dev.slice(0,12)+(dev.length>12?'…':''):'—')}</td>
+                <td style="padding:12px 16px;color:var(--muted);">${esc((r.submittedOn||'—')+(r.submittedAt?' '+r.submittedAt:''))}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>`
+      }
+    </div>`;
+  container.appendChild(card);
+}
+
+window.crcDownloadCsv = function() {
+  if (!crcRows.length) return;
+  const cols = [
+    ['Course Name',      r => r.courseName || CRC_TITLE],
+    ['Emp ID',           r => r.empId],
+    ['Email',            r => r.email],
+    ['Score',            r => r.score],
+    ['Total',            r => r.total],
+    ['Percent',          r => r.percent],
+    ['Passed',           r => (r.passed===true?'Yes':r.passed===false?'No':'')],
+    ['Pass Mark',        r => r.passMark],
+    ['Attempts',         r => r.attempts],
+    ['Modules Completed',r => r.modulesCompleted],
+    ['Module Dates',     r => crcModuleDatesText(r.moduleDates)],
+    ['Device ID',        r => r.deviceId],
+    ['Submitted On',     r => r.submittedOn],
+    ['Submitted At',     r => r.submittedAt]
+  ];
+  const cell = v => {
+    const s = (v===undefined||v===null) ? '' : String(v);
+    return '"' + s.replace(/"/g,'""') + '"';
+  };
+  const lines = [cols.map(c => cell(c[0])).join(',')];
+  crcRows.forEach(r => lines.push(cols.map(c => cell(c[1](r))).join(',')));
+  // BOM so Excel reads the file as UTF-8.
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  const name = 'workplace-conduct-etiquettes-completions-'
+             + d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + '.csv';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 async function loadCourseReviews() {
