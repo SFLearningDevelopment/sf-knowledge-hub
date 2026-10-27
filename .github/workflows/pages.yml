@@ -1,0 +1,57 @@
+# build: 2026102701
+# Publishes this repo to GitHub Pages and inserts the Firebase API key
+# from the repository secret FIREBASE_API_KEY at publish time.
+# The key is never stored in the repo; pages contain "__FIREBASE_API_KEY__".
+
+name: Publish to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Get the files
+        uses: actions/checkout@v4
+
+      - name: Insert the Firebase API key
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+        run: |
+          if [ -z "$FIREBASE_API_KEY" ]; then
+            echo "The FIREBASE_API_KEY secret is missing or empty." >&2
+            exit 1
+          fi
+          find . -path ./.git -prune -o -type f -name '*.html' -print0 \
+            | xargs -0 -r sed -i "s|__FIREBASE_API_KEY__|${FIREBASE_API_KEY}|g"
+          if grep -rl --include='*.html' '__FIREBASE_API_KEY__' . ; then
+            echo "Some pages still have the placeholder." >&2
+            exit 1
+          fi
+
+      - name: Prepare GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Package the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Publish the site
+        id: deployment
+        uses: actions/deploy-pages@v4
