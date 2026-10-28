@@ -4349,7 +4349,7 @@ function revFirebaseScript(slug, moduleId, courseId) {
 <\/script>
 <script>
 function initRevFirebase(){
-  const SF_CONFIG={apiKey:"AIzaSyA-8fatW5D7uR69rcuGFPH54IFqrz0PhU0",authDomain:"sfcertification-grafana.firebaseapp.com",projectId:"sfcertification-grafana",storageBucket:"sfcertification-grafana.firebasestorage.app",messagingSenderId:"227322696511",appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"};
+  const SF_CONFIG={apiKey:"__FIREBASE_REVIEWER_API_KEY__",authDomain:"sfcertification-grafana.firebaseapp.com",projectId:"sfcertification-grafana",storageBucket:"sfcertification-grafana.firebasestorage.app",messagingSenderId:"227322696511",appId:"1:227322696511:web:12e7ced7dd3d45fa06798a"};
   if(!firebase.apps.length)firebase.initializeApp(SF_CONFIG);
   window.sfAuth=firebase.auth();window.sfDb=firebase.firestore();
   const REV_KEY_FB='reviewer_${slug}_${moduleId}';
